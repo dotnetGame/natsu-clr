@@ -1,0 +1,12 @@
+autom4te.cache
+build
+build_i
+config.log
+config.status
+Makefile
+.DS_Store
+!/regression/Makefile
+.vs
+.vscode
+CMakeSettings.json
+*.dtb
