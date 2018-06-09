@@ -10,3 +10,5 @@ Makefile
 .vscode
 CMakeSettings.json
 *.dtb
+bin
+obj
