@@ -4,6 +4,7 @@
 #include <md/MDImporter.hpp>
 #include <utils.hpp>
 #include <bitset>
+#include <cassert>
 
 using namespace clr::loader;
 using namespace clr::metadata;
@@ -75,7 +76,8 @@ MDImporter::MDImporter(std::shared_ptr<AssemblyFile> assemblyFile)
 void MetadataStream::Initialize(uintptr_t content)
 {
 	auto header = reinterpret_cast<const MetadataStreamHeader*>(content);
-	THROW_IF_NOT(header->HeapSizes == 0, BadMetadataException, "Only support tiny heaps");
+	heapSize_ = header->HeapSizes;
+	THROW_IF_NOT(heapSize_ == 0, BadMetadataException, "Only support tiny heaps");
 
 	const std::bitset<64> valid(header->Valid);
 
@@ -84,6 +86,20 @@ void MetadataStream::Initialize(uintptr_t content)
 
 	auto tableContent = uintptr_t(header->Rows) + valid.count() * sizeof(uint32_t);
 	INIT_TABLE(Module);
+}
+
+size_t MetadataStream::GetSidxSize(StreamType stream) const noexcept
+{
+	switch (stream)
+	{
+	case stm_String:
+	case stm_GUID:
+	case stm_Blob:
+		return (heapSize_ & stream) ? sizeof(uint32_t) : sizeof(uint16_t);
+	default:
+		assert(!"invalid stream type");
+		return 0;
+	}
 }
 
 MetadataTable::MetadataTable(size_t count)
@@ -101,5 +117,5 @@ void MetadataTable::Initialize(uintptr_t& content, MetadataStream* context)
 
 size_t ModuleTable::GetRowSize(MetadataStream* context) const noexcept
 {
-	return 0;
+	return sizeof(Row::Generation) + context->GetSidxSize(stm_String) + context->GetSidxSize(stm_GUID) * 3;
 }

@@ -22,7 +22,15 @@ namespace clr
 			mdti_AssemblyOS = 0x22,
 			mdti_AssemblyProcessor = 0x21,
 			mdti_Module = 0x00,
+			mdti_TypeDef = 0x02,
 			mdti_Count = 0x2d
+		};
+
+		enum StreamType
+		{
+			stm_String = 1,
+			stm_GUID = 2,
+			stm_Blob = 4
 		};
 
 		class MetadataStream;
@@ -64,8 +72,10 @@ namespace clr
 			void Initialize(uintptr_t content);
 
 			size_t GetRowsCount(MetadataTableIndex table) const noexcept;
+			size_t GetSidxSize(StreamType stream) const noexcept;
 		private:
 			std::unique_ptr<MetadataTable> tables_[mdti_Count];
+			uint8_t heapSize_;
 		};
 
 		class MDImporter
