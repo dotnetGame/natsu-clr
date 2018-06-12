@@ -82,10 +82,16 @@ void MetadataStream::Initialize(uintptr_t content)
 	const std::bitset<64> valid(header->Valid);
 
 	auto rows = header->Rows;
+	INIT_TABLE_COUNT(Assembly);
+	INIT_TABLE_COUNT(MethodDef);
 	INIT_TABLE_COUNT(Module);
+	INIT_TABLE_COUNT(TypeDef);
 
 	auto tableContent = uintptr_t(header->Rows) + valid.count() * sizeof(uint32_t);
+	INIT_TABLE(Assembly);
+	INIT_TABLE(MethodDef);
 	INIT_TABLE(Module);
+	INIT_TABLE(TypeDef);
 }
 
 size_t MetadataStream::GetSidxSize(StreamType stream) const noexcept
@@ -115,7 +121,30 @@ void MetadataTable::Initialize(uintptr_t& content, MetadataStream* context)
 	content += rowSize_ * count_;
 }
 
+// Assembly
+
+size_t AssemblyTable::GetRowSize(MetadataStream* context) const noexcept
+{
+	return 0;
+}
+
+// MethodDef
+
+size_t MethodDefTable::GetRowSize(MetadataStream* context) const noexcept
+{
+	return 0;
+}
+
+// Module
+
 size_t ModuleTable::GetRowSize(MetadataStream* context) const noexcept
 {
 	return sizeof(Row::Generation) + context->GetSidxSize(stm_String) + context->GetSidxSize(stm_GUID) * 3;
+}
+
+// TypeDef
+
+size_t TypeDefTable::GetRowSize(MetadataStream* context) const noexcept
+{
+	return 0;
 }

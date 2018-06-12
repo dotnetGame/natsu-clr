@@ -21,6 +21,7 @@ namespace clr
 			mdti_Assembly = 0x20,
 			mdti_AssemblyOS = 0x22,
 			mdti_AssemblyProcessor = 0x21,
+			mdti_MethodDef= 0x06,
 			mdti_Module = 0x00,
 			mdti_TypeDef = 0x02,
 			mdti_Count = 0x2d
@@ -49,7 +50,58 @@ namespace clr
 			size_t rowSize_;
 		};
 
+		class AssemblyTable final : public MetadataTable
+		{
+		public:
+			struct Row
+			{
+				uint16_t	Generation;
+				Sidx_t		Name;
+				Sidx_t		Mvid;
+				Sidx_t		EncId;
+				Sidx_t		EncBaseId;
+			};
+
+			using MetadataTable::MetadataTable;
+		protected:
+			virtual size_t GetRowSize(MetadataStream* context) const noexcept override;
+		};
+
+		class MethodDefTable final : public MetadataTable
+		{
+		public:
+			struct Row
+			{
+				uint16_t	Generation;
+				Sidx_t		Name;
+				Sidx_t		Mvid;
+				Sidx_t		EncId;
+				Sidx_t		EncBaseId;
+			};
+
+			using MetadataTable::MetadataTable;
+		protected:
+			virtual size_t GetRowSize(MetadataStream* context) const noexcept override;
+		};
+
 		class ModuleTable final : public MetadataTable
+		{
+		public:
+			struct Row
+			{
+				uint16_t	Generation;
+				Sidx_t		Name;
+				Sidx_t		Mvid;
+				Sidx_t		EncId;
+				Sidx_t		EncBaseId;
+			};
+
+			using MetadataTable::MetadataTable;
+		protected:
+			virtual size_t GetRowSize(MetadataStream* context) const noexcept override;
+		};
+
+		class TypeDefTable final : public MetadataTable
 		{
 		public:
 			struct Row
