@@ -3,6 +3,7 @@
 //
 #pragma once
 #include "../loader/AssemblyFile.hpp"
+#include "mddefs.hpp"
 
 namespace clr
 {
@@ -11,27 +12,6 @@ namespace clr
 		class BadMetadataException : std::exception
 		{
 			using exception::exception;
-		};
-
-		typedef uint32_t Rid_t;
-		typedef uint32_t Sidx_t;	// Stream Index
-
-		enum MetadataTableIndex
-		{
-			mdti_Assembly = 0x20,
-			mdti_AssemblyOS = 0x22,
-			mdti_AssemblyProcessor = 0x21,
-			mdti_MethodDef= 0x06,
-			mdti_Module = 0x00,
-			mdti_TypeDef = 0x02,
-			mdti_Count = 0x2d
-		};
-
-		enum StreamType
-		{
-			stm_String = 1,
-			stm_GUID = 2,
-			stm_Blob = 4
 		};
 
 		class MetadataStream;
@@ -55,11 +35,11 @@ namespace clr
 		public:
 			struct Row
 			{
-				uint16_t	Generation;
-				Sidx_t		Name;
-				Sidx_t		Mvid;
-				Sidx_t		EncId;
-				Sidx_t		EncBaseId;
+				uint16_t			Generation;
+				Sidx<stm_String>	Name;
+				Sidx<stm_GUID>		Mvid;
+				Sidx<stm_GUID>		EncId;
+				Sidx<stm_GUID>		EncBaseId;
 			};
 
 			using MetadataTable::MetadataTable;
@@ -72,11 +52,11 @@ namespace clr
 		public:
 			struct Row
 			{
-				uint16_t	Generation;
-				Sidx_t		Name;
-				Sidx_t		Mvid;
-				Sidx_t		EncId;
-				Sidx_t		EncBaseId;
+				uint16_t			Generation;
+				Sidx<stm_String>	Name;
+				Sidx<stm_GUID>		Mvid;
+				Sidx<stm_GUID>		EncId;
+				Sidx<stm_GUID>		EncBaseId;
 			};
 
 			using MetadataTable::MetadataTable;
@@ -89,11 +69,11 @@ namespace clr
 		public:
 			struct Row
 			{
-				uint16_t	Generation;
-				Sidx_t		Name;
-				Sidx_t		Mvid;
-				Sidx_t		EncId;
-				Sidx_t		EncBaseId;
+				uint16_t			Generation;
+				Sidx<stm_String>	Name;
+				Sidx<stm_GUID>		Mvid;
+				Sidx<stm_GUID>		EncId;
+				Sidx<stm_GUID>		EncBaseId;
 			};
 
 			using MetadataTable::MetadataTable;
@@ -106,11 +86,12 @@ namespace clr
 		public:
 			struct Row
 			{
-				uint16_t	Generation;
-				Sidx_t		Name;
-				Sidx_t		Mvid;
-				Sidx_t		EncId;
-				Sidx_t		EncBaseId;
+				TypeAttributes		Flags;
+				Sidx<stm_String>	TypeName;
+				Sidx<stm_String>	TypeNamespace;
+				TypeDefOrRef		Extends;
+				Ridx<mdt_Field>		FieldList;
+				Ridx<mdt_MethodDef>	MethodList;
 			};
 
 			using MetadataTable::MetadataTable;
@@ -123,11 +104,11 @@ namespace clr
 		public:
 			void Initialize(uintptr_t content);
 
-			size_t GetRowsCount(MetadataTableIndex table) const noexcept;
+			size_t GetRowsCount(MetadataTables table) const noexcept;
 			size_t GetSidxSize(StreamType stream) const noexcept;
 		private:
-			std::unique_ptr<MetadataTable> tables_[mdti_Count];
-			uint8_t heapSize_;
+			std::unique_ptr<MetadataTable> tables_[mdt_Count];
+			uint8_t heapSizes_;
 		};
 
 		class MDImporter

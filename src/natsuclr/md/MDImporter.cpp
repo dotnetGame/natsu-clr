@@ -70,14 +70,14 @@ MDImporter::MDImporter(std::shared_ptr<AssemblyFile> assemblyFile)
 	}
 }
 
-#define INIT_TABLE_COUNT(type) if (valid[mdti_##type]) tables_[mdti_##type].reset(new type##Table(*rows++))
-#define INIT_TABLE(type) if (valid[mdti_##type]) tables_[mdti_##type]->Initialize(tableContent, this)
+#define INIT_TABLE_COUNT(type) if (valid[mdt_##type]) tables_[mdt_##type].reset(new type##Table(*rows++))
+#define INIT_TABLE(type) if (valid[mdt_##type]) tables_[mdt_##type]->Initialize(tableContent, this)
 
 void MetadataStream::Initialize(uintptr_t content)
 {
 	auto header = reinterpret_cast<const MetadataStreamHeader*>(content);
-	heapSize_ = header->HeapSizes;
-	THROW_IF_NOT(heapSize_ == 0, BadMetadataException, "Only support tiny heaps");
+	heapSizes_ = header->HeapSizes;
+	THROW_IF_NOT(heapSizes_ == 0, BadMetadataException, "Only support tiny heaps");
 
 	const std::bitset<64> valid(header->Valid);
 
@@ -101,7 +101,7 @@ size_t MetadataStream::GetSidxSize(StreamType stream) const noexcept
 	case stm_String:
 	case stm_GUID:
 	case stm_Blob:
-		return (heapSize_ & stream) ? sizeof(uint32_t) : sizeof(uint16_t);
+		return (heapSizes_ & stream) ? sizeof(uint32_t) : sizeof(uint16_t);
 	default:
 		assert(!"invalid stream type");
 		return 0;
