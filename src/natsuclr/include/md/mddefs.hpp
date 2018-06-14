@@ -3,11 +3,32 @@
 //
 #pragma once
 #include <cstdint>
+#include <exception>
 
 namespace clr
 {
 	namespace metadata
 	{
+		class BadMetadataException : std::exception
+		{
+			using exception::exception;
+		};
+
+		enum class AssemblyFlags : uint32_t
+		{
+
+		};
+
+		enum class MethodImplAttributes : uint16_t
+		{
+
+		};
+
+		enum class MethodAttributes : uint16_t
+		{
+
+		};
+
 		enum class TypeAttributes : uint32_t
 		{
 			// Visibility attributes
@@ -35,10 +56,47 @@ namespace clr
 			mdt_Assembly = 0x20,
 			mdt_AssemblyOS = 0x22,
 			mdt_AssemblyProcessor = 0x21,
+			mdt_AssemblyRef = 0x23,
+			mdt_AssemblyRefOS = 0x25,
+			mdt_AssemblyRefProcessor = 0x24,
+			mdt_ClassLayout = 0x0F,
+			mdt_Constant = 0x0B,
+			mdt_CustomAttribute = 0x0C,
+			mdt_DeclSecurity = 0x0E,
+			mdt_EventMap = 0x12,
+			mdt_Event = 0x14,
+			mdt_ExportedType = 0x27,
+			mdt_Field = 0x04,
+			mdt_FieldLayout = 0x10,
+			mdt_FieldMarshal = 0x0D,
+			mdt_FieldRVA = 0x1D,
+			mdt_File = 0x26,
+			mdt_GenericParam = 0x2A,
+			mdt_GenericParamConstraint = 0x2C,
+			mdt_ImplMap = 0x1C,
+			mdt_InterfaceImp = 0x09,
+			mdt_ManifestResource = 0x28,
+			mdt_MemberRef = 0x0A,
 			mdt_MethodDef = 0x06,
+			mdt_MethodImpl = 0x19,
+			mdt_MethodSemantics = 0x18,
+			mdt_MethodSpec = 0x2B,
 			mdt_Module = 0x00,
+			mdt_ModuleRef = 0x1A,
+			mdt_NestedClass = 0x29,
+			mdt_Param = 0x08,
+			mdt_Property = 0x17,
+			mdt_PropertyMap = 0x15,
+			mdt_StandAloneSig = 0x11,
 			mdt_TypeDef = 0x02,
+			mdt_TypeRef = 0x01,
+			mdt_TypeSpec = 0x1B,
 			mdt_Count = 0x2d
+		};
+
+		enum CodedRowIndex
+		{
+			crid_TypeDefOrRef
 		};
 
 		template<MetadataTables Table>
@@ -59,11 +117,42 @@ namespace clr
 			uint32_t& operator()() noexcept { return Index; }
 		};
 
-		struct TypeDefOrRef
+		template<CodedRowIndex Type>
+		struct CodedRidx
 		{
-			uint32_t CodedValue;
 
-			MetadataTables GetType() const noexcept;
+		};
+
+		namespace impl
+		{
+			template<class T, T... Values>
+			struct value_sequence
+			{
+				constexpr size_t size() const noexcept { return sizeof...(Values); }
+			};
+
+			template<size_t TagBits, MetadataTables... Types>
+			struct CodedRidxImpl
+			{
+				using PackedTypes = value_sequence<MetadataTables, Types...>;
+
+				static_assert(TagBits != 0, "Invalid tag bits.");
+				static constexpr size_t SizeThreshold = 1 << (16 - TagBits);
+
+				uint32_t CodedValue;
+
+				size_t GetRidx() const noexcept { return CodedValue >> TagBits; }
+			protected:
+				static constexpr size_t TagMask = (1 << TagBits) - 1;
+
+				size_t GetTag() const noexcept { return CodedValue & TagMask; }
+			};
+		}
+
+		template<>
+		struct CodedRidx<crid_TypeDefOrRef> : public impl::CodedRidxImpl<2, mdt_TypeDef, mdt_TypeRef, mdt_TypeSpec>
+		{
+			MetadataTables GetType() const;
 		};
 	}
 }

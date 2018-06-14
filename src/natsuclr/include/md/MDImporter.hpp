@@ -9,11 +9,6 @@ namespace clr
 {
 	namespace metadata
 	{
-		class BadMetadataException : std::exception
-		{
-			using exception::exception;
-		};
-
 		class MetadataStream;
 
 		class MetadataTable
@@ -21,9 +16,10 @@ namespace clr
 		public:
 			MetadataTable(size_t count);
 
-			void Initialize(uintptr_t& content, MetadataStream* context);
+			void Initialize(uintptr_t& content, MetadataStream& context);
+			size_t GetCount() const noexcept { return count_; }
 		protected:
-			virtual size_t GetRowSize(MetadataStream* context) const noexcept = 0;
+			virtual size_t GetRowSize(MetadataStream& context) const noexcept = 0;
 		private:
 			uintptr_t base_;
 			size_t count_;
@@ -35,16 +31,19 @@ namespace clr
 		public:
 			struct Row
 			{
-				uint16_t			Generation;
+				uint32_t			HashAlgId;
+				uint16_t			MajorVersion;
+				uint16_t			MinorVersion;
+				uint16_t			BuildNumber;
+				uint16_t			RevisionNumber;
+				AssemblyFlags		Flags;
+				Sidx<stm_Blob>		PublicKey;
 				Sidx<stm_String>	Name;
-				Sidx<stm_GUID>		Mvid;
-				Sidx<stm_GUID>		EncId;
-				Sidx<stm_GUID>		EncBaseId;
 			};
 
 			using MetadataTable::MetadataTable;
 		protected:
-			virtual size_t GetRowSize(MetadataStream* context) const noexcept override;
+			virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
 		};
 
 		class MethodDefTable final : public MetadataTable
@@ -52,16 +51,17 @@ namespace clr
 		public:
 			struct Row
 			{
-				uint16_t			Generation;
-				Sidx<stm_String>	Name;
-				Sidx<stm_GUID>		Mvid;
-				Sidx<stm_GUID>		EncId;
-				Sidx<stm_GUID>		EncBaseId;
+				uint32_t				RVA;
+				MethodImplAttributes	ImplFlags;
+				MethodAttributes		Flags;
+				Sidx<stm_String>		Name;
+				Sidx<stm_Blob>			Signature;
+				Ridx<mdt_Param>			ParamList;
 			};
 
 			using MetadataTable::MetadataTable;
 		protected:
-			virtual size_t GetRowSize(MetadataStream* context) const noexcept override;
+			virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
 		};
 
 		class ModuleTable final : public MetadataTable
@@ -78,7 +78,7 @@ namespace clr
 
 			using MetadataTable::MetadataTable;
 		protected:
-			virtual size_t GetRowSize(MetadataStream* context) const noexcept override;
+			virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
 		};
 
 		class TypeDefTable final : public MetadataTable
@@ -86,17 +86,17 @@ namespace clr
 		public:
 			struct Row
 			{
-				TypeAttributes		Flags;
-				Sidx<stm_String>	TypeName;
-				Sidx<stm_String>	TypeNamespace;
-				TypeDefOrRef		Extends;
-				Ridx<mdt_Field>		FieldList;
-				Ridx<mdt_MethodDef>	MethodList;
+				TypeAttributes					Flags;
+				Sidx<stm_String>				TypeName;
+				Sidx<stm_String>				TypeNamespace;
+				CodedRidx<crid_TypeDefOrRef>	Extends;
+				Ridx<mdt_Field>					FieldList;
+				Ridx<mdt_MethodDef>				MethodList;
 			};
 
 			using MetadataTable::MetadataTable;
 		protected:
-			virtual size_t GetRowSize(MetadataStream* context) const noexcept override;
+			virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
 		};
 
 		class MetadataStream
@@ -106,6 +106,8 @@ namespace clr
 
 			size_t GetRowsCount(MetadataTables table) const noexcept;
 			size_t GetSidxSize(StreamType stream) const noexcept;
+			size_t GetRidxSize(MetadataTables table) const noexcept;
+			size_t GetCodedRidxSize(CodedRowIndex ridxType) const noexcept;
 		private:
 			std::unique_ptr<MetadataTable> tables_[mdt_Count];
 			uint8_t heapSizes_;

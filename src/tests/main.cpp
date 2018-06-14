@@ -4,8 +4,7 @@
 #include <vector>
 #include <Windows.h>
 #include <cassert>
-#include <loader/AssemblyFile.hpp>
-#include <md/MDImporter.hpp>
+#include <loader/AssemblyLoader.hpp>
 
 using namespace clr::loader;
 using namespace clr::metadata;
@@ -33,7 +32,8 @@ int main()
 	GetCurrentDirectoryA(256, path);
 	auto file = load_file(__FILE__ R"(\..\..\System.Private.CorLib\bin\Debug\System.Private.CorLib.dll)");
 	auto asmfile = std::make_shared<AssemblyFile>(std::shared_ptr<const uint8_t[]>(file.data(), dummy_deleter), file.size());
-	auto mdImporter = std::make_shared<MDImporter>(asmfile);
+	auto loader = std::make_shared<AssemblyLoader>(asmfile);
+	loader->Load();
 
 	std::cout << "Test" << std::endl;
 }

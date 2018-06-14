@@ -205,12 +205,12 @@ AssemblyFile::AssemblyFile(std::shared_ptr<const uint8_t[]> data, size_t size)
 	textBase_ = base + textSection.PointerToRawData;
 	textRVA_ = textSection.VirtualAddress;
 
-	auto corHeader = reinterpret_cast<const IMAGE_COR20_HEADER*>(GetDataInText(comDataDir.VirtualAddress));
+	auto corHeader = reinterpret_cast<const IMAGE_COR20_HEADER*>(GetDataByRVA(comDataDir.VirtualAddress));
 	THROW_IF_NOT(corHeader->Flags == COMIMAGE_FLAGS_ILONLY, BadImageException, "Only support IL Only");
 	metadataRVA_ = corHeader->MetaData.VirtualAddress;
 }
 
-const uint8_t* AssemblyFile::GetDataInText(uintptr_t rva) const noexcept
+const uint8_t* AssemblyFile::GetDataByRVA(uintptr_t rva) const noexcept
 {
 	return textBase_ + (rva - textRVA_);
 }

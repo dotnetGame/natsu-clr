@@ -5,6 +5,8 @@
 #include <utils.hpp>
 #include <bitset>
 #include <cassert>
+#include <limits>
+#include <algorithm>
 
 using namespace clr::loader;
 using namespace clr::metadata;
@@ -58,7 +60,7 @@ struct MetadataStreamHeader
 MDImporter::MDImporter(std::shared_ptr<AssemblyFile> assemblyFile)
 	:assemblyFile_(std::move(assemblyFile))
 {
-	auto metaSig = reinterpret_cast<const MetadataSignature*>(assemblyFile_->GetDataInText(assemblyFile_->GetMetadataRVA()));
+	auto metaSig = reinterpret_cast<const MetadataSignature*>(assemblyFile_->GetDataByRVA(assemblyFile_->GetMetadataRVA()));
 	THROW_IF_NOT(metaSig->Signature == STORAGE_MAGIC_SIG, BadMetadataException, "Invalid metadata signature");
 	auto metaHeader = reinterpret_cast<const MetadataHeader*>(uintptr_t(metaSig) + sizeof(MetadataSignature) + metaSig->VersionStringLength);
 	
@@ -68,10 +70,12 @@ MDImporter::MDImporter(std::shared_ptr<AssemblyFile> assemblyFile)
 		if INIT_STREAM(metaStream_, "#~");
 		else THROW_IF_NOT(false, BadMetadataException, "Unrecognized stream name");
 	}
+
+	
 }
 
 #define INIT_TABLE_COUNT(type) if (valid[mdt_##type]) tables_[mdt_##type].reset(new type##Table(*rows++))
-#define INIT_TABLE(type) if (valid[mdt_##type]) tables_[mdt_##type]->Initialize(tableContent, this)
+#define INIT_TABLE(type) if (valid[mdt_##type]) tables_[mdt_##type]->Initialize(tableContent, *this)
 
 void MetadataStream::Initialize(uintptr_t content)
 {
@@ -108,13 +112,45 @@ size_t MetadataStream::GetSidxSize(StreamType stream) const noexcept
 	}
 }
 
+size_t MetadataStream::GetRowsCount(MetadataTables table) const noexcept
+{
+	auto pTable = tables_[table].get();
+	return pTable ? pTable->GetCount() : 0;
+}
+
+size_t MetadataStream::GetRidxSize(MetadataTables table) const noexcept
+{
+	return GetRowsCount(table) > std::numeric_limits<uint16_t>::max() ? 4 : 2;
+}
+
+#define IMPL_CODED_RIDX_SIZE(ridxType) \
+case ridxType: \
+return GetMaxRowsCount([this](auto t) { return GetRowsCount(t); }, CodedRidx<ridxType>::PackedTypes()) > CodedRidx<ridxType>::SizeThreshold ? 4 : 2;
+
+template<class TCallable, MetadataTables... Types>
+size_t GetMaxRowsCount(TCallable&& callable, impl::value_sequence<MetadataTables, Types...>) noexcept
+{
+	return std::max({ callable(Types)... });
+}
+
+size_t MetadataStream::GetCodedRidxSize(CodedRowIndex ridxType) const noexcept
+{
+	switch (ridxType)
+	{
+		IMPL_CODED_RIDX_SIZE(crid_TypeDefOrRef);
+	default:
+		assert(!"invalid coded row index type");
+		return 0;
+	}
+}
+
 MetadataTable::MetadataTable(size_t count)
 	:count_(count)
 {
 
 }
 
-void MetadataTable::Initialize(uintptr_t& content, MetadataStream* context)
+void MetadataTable::Initialize(uintptr_t& content, MetadataStream& context)
 {
 	base_ = content;
 	rowSize_ = GetRowSize(context);
@@ -123,28 +159,28 @@ void MetadataTable::Initialize(uintptr_t& content, MetadataStream* context)
 
 // Assembly
 
-size_t AssemblyTable::GetRowSize(MetadataStream* context) const noexcept
+size_t AssemblyTable::GetRowSize(MetadataStream& context) const noexcept
 {
-	return 0;
+	return 4 + 2 * 4 + context.GetSidxSize(stm_Blob) + context.GetSidxSize(stm_String);
 }
 
 // MethodDef
 
-size_t MethodDefTable::GetRowSize(MetadataStream* context) const noexcept
+size_t MethodDefTable::GetRowSize(MetadataStream& context) const noexcept
 {
-	return 0;
+	return 4 + 2 + 2 + context.GetSidxSize(stm_String) + context.GetSidxSize(stm_Blob) + context.GetRidxSize(mdt_Param);
 }
 
 // Module
 
-size_t ModuleTable::GetRowSize(MetadataStream* context) const noexcept
+size_t ModuleTable::GetRowSize(MetadataStream& context) const noexcept
 {
-	return sizeof(Row::Generation) + context->GetSidxSize(stm_String) + context->GetSidxSize(stm_GUID) * 3;
+	return 2 + context.GetSidxSize(stm_String) + context.GetSidxSize(stm_GUID) * 3;
 }
 
 // TypeDef
 
-size_t TypeDefTable::GetRowSize(MetadataStream* context) const noexcept
+size_t TypeDefTable::GetRowSize(MetadataStream& context) const noexcept
 {
-	return 0;
+	return 4 + context.GetSidxSize(stm_String) * 2 + context.GetCodedRidxSize(crid_TypeDefOrRef) + context.GetRidxSize(mdt_Field) + context.GetRidxSize(mdt_MethodDef);
 }
