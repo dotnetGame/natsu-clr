@@ -4,6 +4,7 @@
 #pragma once
 #include "../loader/AssemblyFile.hpp"
 #include "mddefs.hpp"
+#include <optional>
 
 namespace clr
 {
@@ -20,6 +21,7 @@ namespace clr
 			size_t GetCount() const noexcept { return count_; }
 		protected:
 			virtual size_t GetRowSize(MetadataStream& context) const noexcept = 0;
+			uintptr_t GetRowBase(size_t index) const noexcept;
 		private:
 			uintptr_t base_;
 			size_t count_;
@@ -95,6 +97,8 @@ namespace clr
 			};
 
 			using MetadataTable::MetadataTable;
+
+			Row GetRow(Ridx<mdt_TypeDef> ridx, const MetadataStream& context) const;
 		protected:
 			virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
 		};
@@ -108,19 +112,70 @@ namespace clr
 			size_t GetSidxSize(StreamType stream) const noexcept;
 			size_t GetRidxSize(MetadataTables table) const noexcept;
 			size_t GetCodedRidxSize(CodedRowIndex ridxType) const noexcept;
+
+#define DECL_METASTREAM_GET_ROW(type) typename type##Table::Row Get##type(Ridx<mdt_##type> ridx) const
+
+			DECL_METASTREAM_GET_ROW(TypeDef);
 		private:
 			std::unique_ptr<MetadataTable> tables_[mdt_Count];
 			uint8_t heapSizes_;
+		};
+
+		class StringsStream
+		{
+		public:
+			void Initialize(uintptr_t content);
+
+			const char* GetString(Sidx<stm_String> sidx) const noexcept;
+		private:
+			const char* content_;
+		};
+
+		class USStream
+		{
+		public:
+			void Initialize(uintptr_t content);
+
+			const char* GetString(Sidx<stm_String> sidx) const noexcept;
+		private:
+			const char* content_;
+		};
+
+		class GUIDStream
+		{
+		public:
+			void Initialize(uintptr_t content);
+
+			const char* GetString(Sidx<stm_String> sidx) const noexcept;
+		private:
+			const char* content_;
+		};
+
+		class BlobStream
+		{
+		public:
+			void Initialize(uintptr_t content);
+
+			const char* GetString(Sidx<stm_String> sidx) const noexcept;
+		private:
+			const char* content_;
 		};
 
 		class MDImporter
 		{
 		public:
 			MDImporter(std::shared_ptr<loader::AssemblyFile> assemblyFile);
+
+			const MetadataStream& GetTables() const noexcept { return metaStream_; }
+			const StringsStream& GetStrings() const noexcept { return stringsStream_; }
 		private:
 			std::shared_ptr<loader::AssemblyFile> assemblyFile_;
 
 			MetadataStream metaStream_;
+			StringsStream stringsStream_;
+			USStream usStream_;
+			GUIDStream guidStream_;
+			BlobStream blobStream_;
 		};
 	}
 }

@@ -4,6 +4,8 @@
 #pragma once
 #include "AssemblyFile.hpp"
 #include "../md/MDImporter.hpp"
+#include "../vm/EEClass.hpp"
+#include <vector>
 
 namespace clr
 {
@@ -17,6 +19,7 @@ namespace clr
 			void Load();
 		private:
 			metadata::MDImporter mdImporter_;
+			std::vector<vm::EEClass> eeClasses_;
 		};
 	}
 }

@@ -63,15 +63,19 @@ MDImporter::MDImporter(std::shared_ptr<AssemblyFile> assemblyFile)
 	auto metaSig = reinterpret_cast<const MetadataSignature*>(assemblyFile_->GetDataByRVA(assemblyFile_->GetMetadataRVA()));
 	THROW_IF_NOT(metaSig->Signature == STORAGE_MAGIC_SIG, BadMetadataException, "Invalid metadata signature");
 	auto metaHeader = reinterpret_cast<const MetadataHeader*>(uintptr_t(metaSig) + sizeof(MetadataSignature) + metaSig->VersionStringLength);
-	
+
 	auto streamBegin = reinterpret_cast<const StreamHeader*>(uintptr_t(metaHeader) + sizeof(MetadataHeader));
 	for (size_t i = 0; i < metaHeader->NumberOfStreams; i++)
 	{
 		if INIT_STREAM(metaStream_, "#~");
+		else if INIT_STREAM(stringsStream_, "#Strings");
+		else if INIT_STREAM(usStream_, "#US");
+		else if INIT_STREAM(guidStream_, "#GUID");
+		else if INIT_STREAM(blobStream_, "#Blob");
 		else THROW_IF_NOT(false, BadMetadataException, "Unrecognized stream name");
+		auto headerSize = align(8 + strlen(streamBegin->Name) + 1, 4);
+		streamBegin = reinterpret_cast<const StreamHeader*>(uintptr_t(streamBegin) + headerSize);
 	}
-
-	
 }
 
 #define INIT_TABLE_COUNT(type) if (valid[mdt_##type]) tables_[mdt_##type].reset(new type##Table(*rows++))
@@ -86,16 +90,16 @@ void MetadataStream::Initialize(uintptr_t content)
 	const std::bitset<64> valid(header->Valid);
 
 	auto rows = header->Rows;
-	INIT_TABLE_COUNT(Assembly);
-	INIT_TABLE_COUNT(MethodDef);
 	INIT_TABLE_COUNT(Module);
 	INIT_TABLE_COUNT(TypeDef);
+	INIT_TABLE_COUNT(MethodDef);
+	INIT_TABLE_COUNT(Assembly);
 
 	auto tableContent = uintptr_t(header->Rows) + valid.count() * sizeof(uint32_t);
-	INIT_TABLE(Assembly);
-	INIT_TABLE(MethodDef);
 	INIT_TABLE(Module);
 	INIT_TABLE(TypeDef);
+	INIT_TABLE(MethodDef);
+	INIT_TABLE(Assembly);
 }
 
 size_t MetadataStream::GetSidxSize(StreamType stream) const noexcept
@@ -125,7 +129,7 @@ size_t MetadataStream::GetRidxSize(MetadataTables table) const noexcept
 
 #define IMPL_CODED_RIDX_SIZE(ridxType) \
 case ridxType: \
-return GetMaxRowsCount([this](auto t) { return GetRowsCount(t); }, CodedRidx<ridxType>::PackedTypes()) > CodedRidx<ridxType>::SizeThreshold ? 4 : 2;
+return GetMaxRowsCount([this](auto t) { return GetRowsCount(t); }, CodedRidx<ridxType>::PackedTypes()) >= CodedRidx<ridxType>::SizeThreshold ? 4 : 2;
 
 template<class TCallable, MetadataTables... Types>
 size_t GetMaxRowsCount(TCallable&& callable, impl::value_sequence<MetadataTables, Types...>) noexcept
@@ -144,6 +148,16 @@ size_t MetadataStream::GetCodedRidxSize(CodedRowIndex ridxType) const noexcept
 	}
 }
 
+#define IMPL_GET_ROW1(type) \
+typename type##Table::Row MetadataStream::Get##type(Ridx<mdt_##type> ridx) const \
+{																				 \
+	auto table = tables_[mdt_##type].get();										 \
+	THROW_IF_NOT(ridx && table, std::out_of_range, "row id out of range");		 \
+	return reinterpret_cast<const type##Table*>(table)->GetRow(ridx, *this);	 \
+}
+
+IMPL_GET_ROW1(TypeDef);
+
 MetadataTable::MetadataTable(size_t count)
 	:count_(count)
 {
@@ -156,6 +170,53 @@ void MetadataTable::Initialize(uintptr_t& content, MetadataStream& context)
 	rowSize_ = GetRowSize(context);
 	content += rowSize_ * count_;
 }
+
+uintptr_t MetadataTable::GetRowBase(size_t index) const noexcept
+{
+	return base_ + (index - 1) * rowSize_;
+}
+
+struct BinaryReader
+{
+	BinaryReader(uintptr_t base)
+		:base_(base)
+	{
+	}
+
+	template<class T>
+	T Read() noexcept
+	{
+		auto offset = base_;
+		base_ += sizeof(T);
+
+		// aligned read
+		if (offset % sizeof(T) == 0)
+			return *reinterpret_cast<const T*>(offset);
+		else
+		{
+			alignas(alignof(T)) uint8_t value[sizeof(T)];
+			auto begin = reinterpret_cast<const uint8_t*>(offset);
+			for (size_t i = 0; i < sizeof(T); i++)
+				value[i] = begin[i];
+			return *reinterpret_cast<const T*>(value);
+		}
+	}
+
+	template<class T>
+	T Read(size_t size)
+	{
+		if(size == 1)
+			return { Read<uint8_t>() };
+		else if(size == 2)
+			return { Read<uint16_t>() };
+		else if (size == 4)
+			return { Read<uint32_t>() };
+		else
+			throw std::invalid_argument("invalid size");
+	}
+private:
+	uintptr_t base_;
+};
 
 // Assembly
 
@@ -183,4 +244,43 @@ size_t ModuleTable::GetRowSize(MetadataStream& context) const noexcept
 size_t TypeDefTable::GetRowSize(MetadataStream& context) const noexcept
 {
 	return 4 + context.GetSidxSize(stm_String) * 2 + context.GetCodedRidxSize(crid_TypeDefOrRef) + context.GetRidxSize(mdt_Field) + context.GetRidxSize(mdt_MethodDef);
+}
+
+auto TypeDefTable::GetRow(Ridx<mdt_TypeDef> ridx, const MetadataStream& context) const -> Row
+{
+	BinaryReader br(GetRowBase(ridx()));
+	return 
+	{ 
+		br.Read<TypeAttributes>(),
+		br.Read<Sidx<stm_String>>(context.GetSidxSize(stm_String)),
+		br.Read<Sidx<stm_String>>(context.GetSidxSize(stm_String)),
+		br.Read<CodedRidx<crid_TypeDefOrRef>>(context.GetCodedRidxSize(crid_TypeDefOrRef)),
+		br.Read<Ridx<mdt_Field>>(context.GetRidxSize(mdt_Field)),
+		br.Read<Ridx<mdt_MethodDef>>(context.GetRidxSize(mdt_MethodDef))
+	};
+}
+
+void StringsStream::Initialize(uintptr_t content)
+{
+	content_ = reinterpret_cast<const char*>(content);
+}
+
+const char* StringsStream::GetString(Sidx<stm_String> sidx) const noexcept
+{
+	return content_ + sidx();
+}
+
+void USStream::Initialize(uintptr_t content)
+{
+	content_ = reinterpret_cast<const char*>(content);
+}
+
+void GUIDStream::Initialize(uintptr_t content)
+{
+	content_ = reinterpret_cast<const char*>(content);
+}
+
+void BlobStream::Initialize(uintptr_t content)
+{
+	content_ = reinterpret_cast<const char*>(content);
 }

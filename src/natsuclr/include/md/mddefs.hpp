@@ -106,6 +106,7 @@ namespace clr
 
 			uint32_t operator()() const noexcept { return Index; }
 			uint32_t& operator()() noexcept { return Index; }
+			operator bool() const noexcept { return Index != 0; }
 		};
 
 		template<StreamType Stream>
@@ -142,6 +143,7 @@ namespace clr
 				uint32_t CodedValue;
 
 				size_t GetRidx() const noexcept { return CodedValue >> TagBits; }
+				operator bool() const noexcept { return GetRidx() != 0; }
 			protected:
 				static constexpr size_t TagMask = (1 << TagBits) - 1;
 
