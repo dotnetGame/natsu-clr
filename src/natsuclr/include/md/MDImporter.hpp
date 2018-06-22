@@ -62,6 +62,8 @@ namespace clr
 			};
 
 			using MetadataTable::MetadataTable;
+
+			Row GetRow(Ridx<mdt_MethodDef> ridx, const MetadataStream& context) const;
 		protected:
 			virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
 		};
@@ -116,6 +118,7 @@ namespace clr
 #define DECL_METASTREAM_GET_ROW(type) typename type##Table::Row Get##type(Ridx<mdt_##type> ridx) const
 
 			DECL_METASTREAM_GET_ROW(TypeDef);
+			DECL_METASTREAM_GET_ROW(MethodDef);
 		private:
 			std::unique_ptr<MetadataTable> tables_[mdt_Count];
 			uint8_t heapSizes_;

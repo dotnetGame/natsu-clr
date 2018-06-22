@@ -153,10 +153,11 @@ typename type##Table::Row MetadataStream::Get##type(Ridx<mdt_##type> ridx) const
 {																				 \
 	auto table = tables_[mdt_##type].get();										 \
 	THROW_IF_NOT(ridx && table, std::out_of_range, "row id out of range");		 \
-	return reinterpret_cast<const type##Table*>(table)->GetRow(ridx, *this);	 \
+	return static_cast<const type##Table*>(table)->GetRow(ridx, *this);	 \
 }
 
 IMPL_GET_ROW1(TypeDef);
+IMPL_GET_ROW1(MethodDef);
 
 MetadataTable::MetadataTable(size_t count)
 	:count_(count)
@@ -230,6 +231,20 @@ size_t AssemblyTable::GetRowSize(MetadataStream& context) const noexcept
 size_t MethodDefTable::GetRowSize(MetadataStream& context) const noexcept
 {
 	return 4 + 2 + 2 + context.GetSidxSize(stm_String) + context.GetSidxSize(stm_Blob) + context.GetRidxSize(mdt_Param);
+}
+
+auto MethodDefTable::GetRow(Ridx<mdt_MethodDef> ridx, const MetadataStream& context) const -> Row
+{
+	BinaryReader br(GetRowBase(ridx()));
+	return
+	{
+		br.Read<uint32_t>(),
+		br.Read<MethodImplAttributes>(),
+		br.Read<MethodAttributes>(),
+		br.Read<Sidx<stm_String>>(context.GetSidxSize(stm_String)),
+		br.Read<Sidx<stm_Blob>>(context.GetSidxSize(stm_Blob)),
+		br.Read<Ridx<mdt_Param>>(context.GetRidxSize(mdt_Param))
+	};
 }
 
 // Module

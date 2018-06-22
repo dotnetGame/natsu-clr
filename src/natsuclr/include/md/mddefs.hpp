@@ -107,6 +107,22 @@ namespace clr
 			uint32_t operator()() const noexcept { return Index; }
 			uint32_t& operator()() noexcept { return Index; }
 			operator bool() const noexcept { return Index != 0; }
+
+			Ridx& operator++() noexcept
+			{
+				Index++;
+				return *this;
+			}
+
+			bool operator==(const Ridx& other) const noexcept
+			{
+				return Index == other;
+			}
+
+			bool operator!=(const Ridx& other) const noexcept
+			{
+				return Index != other;
+			}
 		};
 
 		template<StreamType Stream>

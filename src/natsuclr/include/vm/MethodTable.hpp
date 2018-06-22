@@ -2,6 +2,7 @@
 // Natsu CLR VM
 //
 #pragma once
+#include "EEClass.hpp"
 
 namespace clr
 {
@@ -9,8 +10,7 @@ namespace clr
 	{
 		struct MethodTable
 		{
-			const char* TypeName;
-			const char* TypeNamespace;
+			EEClass* Class;
 		};
 	}
 }
