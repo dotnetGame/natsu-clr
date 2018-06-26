@@ -48,6 +48,58 @@ namespace clr
 			virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
 		};
 
+		class ConstantTable final : public MetadataTable
+		{
+		public:
+			struct Row
+			{
+				ELEMENT_TYPE				Type;
+				uint8_t						Reserved0;
+				CodedRidx<crid_HasConstant>	Parent;
+				Sidx<stm_Blob>				Value;
+			};
+
+			using MetadataTable::MetadataTable;
+
+			Row GetRow(Ridx<mdt_Constant> ridx, const MetadataStream& context) const;
+		protected:
+			virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
+		};
+
+		class CustomAttributeTable final : public MetadataTable
+		{
+		public:
+			struct Row
+			{
+				CodedRidx<crid_HasCustomAttribute>	Parent;
+				CodedRidx<crid_CustomAttributeType>	Type;
+				Sidx<stm_Blob>						Value;
+			};
+
+			using MetadataTable::MetadataTable;
+
+			Row GetRow(Ridx<mdt_CustomAttribute> ridx, const MetadataStream& context) const;
+		protected:
+			virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
+		};
+
+		class FieldTable final : public MetadataTable
+		{
+		public:
+			struct Row
+			{
+				FieldAttributes		Flags;
+				Sidx<stm_String>	Name;
+				Sidx<stm_Blob>		Signature;
+			};
+
+			using MetadataTable::MetadataTable;
+
+			Row GetRow(Ridx<mdt_Field> ridx, const MetadataStream& context) const;
+		protected:
+			virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
+		};
+
 		class MethodDefTable final : public MetadataTable
 		{
 		public:
@@ -81,6 +133,23 @@ namespace clr
 			};
 
 			using MetadataTable::MetadataTable;
+		protected:
+			virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
+		};
+
+		class ParamTable final : public MetadataTable
+		{
+		public:
+			struct Row
+			{
+				ParamAttributes		Flags;
+				uint16_t			Sequence;
+				Sidx<stm_String>	Name;
+			};
+
+			using MetadataTable::MetadataTable;
+
+			Row GetRow(Ridx<mdt_Param> ridx, const MetadataStream& context) const;
 		protected:
 			virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
 		};
@@ -119,6 +188,10 @@ namespace clr
 
 			DECL_METASTREAM_GET_ROW(TypeDef);
 			DECL_METASTREAM_GET_ROW(MethodDef);
+			DECL_METASTREAM_GET_ROW(Field);
+			DECL_METASTREAM_GET_ROW(Param);
+			DECL_METASTREAM_GET_ROW(Constant);
+			DECL_METASTREAM_GET_ROW(CustomAttribute);
 		private:
 			std::unique_ptr<MetadataTable> tables_[mdt_Count];
 			uint8_t heapSizes_;

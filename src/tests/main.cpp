@@ -5,9 +5,13 @@
 #include <Windows.h>
 #include <cassert>
 #include <loader/AssemblyLoader.hpp>
+#include <binder/Binder.hpp>
+#include <vm/Thread.hpp>
 
+using namespace clr;
 using namespace clr::loader;
 using namespace clr::metadata;
+using namespace clr::vm;
 
 std::vector<uint8_t> load_file(const char* filename)
 {
@@ -34,6 +38,10 @@ int main()
 	auto asmfile = std::make_shared<AssemblyFile>(std::shared_ptr<const uint8_t[]>(file.data(), dummy_deleter), file.size());
 	auto loader = std::make_shared<AssemblyLoader>(asmfile);
 	loader->Load();
+
+	Binder binder(loader);
+	Thread thread;
+	thread.Execute(*binder.BindMethod("Object", ".ctor"));
 
 	std::cout << "Test" << std::endl;
 }

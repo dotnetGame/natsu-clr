@@ -44,6 +44,27 @@ namespace clr
 
 #define TypeAttributes_VisibilityMask 0x7
 
+		enum class FieldAttributes : uint16_t
+		{
+
+		};
+
+		enum class ParamAttributes : uint16_t
+		{
+
+		};
+
+		enum ELEMENT_TYPE : uint8_t
+		{
+			ELEMENT_TYPE_END,
+			ELEMENT_TYPE_VOID,
+			ELEMENT_TYPE_BOOLEAN,
+			ELEMENT_TYPE_CHAR,
+			ELEMENT_TYPE_I1,
+			ELEMENT_TYPE_U1,
+			ELEMENT_TYPE_I2
+		};
+
 		enum StreamType
 		{
 			stm_String = 1,
@@ -96,7 +117,10 @@ namespace clr
 
 		enum CodedRowIndex
 		{
-			crid_TypeDefOrRef
+			crid_TypeDefOrRef,
+			crid_HasConstant,
+			crid_HasCustomAttribute,
+			crid_CustomAttributeType
 		};
 
 		template<MetadataTables Table>
@@ -169,6 +193,24 @@ namespace clr
 
 		template<>
 		struct CodedRidx<crid_TypeDefOrRef> : public impl::CodedRidxImpl<2, mdt_TypeDef, mdt_TypeRef, mdt_TypeSpec>
+		{
+			MetadataTables GetType() const;
+		};
+
+		template<>
+		struct CodedRidx<crid_HasConstant> : public impl::CodedRidxImpl<2, mdt_Field, mdt_Param, mdt_Property>
+		{
+			MetadataTables GetType() const;
+		};
+
+		template<>
+		struct CodedRidx<crid_HasCustomAttribute> : public impl::CodedRidxImpl<5, mdt_MethodDef, mdt_Field, mdt_TypeRef, mdt_TypeDef, mdt_Param, mdt_InterfaceImp, mdt_MemberRef, mdt_Module, mdt_Property, mdt_Event, mdt_StandAloneSig, mdt_ModuleRef, mdt_TypeSpec, mdt_Assembly, mdt_AssemblyRef, mdt_File, mdt_ExportedType, mdt_ManifestResource, mdt_GenericParam, mdt_GenericParamConstraint, mdt_MethodSpec>
+		{
+			MetadataTables GetType() const;
+		};
+
+		template<>
+		struct CodedRidx<crid_CustomAttributeType> : public impl::CodedRidxImpl<3, mdt_MethodDef, mdt_MemberRef>
 		{
 			MetadataTables GetType() const;
 		};

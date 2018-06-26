@@ -3,6 +3,7 @@
 //
 #include <loader/AssemblyLoader.hpp>
 #include <utils.hpp>
+#include <cassert>
 
 using namespace clr::loader;
 using namespace clr::metadata;
@@ -63,5 +64,33 @@ void AssemblyLoader::LoadMethodDef(size_t index)
 
 	auto methodDef = tables.GetMethodDef({ index + 1 });
 	eeMethod.Name = strings.GetString(methodDef.Name);
-	eeMethod.Body = assemblyFile_->GetDataByRVA(methodDef.RVA);
+
+	BinaryReader br(uintptr_t(assemblyFile_->GetDataByRVA(methodDef.RVA)));
+	{
+		enum
+		{
+			CorILMethod_TinyFormat = 0x2,
+			CorILMethod_FatFormat = 0x3,
+			CorILMethod_FormatMask = 0x3
+		};
+
+		auto flag = br.Read<uint8_t>();
+		auto format = flag & CorILMethod_FormatMask;
+		size_t bodyLength;
+		if (format == CorILMethod_TinyFormat)
+		{
+			bodyLength = flag >> 2;
+		}
+		else if(format == CorILMethod_FatFormat)
+		{
+			assert(!"Not implemented.");
+		}
+		else
+		{
+			THROW_ALWAYS(BadImageException, "Invalid method header.");
+		}
+
+		eeMethod.BodyBegin = reinterpret_cast<const uint8_t*>(br.GetOffset());
+		eeMethod.BodyEnd = eeMethod.BodyBegin + bodyLength;
+	}
 }

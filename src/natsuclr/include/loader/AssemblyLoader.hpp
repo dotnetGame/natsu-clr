@@ -17,6 +17,8 @@ namespace clr
 			AssemblyLoader(std::shared_ptr<AssemblyFile> assemblyFile);
 
 			void Load();
+
+			const std::vector<vm::EEClass> GetClasses() const noexcept { return eeClasses_; }
 		private:
 			void LoadTypeDef(size_t index);
 			void LoadMethodDef(size_t index);

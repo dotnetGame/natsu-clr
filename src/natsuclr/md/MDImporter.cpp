@@ -92,13 +92,21 @@ void MetadataStream::Initialize(uintptr_t content)
 	auto rows = header->Rows;
 	INIT_TABLE_COUNT(Module);
 	INIT_TABLE_COUNT(TypeDef);
+	INIT_TABLE_COUNT(Field);
 	INIT_TABLE_COUNT(MethodDef);
+	INIT_TABLE_COUNT(Param);
+	INIT_TABLE_COUNT(Constant);
+	INIT_TABLE_COUNT(CustomAttribute);
 	INIT_TABLE_COUNT(Assembly);
 
 	auto tableContent = uintptr_t(header->Rows) + valid.count() * sizeof(uint32_t);
 	INIT_TABLE(Module);
 	INIT_TABLE(TypeDef);
+	INIT_TABLE(Field);
 	INIT_TABLE(MethodDef);
+	INIT_TABLE(Param);
+	INIT_TABLE(Constant);
+	INIT_TABLE(CustomAttribute);
 	INIT_TABLE(Assembly);
 }
 
@@ -142,6 +150,7 @@ size_t MetadataStream::GetCodedRidxSize(CodedRowIndex ridxType) const noexcept
 	switch (ridxType)
 	{
 		IMPL_CODED_RIDX_SIZE(crid_TypeDefOrRef);
+		IMPL_CODED_RIDX_SIZE(crid_HasConstant);
 	default:
 		assert(!"invalid coded row index type");
 		return 0;
@@ -158,6 +167,10 @@ typename type##Table::Row MetadataStream::Get##type(Ridx<mdt_##type> ridx) const
 
 IMPL_GET_ROW1(TypeDef);
 IMPL_GET_ROW1(MethodDef);
+IMPL_GET_ROW1(Field);
+IMPL_GET_ROW1(Param);
+IMPL_GET_ROW1(Constant);
+IMPL_GET_ROW1(CustomAttribute);
 
 MetadataTable::MetadataTable(size_t count)
 	:count_(count)
@@ -177,53 +190,66 @@ uintptr_t MetadataTable::GetRowBase(size_t index) const noexcept
 	return base_ + (index - 1) * rowSize_;
 }
 
-struct BinaryReader
-{
-	BinaryReader(uintptr_t base)
-		:base_(base)
-	{
-	}
-
-	template<class T>
-	T Read() noexcept
-	{
-		auto offset = base_;
-		base_ += sizeof(T);
-
-		// aligned read
-		if (offset % sizeof(T) == 0)
-			return *reinterpret_cast<const T*>(offset);
-		else
-		{
-			alignas(alignof(T)) uint8_t value[sizeof(T)];
-			auto begin = reinterpret_cast<const uint8_t*>(offset);
-			for (size_t i = 0; i < sizeof(T); i++)
-				value[i] = begin[i];
-			return *reinterpret_cast<const T*>(value);
-		}
-	}
-
-	template<class T>
-	T Read(size_t size)
-	{
-		if(size == 1)
-			return { Read<uint8_t>() };
-		else if(size == 2)
-			return { Read<uint16_t>() };
-		else if (size == 4)
-			return { Read<uint32_t>() };
-		else
-			throw std::invalid_argument("invalid size");
-	}
-private:
-	uintptr_t base_;
-};
-
 // Assembly
 
 size_t AssemblyTable::GetRowSize(MetadataStream& context) const noexcept
 {
 	return 4 + 2 * 4 + context.GetSidxSize(stm_Blob) + context.GetSidxSize(stm_String);
+}
+
+// Constant
+
+size_t ConstantTable::GetRowSize(MetadataStream& context) const noexcept
+{
+	return 1 + 1 + context.GetCodedRidxSize(crid_HasConstant) + context.GetSidxSize(stm_Blob);
+}
+
+auto ConstantTable::GetRow(Ridx<mdt_Constant> ridx, const MetadataStream& context) const -> Row
+{
+	BinaryReader br(GetRowBase(ridx()));
+	return
+	{
+		br.Read<ELEMENT_TYPE>(),
+		0,
+		br.Read<CodedRidx<crid_HasConstant>>(context.GetCodedRidxSize(crid_HasConstant)),
+		br.Read<Sidx<stm_Blob>>(context.GetSidxSize(stm_Blob))
+	};
+}
+
+// CustomAttribute
+
+size_t CustomAttributeTable::GetRowSize(MetadataStream& context) const noexcept
+{
+	return context.GetCodedRidxSize(crid_HasCustomAttribute) + context.GetCodedRidxSize(crid_HasConstant) + context.GetSidxSize(stm_Blob);
+}
+
+auto CustomAttributeTable::GetRow(Ridx<mdt_CustomAttribute> ridx, const MetadataStream& context) const -> Row
+{
+	BinaryReader br(GetRowBase(ridx()));
+	return
+	{
+		br.Read<CodedRidx<crid_HasCustomAttribute>>(context.GetCodedRidxSize(crid_HasCustomAttribute)),
+		br.Read<CodedRidx<crid_HasConstant>>(context.GetCodedRidxSize(crid_HasConstant)),
+		br.Read<Sidx<stm_Blob>>(context.GetSidxSize(stm_Blob))
+	};
+}
+
+// Field
+
+size_t FieldTable::GetRowSize(MetadataStream& context) const noexcept
+{
+	return 2 + context.GetSidxSize(stm_String) + context.GetSidxSize(stm_Blob);
+}
+
+auto FieldTable::GetRow(Ridx<mdt_Field> ridx, const MetadataStream& context) const -> Row
+{
+	BinaryReader br(GetRowBase(ridx()));
+	return
+	{
+		br.Read<FieldAttributes>(),
+		br.Read<Sidx<stm_String>>(context.GetSidxSize(stm_String)),
+		br.Read<Sidx<stm_Blob>>(context.GetSidxSize(stm_Blob))
+	};
 }
 
 // MethodDef
@@ -252,6 +278,24 @@ auto MethodDefTable::GetRow(Ridx<mdt_MethodDef> ridx, const MetadataStream& cont
 size_t ModuleTable::GetRowSize(MetadataStream& context) const noexcept
 {
 	return 2 + context.GetSidxSize(stm_String) + context.GetSidxSize(stm_GUID) * 3;
+}
+
+// Field
+
+size_t ParamTable::GetRowSize(MetadataStream& context) const noexcept
+{
+	return 2 + 2 + context.GetSidxSize(stm_String);
+}
+
+auto ParamTable::GetRow(Ridx<mdt_Param> ridx, const MetadataStream& context) const -> Row
+{
+	BinaryReader br(GetRowBase(ridx()));
+	return
+	{
+		br.Read<ParamAttributes>(),
+		br.Read<uint16_t>(),
+		br.Read<Sidx<stm_String>>(context.GetSidxSize(stm_String))
+	};
 }
 
 // TypeDef

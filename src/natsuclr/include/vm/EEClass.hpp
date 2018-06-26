@@ -19,7 +19,8 @@ namespace clr
 
 			const char* Name;
 
-			const uint8_t* Body;
+			const uint8_t* BodyBegin;
+			const uint8_t* BodyEnd;
 		};
 
 		struct EEClass

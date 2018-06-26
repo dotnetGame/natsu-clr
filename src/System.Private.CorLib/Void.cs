@@ -2,7 +2,7 @@
 
 namespace System
 {
-    public sealed class Void
+    public struct Void
     {
     }
 }
