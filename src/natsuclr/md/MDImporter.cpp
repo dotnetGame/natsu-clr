@@ -97,6 +97,11 @@ void MetadataStream::Initialize(uintptr_t content)
 	INIT_TABLE_COUNT(Param);
 	INIT_TABLE_COUNT(Constant);
 	INIT_TABLE_COUNT(CustomAttribute);
+	INIT_TABLE_COUNT(ClassLayout);
+	INIT_TABLE_COUNT(StandAloneSig);
+	INIT_TABLE_COUNT(PropertyMap);
+	INIT_TABLE_COUNT(Property);
+	INIT_TABLE_COUNT(MethodSemantics);
 	INIT_TABLE_COUNT(Assembly);
 
 	auto tableContent = uintptr_t(header->Rows) + valid.count() * sizeof(uint32_t);
@@ -107,6 +112,11 @@ void MetadataStream::Initialize(uintptr_t content)
 	INIT_TABLE(Param);
 	INIT_TABLE(Constant);
 	INIT_TABLE(CustomAttribute);
+	INIT_TABLE(ClassLayout);
+	INIT_TABLE(StandAloneSig);
+	INIT_TABLE(PropertyMap);
+	INIT_TABLE(Property);
+	INIT_TABLE(MethodSemantics);
 	INIT_TABLE(Assembly);
 }
 
@@ -151,6 +161,9 @@ size_t MetadataStream::GetCodedRidxSize(CodedRowIndex ridxType) const noexcept
 	{
 		IMPL_CODED_RIDX_SIZE(crid_TypeDefOrRef);
 		IMPL_CODED_RIDX_SIZE(crid_HasConstant);
+		IMPL_CODED_RIDX_SIZE(crid_HasCustomAttribute);
+		IMPL_CODED_RIDX_SIZE(crid_CustomAttributeType);
+		IMPL_CODED_RIDX_SIZE(crid_HasSemantics);
 	default:
 		assert(!"invalid coded row index type");
 		return 0;
@@ -171,6 +184,11 @@ IMPL_GET_ROW1(Field);
 IMPL_GET_ROW1(Param);
 IMPL_GET_ROW1(Constant);
 IMPL_GET_ROW1(CustomAttribute);
+IMPL_GET_ROW1(ClassLayout);
+IMPL_GET_ROW1(StandAloneSig);
+IMPL_GET_ROW1(PropertyMap);
+IMPL_GET_ROW1(Property);
+IMPL_GET_ROW1(MethodSemantics);
 
 MetadataTable::MetadataTable(size_t count)
 	:count_(count)
@@ -195,6 +213,24 @@ uintptr_t MetadataTable::GetRowBase(size_t index) const noexcept
 size_t AssemblyTable::GetRowSize(MetadataStream& context) const noexcept
 {
 	return 4 + 2 * 4 + context.GetSidxSize(stm_Blob) + context.GetSidxSize(stm_String);
+}
+
+// ClassLayout
+
+size_t ClassLayoutTable::GetRowSize(MetadataStream& context) const noexcept
+{
+	return 2 + 4 + context.GetRidxSize(mdt_TypeDef);
+}
+
+auto ClassLayoutTable::GetRow(Ridx<mdt_ClassLayout> ridx, const MetadataStream& context) const -> Row
+{
+	BinaryReader br(GetRowBase(ridx()));
+	return
+	{
+		br.Read<uint16_t>(),
+		br.Read<uint32_t>(),
+		br.Read<Ridx<mdt_TypeDef>>(context.GetRidxSize(mdt_TypeDef)),
+	};
 }
 
 // Constant
@@ -273,6 +309,24 @@ auto MethodDefTable::GetRow(Ridx<mdt_MethodDef> ridx, const MetadataStream& cont
 	};
 }
 
+// MethodSemantics
+
+size_t MethodSemanticsTable::GetRowSize(MetadataStream& context) const noexcept
+{
+	return 2 + context.GetRidxSize(mdt_MethodDef) + context.GetCodedRidxSize(crid_HasSemantics);
+}
+
+auto MethodSemanticsTable::GetRow(Ridx<mdt_MethodSemantics> ridx, const MetadataStream& context) const -> Row
+{
+	BinaryReader br(GetRowBase(ridx()));
+	return
+	{
+		br.Read<MethodSemanticsAttributes>(),
+		br.Read<Ridx<mdt_MethodDef>>(context.GetRidxSize(mdt_MethodDef)),
+		br.Read<CodedRidx<crid_HasSemantics>>(context.GetCodedRidxSize(crid_HasSemantics))
+	};
+}
+
 // Module
 
 size_t ModuleTable::GetRowSize(MetadataStream& context) const noexcept
@@ -280,7 +334,7 @@ size_t ModuleTable::GetRowSize(MetadataStream& context) const noexcept
 	return 2 + context.GetSidxSize(stm_String) + context.GetSidxSize(stm_GUID) * 3;
 }
 
-// Field
+// Param
 
 size_t ParamTable::GetRowSize(MetadataStream& context) const noexcept
 {
@@ -295,6 +349,57 @@ auto ParamTable::GetRow(Ridx<mdt_Param> ridx, const MetadataStream& context) con
 		br.Read<ParamAttributes>(),
 		br.Read<uint16_t>(),
 		br.Read<Sidx<stm_String>>(context.GetSidxSize(stm_String))
+	};
+}
+
+// Property
+
+size_t PropertyTable::GetRowSize(MetadataStream& context) const noexcept
+{
+	return 2 + context.GetSidxSize(stm_String) + context.GetSidxSize(stm_Blob);
+}
+
+auto PropertyTable::GetRow(Ridx<mdt_Property> ridx, const MetadataStream& context) const -> Row
+{
+	BinaryReader br(GetRowBase(ridx()));
+	return
+	{
+		br.Read<PropertyAttributes>(),
+		br.Read<Sidx<stm_String>>(context.GetSidxSize(stm_String)),
+		br.Read<Sidx<stm_Blob>>(context.GetSidxSize(stm_Blob))
+	};
+}
+
+// PropertyMap
+
+size_t PropertyMapTable::GetRowSize(MetadataStream& context) const noexcept
+{
+	return context.GetRidxSize(mdt_TypeDef) + context.GetRidxSize(mdt_Property);
+}
+
+auto PropertyMapTable::GetRow(Ridx<mdt_PropertyMap> ridx, const MetadataStream& context) const -> Row
+{
+	BinaryReader br(GetRowBase(ridx()));
+	return
+	{
+		br.Read<Ridx<mdt_TypeDef>>(context.GetRidxSize(mdt_TypeDef)),
+		br.Read<Ridx<mdt_Property>>(context.GetRidxSize(mdt_Property))
+	};
+}
+
+// StandAloneSig
+
+size_t StandAloneSigTable::GetRowSize(MetadataStream& context) const noexcept
+{
+	return context.GetSidxSize(stm_Blob);
+}
+
+auto StandAloneSigTable::GetRow(Ridx<mdt_StandAloneSig> ridx, const MetadataStream& context) const -> Row
+{
+	BinaryReader br(GetRowBase(ridx()));
+	return
+	{
+		br.Read<Sidx<stm_Blob>>(context.GetSidxSize(stm_Blob))
 	};
 }
 

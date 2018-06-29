@@ -41,7 +41,7 @@ int main()
 
 	Binder binder(loader);
 	Thread thread;
-	thread.Execute(*binder.BindMethod("Object", ".ctor"));
+	thread.Execute(*binder.BindMethod("Console", "Test"));
 
 	std::cout << "Test" << std::endl;
 }

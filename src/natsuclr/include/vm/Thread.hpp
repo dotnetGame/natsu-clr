@@ -11,7 +11,7 @@ namespace clr
 		class Thread
 		{
 		public:
-			void Execute(const EEMethod& method);
+			void Execute(const MethodDesc& method);
 		};
 	}
 }

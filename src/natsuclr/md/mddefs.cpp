@@ -99,3 +99,16 @@ MetadataTables CodedRidx<crid_CustomAttributeType>::GetType() const
 		THROW_ALWAYS(BadMetadataException);
 	}
 }
+
+MetadataTables CodedRidx<crid_HasSemantics>::GetType() const
+{
+	switch (GetTag())
+	{
+	case 0:
+		return mdt_Event;
+	case 1:
+		return mdt_Property;
+	default:
+		THROW_ALWAYS(BadMetadataException);
+	}
+}

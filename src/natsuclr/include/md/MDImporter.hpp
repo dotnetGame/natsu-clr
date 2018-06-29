@@ -48,6 +48,23 @@ namespace clr
 			virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
 		};
 
+		class ClassLayoutTable final : public MetadataTable
+		{
+		public:
+			struct Row
+			{
+				uint16_t			PackingSize;
+				uint32_t			ClassSize;
+				Ridx<mdt_TypeDef>	Parent;
+			};
+
+			using MetadataTable::MetadataTable;
+
+			Row GetRow(Ridx<mdt_ClassLayout> ridx, const MetadataStream& context) const;
+		protected:
+			virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
+		};
+
 		class ConstantTable final : public MetadataTable
 		{
 		public:
@@ -120,6 +137,23 @@ namespace clr
 			virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
 		};
 
+		class MethodSemanticsTable final : public MetadataTable
+		{
+		public:
+			struct Row
+			{
+				MethodSemanticsAttributes		Semantics;
+				Ridx<mdt_MethodDef>				Method;
+				CodedRidx<crid_HasSemantics>	Association;
+			};
+
+			using MetadataTable::MetadataTable;
+
+			Row GetRow(Ridx<mdt_MethodSemantics> ridx, const MetadataStream& context) const;
+		protected:
+			virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
+		};
+
 		class ModuleTable final : public MetadataTable
 		{
 		public:
@@ -150,6 +184,54 @@ namespace clr
 			using MetadataTable::MetadataTable;
 
 			Row GetRow(Ridx<mdt_Param> ridx, const MetadataStream& context) const;
+		protected:
+			virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
+		};
+
+		class PropertyTable final : public MetadataTable
+		{
+		public:
+			struct Row
+			{
+				PropertyAttributes	Flags;
+				Sidx<stm_String>	Name;
+				Sidx<stm_Blob>		Type;
+			};
+
+			using MetadataTable::MetadataTable;
+
+			Row GetRow(Ridx<mdt_Property> ridx, const MetadataStream& context) const;
+		protected:
+			virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
+		};
+
+		class PropertyMapTable final : public MetadataTable
+		{
+		public:
+			struct Row
+			{
+				Ridx<mdt_TypeDef>	Parent;
+				Ridx<mdt_Property>	PropertyList;
+			};
+
+			using MetadataTable::MetadataTable;
+
+			Row GetRow(Ridx<mdt_PropertyMap> ridx, const MetadataStream& context) const;
+		protected:
+			virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
+		};
+
+		class StandAloneSigTable final : public MetadataTable
+		{
+		public:
+			struct Row
+			{
+				Sidx<stm_Blob>	Signature;
+			};
+
+			using MetadataTable::MetadataTable;
+
+			Row GetRow(Ridx<mdt_StandAloneSig> ridx, const MetadataStream& context) const;
 		protected:
 			virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
 		};
@@ -192,6 +274,11 @@ namespace clr
 			DECL_METASTREAM_GET_ROW(Param);
 			DECL_METASTREAM_GET_ROW(Constant);
 			DECL_METASTREAM_GET_ROW(CustomAttribute);
+			DECL_METASTREAM_GET_ROW(ClassLayout);
+			DECL_METASTREAM_GET_ROW(StandAloneSig);
+			DECL_METASTREAM_GET_ROW(PropertyMap);
+			DECL_METASTREAM_GET_ROW(Property);
+			DECL_METASTREAM_GET_ROW(MethodSemantics);
 		private:
 			std::unique_ptr<MetadataTable> tables_[mdt_Count];
 			uint8_t heapSizes_;

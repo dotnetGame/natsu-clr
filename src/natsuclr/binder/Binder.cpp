@@ -14,7 +14,7 @@ Binder::Binder(std::shared_ptr<AssemblyLoader> assemblyLoader)
 
 }
 
-vm::EEMethod* Binder::BindMethod(const char* typeName, const char* methodName)
+vm::MethodDesc* Binder::BindMethod(const char* typeName, const char* methodName)
 {
 	for (auto& type : assemblyLoader_->GetClasses())
 	{

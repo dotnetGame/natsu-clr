@@ -26,7 +26,7 @@ namespace clr
 			std::shared_ptr<AssemblyFile> assemblyFile_;
 			metadata::MDImporter mdImporter_;
 			std::vector<vm::EEClass> eeClasses_;
-			std::vector<vm::EEMethod> eeMethods_;
+			std::vector<vm::MethodDesc> methodDescs_;
 		};
 	}
 }

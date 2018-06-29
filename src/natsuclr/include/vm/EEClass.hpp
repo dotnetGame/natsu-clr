@@ -13,14 +13,27 @@ namespace clr
 
 	namespace vm
 	{
-		struct EEMethod
+		struct MethodDesc
 		{
 			metadata::MDImporter* MDImporter;
 
 			const char* Name;
+			bool IsECall;
 
-			const uint8_t* BodyBegin;
-			const uint8_t* BodyEnd;
+			union
+			{
+				struct
+				{
+					uint16_t MaxStack;
+					const uint8_t* BodyBegin;
+					const uint8_t* BodyEnd;
+				};
+
+				struct
+				{
+					uintptr_t ECallEntry;
+				};
+			};
 		};
 
 		struct EEClass
@@ -30,8 +43,8 @@ namespace clr
 			const char* TypeName;
 			const char* TypeNamespace;
 
-			EEMethod* FirstMethod;
-			EEMethod* LastMethod;
+			MethodDesc* FirstMethod;
+			MethodDesc* LastMethod;
 		};
 	}
 }

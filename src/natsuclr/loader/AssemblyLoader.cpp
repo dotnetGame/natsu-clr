@@ -1,8 +1,8 @@
 //
 // Natsu CLR Loader
 //
-#include <loader/AssemblyLoader.hpp>
 #include <utils.hpp>
+#include <loader/AssemblyLoader.hpp>
 #include <cassert>
 
 using namespace clr::loader;
@@ -20,7 +20,7 @@ void AssemblyLoader::Load()
 	auto typeDefs = mdImporter_.GetTables().GetRowsCount(mdt_TypeDef);
 	eeClasses_.resize(typeDefs);
 	auto methodDefs = mdImporter_.GetTables().GetRowsCount(mdt_MethodDef);
-	eeMethods_.resize(methodDefs);
+	methodDescs_.resize(methodDefs);
 
 	for (size_t i = 0; i < typeDefs; i++)
 		LoadTypeDef(i);
@@ -45,11 +45,11 @@ void AssemblyLoader::LoadTypeDef(size_t index)
 	if (typeDef.MethodList)
 	{
 		auto hasNextType = index + 1 < tables.GetRowsCount(mdt_TypeDef);
-		eeClass.FirstMethod = eeMethods_.data() + typeDef.MethodList() - 1;
+		eeClass.FirstMethod = methodDescs_.data() + typeDef.MethodList() - 1;
 		if (hasNextType)
-			eeClass.LastMethod = eeMethods_.data() + tables.GetTypeDef({ index + 2 }).MethodList() - 1;
+			eeClass.LastMethod = methodDescs_.data() + tables.GetTypeDef({ index + 2 }).MethodList() - 1;
 		else
-			eeClass.LastMethod = eeMethods_.data() + eeMethods_.size();
+			eeClass.LastMethod = methodDescs_.data() + methodDescs_.size();
 	}
 }
 
@@ -58,39 +58,55 @@ void AssemblyLoader::LoadMethodDef(size_t index)
 	auto& tables = mdImporter_.GetTables();
 	auto& strings = mdImporter_.GetStrings();
 
-	auto&& eeMethod = eeMethods_[index];
+	auto&& method = methodDescs_[index];
 
-	eeMethod.MDImporter = &mdImporter_;
+	method.MDImporter = &mdImporter_;
 
 	auto methodDef = tables.GetMethodDef({ index + 1 });
-	eeMethod.Name = strings.GetString(methodDef.Name);
+	method.Name = strings.GetString(methodDef.Name);
 
-	BinaryReader br(uintptr_t(assemblyFile_->GetDataByRVA(methodDef.RVA)));
+	if ((methodDef.ImplFlags & MethodImplAttributes::InternalCall) == MethodImplAttributes::InternalCall)
 	{
-		enum
+		method.IsECall = true;
+	}
+	else
+	{
+		method.IsECall = false;
+		auto headerOffset = assemblyFile_->GetDataByRVA(methodDef.RVA);
+		BinaryReader br((uintptr_t)headerOffset);
 		{
-			CorILMethod_TinyFormat = 0x2,
-			CorILMethod_FatFormat = 0x3,
-			CorILMethod_FormatMask = 0x3
-		};
+			enum
+			{
+				CorILMethod_TinyFormat = 0x2,
+				CorILMethod_FatFormat = 0x3,
+				CorILMethod_FormatMask = 0x3
+			};
 
-		auto flag = br.Read<uint8_t>();
-		auto format = flag & CorILMethod_FormatMask;
-		size_t bodyLength;
-		if (format == CorILMethod_TinyFormat)
-		{
-			bodyLength = flag >> 2;
-		}
-		else if(format == CorILMethod_FatFormat)
-		{
-			assert(!"Not implemented.");
-		}
-		else
-		{
-			THROW_ALWAYS(BadImageException, "Invalid method header.");
-		}
+			auto flag = br.Read<uint8_t>();
+			auto format = flag & CorILMethod_FormatMask;
+			size_t bodyLength;
+			if (format == CorILMethod_TinyFormat)
+			{
+				bodyLength = flag >> 2;
 
-		eeMethod.BodyBegin = reinterpret_cast<const uint8_t*>(br.GetOffset());
-		eeMethod.BodyEnd = eeMethod.BodyBegin + bodyLength;
+				method.MaxStack = 8;
+				method.BodyBegin = headerOffset + 1;
+			}
+			else if (format == CorILMethod_FatFormat)
+			{
+				uint16_t fatFloags = (br.Read<uint8_t>() << 8) | flag;
+				auto headerSize = (fatFloags >> 12) * 4;
+				method.MaxStack = br.Read<uint16_t>();
+				bodyLength = br.Read<uint32_t>();
+
+				method.BodyBegin = headerOffset + headerSize;
+			}
+			else
+			{
+				THROW_ALWAYS(BadImageException, "Invalid method header.");
+			}
+
+			method.BodyEnd = method.BodyBegin + bodyLength;
+		}
 	}
 }

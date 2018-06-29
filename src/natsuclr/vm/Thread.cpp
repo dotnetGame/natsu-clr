@@ -7,7 +7,7 @@
 using namespace clr;
 using namespace clr::vm;
 
-void ExecuteOp(OpInfo& op)
+void ExecuteOp(OpInfo& op, OpArgsVal& args)
 {
 	switch (op.getOpcode())
 	{
@@ -15,13 +15,15 @@ void ExecuteOp(OpInfo& op)
 		break;
 	case CEE_RET:
 		break;
+	case CEE_CALL:
+		break;
 	default:
 		assert(!"Invalid OpCode");
 		break;
 	}
 }
 
-void ExecuteMethod(const EEMethod& method)
+void ExecuteMethod(const MethodDesc& method)
 {
 	auto IP = method.BodyBegin;
 	while (true)
@@ -30,7 +32,7 @@ void ExecuteMethod(const EEMethod& method)
 		OpArgsVal opArgs;
 		IP = op.fetch(IP, &opArgs);
 
-		ExecuteOp(op);
+		ExecuteOp(op, opArgs);
 
 		switch (op.getFlow())
 		{
@@ -42,7 +44,7 @@ void ExecuteMethod(const EEMethod& method)
 	}
 }
 
-void Thread::Execute(const EEMethod& method)
+void Thread::Execute(const MethodDesc& method)
 {
 	ExecuteMethod(method);
 }

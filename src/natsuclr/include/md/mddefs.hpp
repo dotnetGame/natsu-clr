@@ -21,7 +21,15 @@ namespace clr
 
 		enum class MethodImplAttributes : uint16_t
 		{
+			IL = 0x0,
+			Native = 0x1,
+			OPTIL = 0x2,
+			Runtime = 0x3,
 
+			Unmanaged = 0x4,
+			Managed = 0x0,
+
+			InternalCall = 0x1000
 		};
 
 		enum class MethodAttributes : uint16_t
@@ -53,6 +61,20 @@ namespace clr
 		{
 
 		};
+
+		enum class PropertyAttributes : uint16_t
+		{
+
+		};
+
+		enum class MethodSemanticsAttributes : uint16_t
+		{
+
+		};
+
+#ifdef MAKE_ENUM_CLASS_BITMASK_TYPE
+		MAKE_ENUM_CLASS_BITMASK_TYPE(MethodImplAttributes);
+#endif
 
 		enum ELEMENT_TYPE : uint8_t
 		{
@@ -120,7 +142,8 @@ namespace clr
 			crid_TypeDefOrRef,
 			crid_HasConstant,
 			crid_HasCustomAttribute,
-			crid_CustomAttributeType
+			crid_CustomAttributeType,
+			crid_HasSemantics
 		};
 
 		template<MetadataTables Table>
@@ -211,6 +234,12 @@ namespace clr
 
 		template<>
 		struct CodedRidx<crid_CustomAttributeType> : public impl::CodedRidxImpl<3, mdt_MethodDef, mdt_MemberRef>
+		{
+			MetadataTables GetType() const;
+		};
+
+		template<>
+		struct CodedRidx<crid_HasSemantics> : public impl::CodedRidxImpl<1, mdt_Event, mdt_Property>
 		{
 			MetadataTables GetType() const;
 		};
