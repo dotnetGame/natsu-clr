@@ -41,6 +41,7 @@ int main()
 
 	Binder binder(loader);
 	Thread thread;
+	thread.assemblyLoader_ = loader.get();
 	thread.Execute(*binder.BindMethod("Console", "Test"));
 
 	std::cout << "Test" << std::endl;

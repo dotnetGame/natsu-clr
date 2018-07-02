@@ -46,5 +46,21 @@ namespace clr
 			MethodDesc* FirstMethod;
 			MethodDesc* LastMethod;
 		};
+
+		struct mdToken
+		{
+			mdToken(uint32_t value)
+				:value_(value) {}
+
+			static constexpr uint32_t TypeBitsOffset = 24;
+			static constexpr uint32_t TypeMask = 0xFF << TypeBitsOffset;
+
+			metadata::MetadataTables GetType() const noexcept { return static_cast<metadata::MetadataTables>((value_ & TypeMask) >> TypeBitsOffset); }
+
+			template<metadata::MetadataTables Type>
+			metadata::Ridx<Type> As() const noexcept { return {value_ & ~TypeMask }; }
+		private:
+			uint32_t value_;
+		};
 	}
 }

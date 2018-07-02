@@ -3,6 +3,7 @@
 //
 #pragma once
 #include "EEClass.hpp"
+#include "loader/AssemblyLoader.hpp"
 
 namespace clr
 {
@@ -11,6 +12,8 @@ namespace clr
 		class Thread
 		{
 		public:
+			loader::AssemblyLoader* assemblyLoader_;
+
 			void Execute(const MethodDesc& method);
 		};
 	}

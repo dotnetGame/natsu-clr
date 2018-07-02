@@ -110,3 +110,9 @@ void AssemblyLoader::LoadMethodDef(size_t index)
 		}
 	}
 }
+
+const MethodDesc& AssemblyLoader::GetMethod(Ridx<mdt_MethodDef> method) const
+{
+	assert(method);
+	return methodDescs_[method() - 1];
+}

@@ -18,7 +18,8 @@ namespace clr
 
 			void Load();
 
-			const std::vector<vm::EEClass> GetClasses() const noexcept { return eeClasses_; }
+			const std::vector<vm::EEClass>& GetClasses() const noexcept { return eeClasses_; }
+			const vm::MethodDesc& GetMethod(metadata::Ridx<metadata::mdt_MethodDef> method) const;
 		private:
 			void LoadTypeDef(size_t index);
 			void LoadMethodDef(size_t index);
