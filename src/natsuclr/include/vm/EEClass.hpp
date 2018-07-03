@@ -13,9 +13,10 @@ namespace clr
 
 	namespace vm
 	{
+		struct EEClass;
 		struct MethodDesc
 		{
-			metadata::MDImporter* MDImporter;
+			EEClass* Class;
 
 			const char* Name;
 			bool IsECall;
@@ -31,9 +32,17 @@ namespace clr
 
 				struct
 				{
-					uintptr_t ECallEntry;
-				};
+					uintptr_t EntryPoint;
+					size_t ParamsCount;
+				} ECall;
 			};
+		};
+
+		struct FieldDesc
+		{
+			EEClass* Class;
+
+
 		};
 
 		struct EEClass

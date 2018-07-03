@@ -9,6 +9,11 @@ namespace clr
 {
 	namespace vm
 	{
+		class ExecutionException : std::exception
+		{
+			using exception::exception;
+		};
+
 		class Thread
 		{
 		public:

@@ -314,12 +314,18 @@ namespace clr
 			const char* content_;
 		};
 
+		struct BlobData
+		{
+			const char* Data;
+			size_t Length;
+		};
+
 		class BlobStream
 		{
 		public:
 			void Initialize(uintptr_t content);
 
-			const char* GetString(Sidx<stm_String> sidx) const noexcept;
+			BlobData GetBlob(Sidx<stm_Blob> sidx) const noexcept;
 		private:
 			const char* content_;
 		};

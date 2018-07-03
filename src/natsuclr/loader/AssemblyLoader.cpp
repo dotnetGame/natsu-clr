@@ -3,6 +3,7 @@
 //
 #include <utils.hpp>
 #include <loader/AssemblyLoader.hpp>
+#include <vm/ECall.hpp>
 #include <cassert>
 
 using namespace clr::loader;
@@ -50,6 +51,9 @@ void AssemblyLoader::LoadTypeDef(size_t index)
 			eeClass.LastMethod = methodDescs_.data() + tables.GetTypeDef({ index + 2 }).MethodList() - 1;
 		else
 			eeClass.LastMethod = methodDescs_.data() + methodDescs_.size();
+
+		for (auto method = eeClass.FirstMethod; method != eeClass.LastMethod; method++)
+			method->Class = &eeClass;
 	}
 }
 
@@ -60,14 +64,16 @@ void AssemblyLoader::LoadMethodDef(size_t index)
 
 	auto&& method = methodDescs_[index];
 
-	method.MDImporter = &mdImporter_;
-
 	auto methodDef = tables.GetMethodDef({ index + 1 });
 	method.Name = strings.GetString(methodDef.Name);
 
 	if ((methodDef.ImplFlags & MethodImplAttributes::InternalCall) == MethodImplAttributes::InternalCall)
 	{
 		method.IsECall = true;
+
+		auto& ecall = FindECall(method);
+		method.ECall.EntryPoint = ecall.EntryPoint;
+		method.ECall.ParamsCount = ecall.ParamsCount;
 	}
 	else
 	{
