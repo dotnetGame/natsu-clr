@@ -245,7 +245,7 @@ auto ConstantTable::GetRow(Ridx<mdt_Constant> ridx, const MetadataStream& contex
 	BinaryReader br(GetRowBase(ridx()));
 	return
 	{
-		br.Read<ELEMENT_TYPE>(),
+		br.Read<CorElementType>(),
 		0,
 		br.Read<CodedRidx<crid_HasConstant>>(context.GetCodedRidxSize(crid_HasConstant)),
 		br.Read<Sidx<stm_Blob>>(context.GetSidxSize(stm_Blob))
@@ -446,5 +446,35 @@ void GUIDStream::Initialize(uintptr_t content)
 
 void BlobStream::Initialize(uintptr_t content)
 {
-	content_ = reinterpret_cast<const char*>(content);
+	content_ = reinterpret_cast<const uint8_t*>(content);
+}
+
+#define BLOB_4_BYTES_MASK uint8_t(0b11000000)
+#define BLOB_2_BYTES_MASK uint8_t(0b10000000)
+#define BLOB_1_BYTES_MASK uint8_t(0b00000000)
+#define BLOB_SIZE_MASK uint8_t(0b11100000)
+
+BlobData BlobStream::GetBlob(Sidx<stm_Blob> sidx) const
+{
+	auto base = content_ + sidx();
+
+	size_t size;
+	auto firstByte = *base++;
+	switch (firstByte & BLOB_SIZE_MASK)
+	{
+	case BLOB_1_BYTES_MASK:
+		size = firstByte & ~BLOB_1_BYTES_MASK;
+		break;
+	case BLOB_2_BYTES_MASK:
+		size = ((firstByte & ~BLOB_2_BYTES_MASK) << 8) + *base++;
+		break;
+	case BLOB_4_BYTES_MASK:
+		size = ((firstByte & ~BLOB_4_BYTES_MASK) << 24) + (*base++ << 16) + (*base++ << 8) + *base++;
+		break;
+	default:
+		THROW_ALWAYS(BadMetadataException, "Invalid blob size");
+		break;
+	}
+
+	return { base, size };
 }

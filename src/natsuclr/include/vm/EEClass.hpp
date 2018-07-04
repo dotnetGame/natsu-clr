@@ -42,7 +42,7 @@ namespace clr
 		{
 			EEClass* Class;
 
-
+			const char* Name;
 		};
 
 		struct EEClass
@@ -54,6 +54,9 @@ namespace clr
 
 			MethodDesc* FirstMethod;
 			MethodDesc* LastMethod;
+
+			FieldDesc* FirstField;
+			FieldDesc* LastField;
 		};
 
 		struct mdToken

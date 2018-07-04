@@ -4,6 +4,7 @@
 #include <utils.hpp>
 #include <loader/AssemblyLoader.hpp>
 #include <vm/ECall.hpp>
+#include <md/Signature.hpp>
 #include <cassert>
 
 using namespace clr::loader;
@@ -22,12 +23,17 @@ void AssemblyLoader::Load()
 	eeClasses_.resize(typeDefs);
 	auto methodDefs = mdImporter_.GetTables().GetRowsCount(mdt_MethodDef);
 	methodDescs_.resize(methodDefs);
+	auto fields = mdImporter_.GetTables().GetRowsCount(mdt_Field);
+	fieldDescs_.resize(fields);
 
 	for (size_t i = 0; i < typeDefs; i++)
 		LoadTypeDef(i);
 
 	for (size_t i = 0; i < methodDefs; i++)
 		LoadMethodDef(i);
+
+	for (size_t i = 0; i < fields; i++)
+		LoadField(i);
 }
 
 void AssemblyLoader::LoadTypeDef(size_t index)
@@ -43,9 +49,10 @@ void AssemblyLoader::LoadTypeDef(size_t index)
 	eeClass.TypeName = strings.GetString(typeDef.TypeName);
 	eeClass.TypeNamespace = strings.GetString(typeDef.TypeNamespace);
 
+	auto hasNextType = index + 1 < tables.GetRowsCount(mdt_TypeDef);
+
 	if (typeDef.MethodList)
 	{
-		auto hasNextType = index + 1 < tables.GetRowsCount(mdt_TypeDef);
 		eeClass.FirstMethod = methodDescs_.data() + typeDef.MethodList() - 1;
 		if (hasNextType)
 			eeClass.LastMethod = methodDescs_.data() + tables.GetTypeDef({ index + 2 }).MethodList() - 1;
@@ -54,6 +61,18 @@ void AssemblyLoader::LoadTypeDef(size_t index)
 
 		for (auto method = eeClass.FirstMethod; method != eeClass.LastMethod; method++)
 			method->Class = &eeClass;
+	}
+
+	if (typeDef.FieldList)
+	{
+		eeClass.FirstField = fieldDescs_.data() + typeDef.FieldList() - 1;
+		if (hasNextType)
+			eeClass.LastField = fieldDescs_.data() + tables.GetTypeDef({ index + 2 }).FieldList() - 1;
+		else
+			eeClass.LastField = fieldDescs_.data() + fieldDescs_.size();
+
+		for (auto field = eeClass.FirstField; field != eeClass.LastField; field++)
+			field->Class = &eeClass;
 	}
 }
 
@@ -115,6 +134,22 @@ void AssemblyLoader::LoadMethodDef(size_t index)
 			method.BodyEnd = method.BodyBegin + bodyLength;
 		}
 	}
+}
+
+void AssemblyLoader::LoadField(size_t index)
+{
+	auto& tables = mdImporter_.GetTables();
+	auto& strings = mdImporter_.GetStrings();
+
+	auto&& fieldDesc = fieldDescs_[index];
+
+	auto field = tables.GetField({ index + 1 });
+	fieldDesc.Name = strings.GetString(field.Name);
+
+	Signature sig(mdImporter_.GetBlobs().GetBlob(field.Signature));
+	auto sigParser = sig.CreateParser();
+	SignatureVisitor visitor;
+	visitor.Parse(sigParser);
 }
 
 const MethodDesc& AssemblyLoader::GetMethod(Ridx<mdt_MethodDef> method) const

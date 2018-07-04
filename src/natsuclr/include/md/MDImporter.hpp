@@ -70,7 +70,7 @@ namespace clr
 		public:
 			struct Row
 			{
-				ELEMENT_TYPE				Type;
+				CorElementType				Type;
 				uint8_t						Reserved0;
 				CodedRidx<crid_HasConstant>	Parent;
 				Sidx<stm_Blob>				Value;
@@ -314,20 +314,14 @@ namespace clr
 			const char* content_;
 		};
 
-		struct BlobData
-		{
-			const char* Data;
-			size_t Length;
-		};
-
 		class BlobStream
 		{
 		public:
 			void Initialize(uintptr_t content);
 
-			BlobData GetBlob(Sidx<stm_Blob> sidx) const noexcept;
+			BlobData GetBlob(Sidx<stm_Blob> sidx) const;
 		private:
-			const char* content_;
+			const uint8_t* content_;
 		};
 
 		class MDImporter
@@ -337,6 +331,7 @@ namespace clr
 
 			const MetadataStream& GetTables() const noexcept { return metaStream_; }
 			const StringsStream& GetStrings() const noexcept { return stringsStream_; }
+			const BlobStream& GetBlobs() const noexcept { return blobStream_; }
 		private:
 			std::shared_ptr<loader::AssemblyFile> assemblyFile_;
 

@@ -67,5 +67,5 @@ const ECall& clr::vm::FindECall(const MethodDesc& method)
 		}
 	}
 
-	THROW_IF_NOT(found, ECallNotFoundException);
+	THROW_ALWAYS(ECallNotFoundException);
 }

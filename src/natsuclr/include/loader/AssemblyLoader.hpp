@@ -23,11 +23,13 @@ namespace clr
 		private:
 			void LoadTypeDef(size_t index);
 			void LoadMethodDef(size_t index);
+			void LoadField(size_t index);
 		private:
 			std::shared_ptr<AssemblyFile> assemblyFile_;
 			metadata::MDImporter mdImporter_;
 			std::vector<vm::EEClass> eeClasses_;
 			std::vector<vm::MethodDesc> methodDescs_;
+			std::vector<vm::FieldDesc> fieldDescs_;
 		};
 	}
 }
