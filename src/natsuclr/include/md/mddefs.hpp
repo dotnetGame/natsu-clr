@@ -59,7 +59,23 @@ namespace clr
 
 		enum class FieldAttributes : uint16_t
 		{
-
+			CompilerControlled = 0x0,
+			Private = 0x1,
+			FamANDAssem = 0x2,
+			Assembly = 0x3,
+			Family = 0x4,
+			FamORAssem = 0x5,
+			Public = 0x6,
+			Static = 0x10,
+			InitOnly = 0x20,
+			Literal = 0x40,
+			NotSerialized = 0x80,
+			SpecialName = 0x200,
+			PInvokeImpl = 0x2000,
+			RTSpecialName = 0x400,
+			HasFieldMarshal = 0x1000,
+			HasDefault = 0x8000,
+			HasFieldRVA = 0x100
 		};
 
 		enum class ParamAttributes : uint16_t
@@ -79,6 +95,7 @@ namespace clr
 
 #ifdef MAKE_ENUM_CLASS_BITMASK_TYPE
 		MAKE_ENUM_CLASS_BITMASK_TYPE(MethodImplAttributes);
+		MAKE_ENUM_CLASS_BITMASK_TYPE(FieldAttributes);
 #endif
 
 		enum StreamType
@@ -199,8 +216,9 @@ namespace clr
 
 				uint32_t CodedValue;
 
-				size_t GetRidx() const noexcept { return CodedValue >> TagBits; }
-				operator bool() const noexcept { return GetRidx() != 0; }
+				template<MetadataTables Table>
+				Ridx<Table> As() const { return { CodedValue >> TagBits }; }
+				operator bool() const noexcept { return (CodedValue >> TagBits) != 0; }
 			protected:
 				static constexpr size_t TagMask = (1 << TagBits) - 1;
 

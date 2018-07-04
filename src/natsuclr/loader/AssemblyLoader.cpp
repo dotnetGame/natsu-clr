@@ -34,6 +34,9 @@ void AssemblyLoader::Load()
 
 	for (size_t i = 0; i < fields; i++)
 		LoadField(i);
+
+	for (size_t i = 0; i < typeDefs; i++)
+		LoadTypeInstanceField(i);
 }
 
 void AssemblyLoader::LoadTypeDef(size_t index)
@@ -136,24 +139,115 @@ void AssemblyLoader::LoadMethodDef(size_t index)
 	}
 }
 
+class FieldSigVisitor : public SignatureVisitor
+{
+public:
+	AssemblyLoader * AssemblyLoader;
+
+	size_t Size = 0;
+	bool GetSizeFromType;
+
+	virtual void VisitBeginType(CorElementType elementType) override
+	{
+		uint32_t size;
+		switch (elementType)
+		{
+		case ELEMENT_TYPE_BOOLEAN:
+		case ELEMENT_TYPE_CHAR:
+		case ELEMENT_TYPE_I1:
+		case ELEMENT_TYPE_U1:
+			size = 1;
+			break;
+		case ELEMENT_TYPE_U2:
+		case ELEMENT_TYPE_I2:
+			size = 2;
+			break;
+		case ELEMENT_TYPE_I4:
+		case ELEMENT_TYPE_U4:
+		case ELEMENT_TYPE_R4:
+			size = 4;
+			break;
+		case ELEMENT_TYPE_I8:
+		case ELEMENT_TYPE_U8:
+		case ELEMENT_TYPE_R8:
+			size = 8;
+			break;
+		case ELEMENT_TYPE_I:
+		case ELEMENT_TYPE_U:
+		case ELEMENT_TYPE_STRING:
+		case ELEMENT_TYPE_OBJECT:
+		case ELEMENT_TYPE_CLASS:
+			size = sizeof(uintptr_t);
+			break;
+		case ELEMENT_TYPE_VALUETYPE:
+			GetSizeFromType = true;
+			break;
+		default:
+			THROW_ALWAYS(NotSupportedException);
+			break;
+		}
+
+		Size = size;
+	}
+
+	virtual void VisitTypeDefOrRefEncoded(CodedRidx<crid_TypeDefOrRef> cridx) override
+	{
+		assert(cridx.GetType() == mdt_TypeDef);
+		auto classId = cridx.As<mdt_TypeDef>();
+		auto& eeClass = AssemblyLoader->GetClasses()[classId];
+		if (eeClass.LoadLevel < clsLoad_SizeGotten)
+			AssemblyLoader->LoadTypeInstanceField(classId() - 1);
+
+		Size = eeClass.Size;
+	}
+};
+
 void AssemblyLoader::LoadField(size_t index)
 {
 	auto& tables = mdImporter_.GetTables();
 	auto& strings = mdImporter_.GetStrings();
 
-	auto&& fieldDesc = fieldDescs_[index];
-
+	auto& fieldDesc = fieldDescs_[index];
 	auto field = tables.GetField({ index + 1 });
+	fieldDesc.Ridx = { index + 1 };
 	fieldDesc.Name = strings.GetString(field.Name);
+	fieldDesc.Flags = field.Flags;
+}
 
-	Signature sig(mdImporter_.GetBlobs().GetBlob(field.Signature));
+static void CalcFieldSize(AssemblyLoader* assemblyLoader, FieldDesc& fieldDesc, const MetadataStream& tables, MDImporter& mdImporter)
+{
+	auto field = tables.GetField(fieldDesc.Ridx);
+
+	Signature sig(mdImporter.GetBlobs().GetBlob(field.Signature));
 	auto sigParser = sig.CreateParser();
-	SignatureVisitor visitor;
+	FieldSigVisitor visitor;
+	visitor.AssemblyLoader = assemblyLoader;
 	visitor.Parse(sigParser);
+	assert(visitor.Size);
+	fieldDesc.Size = visitor.Size;
+}
+
+void AssemblyLoader::LoadTypeInstanceField(size_t index)
+{
+	auto& tables = mdImporter_.GetTables();
+	auto& strings = mdImporter_.GetStrings();
+	auto& eeClass = eeClasses_[index];
+
+	for (auto fieldDesc = eeClass.FirstField; fieldDesc != eeClass.LastField; ++fieldDesc)
+		if ((fieldDesc->Flags & FieldAttributes::Static) != FieldAttributes::Static)
+			CalcFieldSize(this, *fieldDesc, tables, mdImporter_);
+
+	eeClass.LoadLevel = clsLoad_SizeGotten;
 }
 
 const MethodDesc& AssemblyLoader::GetMethod(Ridx<mdt_MethodDef> method) const
 {
 	assert(method);
 	return methodDescs_[method() - 1];
+}
+
+const EEClass& AssemblyLoader::GetClass(Ridx<mdt_TypeDef> type) const
+{
+	assert(type);
+	return eeClasses_[type() - 1];
 }

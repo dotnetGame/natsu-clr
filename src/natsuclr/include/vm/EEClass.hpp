@@ -13,6 +13,13 @@ namespace clr
 
 	namespace vm
 	{
+		enum ClassLoadLevel
+		{
+			clsLoad_NotLoaded,
+			clsLoad_SizeGotten,
+			clsLoad_Layout
+		};
+
 		struct EEClass;
 		struct MethodDesc
 		{
@@ -41,8 +48,13 @@ namespace clr
 		struct FieldDesc
 		{
 			EEClass* Class;
+			metadata::Ridx<metadata::mdt_Field> Ridx;
+			metadata::FieldAttributes Flags;
 
 			const char* Name;
+
+			uint32_t Offset;
+			uint32_t Size;
 		};
 
 		struct EEClass
@@ -57,6 +69,10 @@ namespace clr
 
 			FieldDesc* FirstField;
 			FieldDesc* LastField;
+
+			uint32_t Size;
+
+			ClassLoadLevel LoadLevel;
 		};
 
 		struct mdToken
