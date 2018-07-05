@@ -3,6 +3,7 @@
 //
 #pragma once
 #include "../md/mddefs.hpp"
+#include <memory>
 
 namespace clr
 {
@@ -16,8 +17,8 @@ namespace clr
 		enum ClassLoadLevel
 		{
 			clsLoad_NotLoaded,
-			clsLoad_SizeGotten,
-			clsLoad_Layout
+			clsLoad_InstanceFields,
+			clsLoad_StaticFields
 		};
 
 		struct EEClass;
@@ -70,7 +71,10 @@ namespace clr
 			FieldDesc* FirstField;
 			FieldDesc* LastField;
 
-			uint32_t Size;
+			uint32_t InstanceSize;
+			uint32_t StaticSize;
+
+			std::unique_ptr<uint8_t[]> StaticFields;
 
 			ClassLoadLevel LoadLevel;
 		};

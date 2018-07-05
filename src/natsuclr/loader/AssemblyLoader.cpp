@@ -6,6 +6,7 @@
 #include <vm/ECall.hpp>
 #include <md/Signature.hpp>
 #include <cassert>
+#include <map>
 
 using namespace clr::loader;
 using namespace clr::metadata;
@@ -37,6 +38,8 @@ void AssemblyLoader::Load()
 
 	for (size_t i = 0; i < typeDefs; i++)
 		LoadTypeInstanceField(i);
+	for (size_t i = 0; i < typeDefs; i++)
+		LoadTypeStaticField(i);
 }
 
 void AssemblyLoader::LoadTypeDef(size_t index)
@@ -181,6 +184,7 @@ public:
 			break;
 		case ELEMENT_TYPE_VALUETYPE:
 			GetSizeFromType = true;
+			size = 0;
 			break;
 		default:
 			THROW_ALWAYS(NotSupportedException);
@@ -195,10 +199,10 @@ public:
 		assert(cridx.GetType() == mdt_TypeDef);
 		auto classId = cridx.As<mdt_TypeDef>();
 		auto& eeClass = AssemblyLoader->GetClasses()[classId];
-		if (eeClass.LoadLevel < clsLoad_SizeGotten)
+		if (eeClass.LoadLevel < clsLoad_InstanceFields)
 			AssemblyLoader->LoadTypeInstanceField(classId() - 1);
 
-		Size = eeClass.Size;
+		Size = eeClass.InstanceSize;
 	}
 };
 
@@ -223,8 +227,26 @@ static void CalcFieldSize(AssemblyLoader* assemblyLoader, FieldDesc& fieldDesc, 
 	FieldSigVisitor visitor;
 	visitor.AssemblyLoader = assemblyLoader;
 	visitor.Parse(sigParser);
-	assert(visitor.Size);
 	fieldDesc.Size = visitor.Size;
+}
+
+static uint32_t CalcFieldOffset(const std::multimap<uint32_t, FieldDesc*>& fieldSize)
+{
+	uint32_t offset = 0;
+	uint32_t lastSize = 0;
+	for (auto fieldPair = fieldSize.begin(); fieldPair != fieldSize.end(); ++fieldPair)
+	{
+		if (lastSize != fieldPair->first)
+		{
+			lastSize = fieldPair->first;
+			offset = align(offset, lastSize);
+		}
+
+		fieldPair->second->Offset = offset;
+		offset += lastSize;
+	}
+
+	return offset;
 }
 
 void AssemblyLoader::LoadTypeInstanceField(size_t index)
@@ -237,7 +259,48 @@ void AssemblyLoader::LoadTypeInstanceField(size_t index)
 		if ((fieldDesc->Flags & FieldAttributes::Static) != FieldAttributes::Static)
 			CalcFieldSize(this, *fieldDesc, tables, mdImporter_);
 
-	eeClass.LoadLevel = clsLoad_SizeGotten;
+	for (auto fieldDesc = eeClass.FirstField; fieldDesc != eeClass.LastField; ++fieldDesc)
+		if ((fieldDesc->Flags & FieldAttributes::Static) == FieldAttributes::Static)
+			CalcFieldSize(this, *fieldDesc, tables, mdImporter_);
+
+	std::multimap<uint32_t, FieldDesc*> fieldSize;
+
+	// Instance field
+	{
+		for (auto fieldDesc = eeClass.FirstField; fieldDesc != eeClass.LastField; ++fieldDesc)
+			if ((fieldDesc->Flags & FieldAttributes::Static) != FieldAttributes::Static)
+				fieldSize.emplace(fieldDesc->Size, fieldDesc);
+
+		eeClass.InstanceSize = CalcFieldOffset(fieldSize);
+	}
+
+	eeClass.LoadLevel = clsLoad_InstanceFields;
+}
+
+void AssemblyLoader::LoadTypeStaticField(size_t index)
+{
+	auto& tables = mdImporter_.GetTables();
+	auto& strings = mdImporter_.GetStrings();
+	auto& eeClass = eeClasses_[index];
+
+	std::multimap<uint32_t, FieldDesc*> fieldSize;
+
+	// Static & not literal field
+	{
+		for (auto fieldDesc = eeClass.FirstField; fieldDesc != eeClass.LastField; ++fieldDesc)
+		{
+			auto flag = fieldDesc->Flags;
+			if ((flag & FieldAttributes::Static) == FieldAttributes::Static &&
+				(flag & FieldAttributes::Literal) != FieldAttributes::Literal)
+				fieldSize.emplace(fieldDesc->Size, fieldDesc);
+		}
+
+		eeClass.StaticSize = CalcFieldOffset(fieldSize);
+		if (eeClass.StaticSize)
+			eeClass.StaticFields = std::make_unique<uint8_t[]>(eeClass.StaticSize);
+	}
+
+	eeClass.LoadLevel = clsLoad_StaticFields;
 }
 
 const MethodDesc& AssemblyLoader::GetMethod(Ridx<mdt_MethodDef> method) const

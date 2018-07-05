@@ -7,7 +7,7 @@
 using namespace clr;
 using namespace clr::corlib;
 
-void Console::SayHello()
+void Console::SayHello(int value)
 {
-	puts("Call: " __FUNCTION__);
+	printf("Say Hello %d\n", value);
 }

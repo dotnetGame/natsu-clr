@@ -10,7 +10,7 @@ namespace clr
 		class Console
 		{
 		public:
-			static void SayHello();
+			static void SayHello(int value);
 		};
 	}
 }

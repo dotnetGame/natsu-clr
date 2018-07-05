@@ -40,6 +40,7 @@
     <Compile Include="AttributeUsageAttribute.cs" />
     <Compile Include="Boolean.cs" />
     <Compile Include="Console.cs" />
+    <Compile Include="Double.cs" />
     <Compile Include="Enum.cs" />
     <Compile Include="FlagsAttribute.cs" />
     <Compile Include="Int16.cs" />
@@ -47,6 +48,7 @@
     <Compile Include="Object.cs" />
     <Compile Include="Runtime\CompilerServices\MethodImplAttribute.cs" />
     <Compile Include="Runtime\CompilerServices\MethodImplOptions.cs" />
+    <Compile Include="Single.cs" />
     <Compile Include="UInt32.cs" />
     <Compile Include="ValueType.cs" />
     <Compile Include="Void.cs" />

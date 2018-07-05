@@ -6,11 +6,11 @@ namespace System
     public static class Console
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
-        public extern static void SayHello();
+        public extern static void SayHello(int value);
 
         public static void Test()
         {
-            SayHello();
+            SayHello(100);
         }
     }
 }
