@@ -30,6 +30,9 @@ namespace clr
 			const char* Name;
 			bool IsECall;
 
+			uint32_t ArgsSize;
+			uint32_t RetSize;
+
 			union
 			{
 				struct

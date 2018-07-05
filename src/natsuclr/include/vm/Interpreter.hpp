@@ -24,6 +24,7 @@ namespace clr
 			void ExecuteMethod(const MethodDesc& method);
 		private:
 			void ExecuteOp(OpInfo& op, OpArgsVal& args);
+			void ExecuteILMethod(const MethodDesc& method);
 
 			template<opcode_t OpCode>
 			void ExecuteOp(OpInfo& op, OpArgsVal& args);

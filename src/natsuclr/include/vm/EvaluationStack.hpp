@@ -4,11 +4,22 @@
 #pragma once
 #include <vector>
 #include <type_traits>
+#include <stack>
+#include <algorithm>
+#include "EEClass.hpp"
 
 namespace clr
 {
 	namespace vm
 	{
+		struct FrameMarker
+		{
+			const MethodDesc* Method;
+
+			size_t Offset;
+			size_t RetSize;
+		};
+
 		class EvaluationStack
 		{
 		public:
@@ -32,10 +43,18 @@ namespace clr
 				return stack_.at(offset);
 			}
 
-			void Pop(size_t count)
+			void PushFrame(const MethodDesc* method, size_t argsSize, size_t retSize)
 			{
-				auto offset = stack_.size() - count;
-				stack_.resize(offset);
+				auto offset = stack_.size() - argsSize;
+				stack_.resize(offset + std::max(argsSize, retSize));
+				frames_.push({ method, offset, retSize });
+			}
+
+			void PopFrame()
+			{
+				auto& frame = frames_.top();
+				stack_.resize(frame.Offset + frame.RetSize);
+				frames_.pop();
 			}
 		private:
 			template<size_t N>
@@ -63,6 +82,7 @@ namespace clr
 			}
 		private:
 			std::vector<uintptr_t> stack_;
+			std::stack<FrameMarker> frames_;
 		};
 	}
 }

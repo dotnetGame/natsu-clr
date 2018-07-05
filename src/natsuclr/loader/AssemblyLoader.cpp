@@ -22,17 +22,16 @@ void AssemblyLoader::Load()
 {
 	auto typeDefs = mdImporter_.GetTables().GetRowsCount(mdt_TypeDef);
 	eeClasses_.resize(typeDefs);
-	auto methodDefs = mdImporter_.GetTables().GetRowsCount(mdt_MethodDef);
-	methodDescs_.resize(methodDefs);
 	auto fields = mdImporter_.GetTables().GetRowsCount(mdt_Field);
 	fieldDescs_.resize(fields);
+	auto methodDefs = mdImporter_.GetTables().GetRowsCount(mdt_MethodDef);
+	methodDescs_.resize(methodDefs);
 
+	// Type
 	for (size_t i = 0; i < typeDefs; i++)
 		LoadTypeDef(i);
 
-	for (size_t i = 0; i < methodDefs; i++)
-		LoadMethodDef(i);
-
+	// Field
 	for (size_t i = 0; i < fields; i++)
 		LoadField(i);
 
@@ -40,6 +39,10 @@ void AssemblyLoader::Load()
 		LoadTypeInstanceField(i);
 	for (size_t i = 0; i < typeDefs; i++)
 		LoadTypeStaticField(i);
+
+	// Method
+	for (size_t i = 0; i < methodDefs; i++)
+		LoadMethodDef(i);
 }
 
 void AssemblyLoader::LoadTypeDef(size_t index)
@@ -81,6 +84,88 @@ void AssemblyLoader::LoadTypeDef(size_t index)
 			field->Class = &eeClass;
 	}
 }
+
+class MethodSigVisitor : public SignatureVisitor
+{
+public:
+	AssemblyLoader * AssemblyLoader;
+
+	size_t RetSize = 0, ArgsSize = 0;
+	bool GetSizeFromType;
+	size_t* Size;
+
+	virtual void VisitBeginRetType() override
+	{
+		Size = &RetSize;
+		GetSizeFromType = false;
+	}
+
+	virtual void VisitBeginParam() override
+	{
+		Size = &ArgsSize;
+	}
+
+	virtual void VisitBeginType(CorElementType elementType) override
+	{
+		uint32_t size;
+		switch (elementType)
+		{
+		case ELEMENT_TYPE_VOID:
+			size = 0;
+			break;
+		case ELEMENT_TYPE_BOOLEAN:
+		case ELEMENT_TYPE_CHAR:
+		case ELEMENT_TYPE_I1:
+		case ELEMENT_TYPE_U1:
+			size = 1;
+			break;
+		case ELEMENT_TYPE_U2:
+		case ELEMENT_TYPE_I2:
+			size = 2;
+			break;
+		case ELEMENT_TYPE_I4:
+		case ELEMENT_TYPE_U4:
+		case ELEMENT_TYPE_R4:
+			size = 4;
+			break;
+		case ELEMENT_TYPE_I8:
+		case ELEMENT_TYPE_U8:
+		case ELEMENT_TYPE_R8:
+			size = 8;
+			break;
+		case ELEMENT_TYPE_I:
+		case ELEMENT_TYPE_U:
+		case ELEMENT_TYPE_STRING:
+		case ELEMENT_TYPE_OBJECT:
+		case ELEMENT_TYPE_CLASS:
+			size = sizeof(uintptr_t);
+			break;
+		case ELEMENT_TYPE_VALUETYPE:
+			GetSizeFromType = true;
+			size = 0;
+			break;
+		default:
+			THROW_ALWAYS(NotSupportedException);
+			break;
+		}
+
+		*Size += align(size, sizeof(uintptr_t)) / sizeof(uintptr_t);
+	}
+
+	virtual void VisitTypeDefOrRefEncoded(CodedRidx<crid_TypeDefOrRef> cridx) override
+	{
+		if (GetSizeFromType)
+		{
+			assert(cridx.GetType() == mdt_TypeDef);
+			auto classId = cridx.As<mdt_TypeDef>();
+			auto& eeClass = AssemblyLoader->GetClasses()[classId];
+			assert(eeClass.LoadLevel >= clsLoad_InstanceFields);
+
+			*Size += align(eeClass.InstanceSize, sizeof(uintptr_t)) / sizeof(uintptr_t);
+			GetSizeFromType = false;
+		}
+	}
+};
 
 void AssemblyLoader::LoadMethodDef(size_t index)
 {
@@ -140,6 +225,15 @@ void AssemblyLoader::LoadMethodDef(size_t index)
 			method.BodyEnd = method.BodyBegin + bodyLength;
 		}
 	}
+
+	Signature sig(mdImporter_.GetBlobs().GetBlob(methodDef.Signature));
+	auto methodParser = sig.CreateParser();
+	MethodSigVisitor visitor;
+	visitor.AssemblyLoader = this;
+	visitor.Parse(methodParser);
+
+	method.ArgsSize = visitor.ArgsSize;
+	method.RetSize = visitor.RetSize;
 }
 
 class FieldSigVisitor : public SignatureVisitor
@@ -196,13 +290,17 @@ public:
 
 	virtual void VisitTypeDefOrRefEncoded(CodedRidx<crid_TypeDefOrRef> cridx) override
 	{
-		assert(cridx.GetType() == mdt_TypeDef);
-		auto classId = cridx.As<mdt_TypeDef>();
-		auto& eeClass = AssemblyLoader->GetClasses()[classId];
-		if (eeClass.LoadLevel < clsLoad_InstanceFields)
-			AssemblyLoader->LoadTypeInstanceField(classId() - 1);
+		if (GetSizeFromType)
+		{
+			assert(cridx.GetType() == mdt_TypeDef);
+			auto classId = cridx.As<mdt_TypeDef>();
+			auto& eeClass = AssemblyLoader->GetClasses()[classId];
+			if (eeClass.LoadLevel < clsLoad_InstanceFields)
+				AssemblyLoader->LoadTypeInstanceField(classId() - 1);
 
-		Size = eeClass.InstanceSize;
+			Size = eeClass.InstanceSize;
+			GetSizeFromType = true;
+		}
 	}
 };
 

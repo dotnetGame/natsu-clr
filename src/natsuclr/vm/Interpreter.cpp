@@ -16,28 +16,33 @@ Interpreter::Interpreter(loader::AssemblyLoader& assemblyLoader)
 
 void Interpreter::ExecuteMethod(const MethodDesc& method)
 {
+	evalStack_.PushFrame(&method, method.ArgsSize, method.RetSize);
+
 	if (method.IsECall)
-	{
 		method.ECall.Call(method.ECall.EntryPoint, evalStack_);
-	}
 	else
+		ExecuteILMethod(method);
+
+	evalStack_.PopFrame();
+}
+
+void Interpreter::ExecuteILMethod(const MethodDesc& method)
+{
+	auto IP = method.BodyBegin;
+	while (true)
 	{
-		auto IP = method.BodyBegin;
-		while (true)
+		OpInfo op(static_cast<OPCODE>(*IP));
+		OpArgsVal opArgs;
+		IP = op.fetch(IP, &opArgs);
+
+		ExecuteOp(op, opArgs);
+
+		switch (op.getFlow())
 		{
-			OpInfo op(static_cast<OPCODE>(*IP));
-			OpArgsVal opArgs;
-			IP = op.fetch(IP, &opArgs);
-
-			ExecuteOp(op, opArgs);
-
-			switch (op.getFlow())
-			{
-			case FLOW_RETURN:
-				return;
-			default:
-				break;
-			}
+		case FLOW_RETURN:
+			return;
+		default:
+			break;
 		}
 	}
 }

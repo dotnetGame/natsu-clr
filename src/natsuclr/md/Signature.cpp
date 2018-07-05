@@ -125,6 +125,14 @@ Number ::= 29-bit-encoded-integer
 #define SIG_LOCAL_SIG 0x7       // used for the .locals directive
 #define SIG_PROPERTY 0x8        // used to encode a property
 
+#define SIG_GENERIC 0x10 // used to indicate that the method has one or more generic parameters.
+#define SIG_HASTHIS 0x20  // used to encode the keyword instance in the calling convention
+#define SIG_EXPLICITTHIS  0x40 // used to encode the keyword explicit in the calling convention
+
+#define SIG_INDEX_TYPE_TYPEDEF 0    // ParseTypeDefOrRefEncoded returns this as the out index type for typedefs
+#define SIG_INDEX_TYPE_TYPEREF 1    // ParseTypeDefOrRefEncoded returns this as the out index type for typerefs
+#define SIG_INDEX_TYPE_TYPESPEC 2  // ParseTypeDefOrRefEncoded returns this as the out index type for typespecs
+
 void SignatureVisitor::Parse(SigParser& parser)
 {
 	auto sigType = parser.GetByte();
@@ -155,7 +163,21 @@ void SignatureVisitor::Parse(SigParser& parser)
 
 void SignatureVisitor::ParseMethod(SigParser& parser, uint8_t flag)
 {
-	assert(!"Not impl");
+	VisitBeginMethod(flag);
+
+	assert((flag & SIG_GENERIC) == 0);
+	auto paramCount = parser.GetNumber();
+	VisitParamCount(paramCount);
+
+	ParseRetType(parser);
+	for (size_t i = 0; i < paramCount; i++)
+	{
+		auto type = parser.PeekByte();
+		assert(type != ELEMENT_TYPE_SENTINEL);
+		ParseParam(parser);
+	}
+
+	VisitEndMethod();
 }
 
 void SignatureVisitor::ParseField(SigParser& parser, uint8_t flag)
@@ -189,6 +211,41 @@ void SignatureVisitor::VisitEndType()
 }
 
 void SignatureVisitor::VisitTypeDefOrRefEncoded(CodedRidx<crid_TypeDefOrRef> cridx)
+{
+
+}
+
+void SignatureVisitor::VisitBeginMethod(uint8_t flag)
+{
+
+}
+
+void SignatureVisitor::VisitEndMethod()
+{
+
+}
+
+void SignatureVisitor::VisitParamCount(size_t count)
+{
+
+}
+
+void SignatureVisitor::VisitBeginRetType()
+{
+
+}
+
+void SignatureVisitor::VisitEndRetType()
+{
+
+}
+
+void SignatureVisitor::VisitBeginParam()
+{
+
+}
+
+void SignatureVisitor::VisitEndParam()
 {
 
 }
@@ -245,10 +302,15 @@ void SignatureVisitor::ParseType(SigParser& parser)
 	case ELEMENT_TYPE_U:
 	case ELEMENT_TYPE_STRING:
 	case ELEMENT_TYPE_OBJECT:
+	case ELEMENT_TYPE_TYPEDBYREF:
+	case ELEMENT_TYPE_VOID:
 		break;
 	case ELEMENT_TYPE_CLASS:
 	case ELEMENT_TYPE_VALUETYPE:
 		ParseTypeDefOrRefEncoded(parser);
+		break;
+	case ELEMENT_TYPE_BYREF:
+		ParseType(parser);
 		break;
 	case ELEMENT_TYPE_PTR:
 	case ELEMENT_TYPE_ARRAY:
@@ -278,4 +340,27 @@ void SignatureVisitor::ParseCustomMod(SigParser& parser)
 void SignatureVisitor::ParseTypeDefOrRefEncoded(SigParser& parser)
 {
 	VisitTypeDefOrRefEncoded({ parser.GetNumber() });
+}
+
+void SignatureVisitor::ParseRetType(SigParser& parser)
+{
+	// RetType ::= CustomMod* ( VOID | TYPEDBYREF | [BYREF] Type )
+	VisitBeginRetType();
+
+	ParseOptionalCustomMods(parser);
+
+	ParseType(parser);
+
+	VisitEndRetType();
+}
+
+void SignatureVisitor::ParseParam(SigParser& parser)
+{
+	VisitBeginParam();
+
+	ParseOptionalCustomMods(parser);
+
+	ParseType(parser);
+
+	VisitEndParam();
 }

@@ -49,6 +49,13 @@ namespace clr
 			virtual void VisitTypeDefOrRefEncoded(CodedRidx<crid_TypeDefOrRef> cridx);
 			virtual void VisitBeginType(CorElementType elementType);
 			virtual void VisitEndType();
+			virtual void VisitBeginMethod(uint8_t flag);
+			virtual void VisitEndMethod();
+			virtual void VisitParamCount(size_t number);
+			virtual void VisitBeginRetType();
+			virtual void VisitEndRetType();
+			virtual void VisitBeginParam();
+			virtual void VisitEndParam();
 		private:
 			void ParseMethod(SigParser& parser, uint8_t flag);
 			void ParseField(SigParser& parser, uint8_t flag);
@@ -59,6 +66,8 @@ namespace clr
 			void ParseType(SigParser& parser);
 			void ParseCustomMod(SigParser& parser);
 			void ParseTypeDefOrRefEncoded(SigParser& parser);
+			void ParseRetType(SigParser& parser);
+			void ParseParam(SigParser& parser);
 		};
 	}
 }

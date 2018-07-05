@@ -55,8 +55,6 @@ private:
 	{
 		auto func = reinterpret_cast<TRet(*)(TArgs...)>(entryPoint);
 		func(ArgAt<ArgIdx>(stack)...);
-
-		stack.Pop(ArgsSize);
 	}
 };
 
