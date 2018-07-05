@@ -98,7 +98,7 @@ void AssemblyLoader::LoadMethodDef(size_t index)
 
 		auto& ecall = FindECall(method);
 		method.ECall.EntryPoint = ecall.EntryPoint;
-		method.ECall.ParamsCount = ecall.ParamsCount;
+		method.ECall.Call = ecall.Call;
 	}
 	else
 	{

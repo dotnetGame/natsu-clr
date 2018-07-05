@@ -5,7 +5,7 @@
 #include "../md/mddefs.hpp"
 #include "../loader/AssemblyLoader.hpp"
 #include "opinfo.h"
-#include <stack>
+#include "EvaluationStack.hpp"
 
 namespace clr
 {
@@ -28,7 +28,7 @@ namespace clr
 			template<opcode_t OpCode>
 			void ExecuteOp(OpInfo& op, OpArgsVal& args);
 		private:
-			std::stack<uintptr_t> evalStack_;
+			EvaluationStack evalStack_;
 			loader::AssemblyLoader& assemblyLoader_;
 		};
 	}

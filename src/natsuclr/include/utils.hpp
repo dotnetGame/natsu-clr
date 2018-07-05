@@ -41,7 +41,7 @@
 
 
 template<class T>
-T align(T value, size_t base)
+constexpr T align(T value, size_t base)
 {
 	auto r = value % base;
 	return T(r ? value + (base - r) : value);

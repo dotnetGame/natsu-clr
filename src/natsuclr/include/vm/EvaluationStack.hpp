@@ -2,7 +2,8 @@
 // Natsu CLR VM
 //
 #pragma once
-#include <stack>
+#include <vector>
+#include <type_traits>
 
 namespace clr
 {
@@ -11,55 +12,57 @@ namespace clr
 		class EvaluationStack
 		{
 		public:
-			template<class T>
+			template<class T, class = std::enable_if_t<std::is_trivially_copyable<T>::value>>
 			void Push(T value)
 			{
 				PushImp<sizeof(value)>(reinterpret_cast<const uint8_t*>(&value));
 			}
 
-			template<class T>
+			template<class T, class = std::enable_if_t<std::is_trivially_copyable<T>::value>>
 			T Pop()
 			{
 				T value;
+				PopImp<sizeof(value)>(reinterpret_cast<uint8_t*>(&value));
+				return value;
+			}
 
-				auto rest = sizeof(value) % sizeof(uintptr_t);
-				auto ptr = reinterpret_cast<const uint8_t*>(&value);
-				if (rest)
-				{
-					auto last = stack_.pop();
-					uintptr_t mask = 0xFF << rest * 8;
-					for (size_t i = 0; i < rest; i++)
-					{
-						*--ptr = (last & mask) >> rest * 8;
-						last << 8;
-					}
-				}
+			uintptr_t& GetFromTop(size_t offset)
+			{
+				offset = stack_.size() - offset;
+				return stack_.at(offset);
+			}
+
+			void Pop(size_t count)
+			{
+				auto offset = stack_.size() - count;
+				stack_.resize(offset);
 			}
 		private:
 			template<size_t N>
 			void PushImp(const uint8_t* ptr)
 			{
-				auto icount = N / sizeof(uintptr_t);
-				for (size_t i = 0; i < icount; i++)
-				{
-					stack_.push(*reinterpret_cast<const uintptr_t*>(ptr));
-					ptr += sizeof(icount);
-				}
-
-				auto rest = sizeof(value) % sizeof(uintptr_t);
-				if (rest)
-				{
-					uintptr_t last = 0;
-					for (size_t i = 0; i < rest; i++)
-						last = (last << 8) | *ptr++;
-					stack_.push(rest);
-				}
+				auto offset = stack_.size();
+				auto size = align(N, sizeof(uintptr_t)) / sizeof(uintptr_t);
+				stack_.resize(offset + size);
+				memcpy(stack_.data() + offset, ptr, N);
 			}
 
 			template<size_t N>
-			void PopImp(uint8_t* ptr,)
+			void PopImp(uint8_t* ptr)
+			{
+				auto size = align(N, sizeof(uintptr_t)) / sizeof(uintptr_t);
+				auto offset = stack_.size() - size;
+				memcpy(ptr, stack_.data() + offset, N);
+				stack_.resize(offset);
+			}
+
+			constexpr size_t align(size_t value, size_t base)
+			{
+				auto r = value % base;
+				return r ? value + (base - r) : value;
+			}
 		private:
-			std::stack<uintptr_t> stack_;
+			std::vector<uintptr_t> stack_;
 		};
 	}
 }

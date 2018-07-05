@@ -21,6 +21,7 @@ namespace clr
 			clsLoad_StaticFields
 		};
 
+		class EvaluationStack;
 		struct EEClass;
 		struct MethodDesc
 		{
@@ -41,7 +42,7 @@ namespace clr
 				struct
 				{
 					uintptr_t EntryPoint;
-					size_t ParamsCount;
+					void(*Call)(uintptr_t entryPoint, EvaluationStack& stack);
 				} ECall;
 			};
 		};

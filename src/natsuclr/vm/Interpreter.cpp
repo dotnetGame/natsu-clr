@@ -32,9 +32,9 @@ struct ECallThunkImpl<std::index_sequence<Idx...>>
 template<size_t ParamsCount>
 struct ECallThunk : ECallThunkImpl<std::make_index_sequence<ParamsCount>>
 {
-	std::stack<uintptr_t>& EvalStack;
+	EvaluationStack& EvalStack;
 
-	ECallThunk(std::stack<uintptr_t>& evalStack)
+	ECallThunk(EvaluationStack& evalStack)
 		:EvalStack(evalStack)
 	{
 
@@ -47,9 +47,7 @@ struct ECallThunk : ECallThunkImpl<std::make_index_sequence<ParamsCount>>
 private:
 	uintptr_t PopImpl()
 	{
-		auto value = EvalStack.top();
-		EvalStack.pop();
-		return value;
+		return EvalStack.Pop<uintptr_t>();
 	}
 
 	template<size_t Idx>
@@ -62,7 +60,8 @@ private:
 	uintptr_t Invoke(uintptr_t entryPoint, std::index_sequence<Idx...>)
 	{
 		auto func = reinterpret_cast<Callable>(entryPoint);
-		return func(Pop<Idx>()...);
+		auto params = std::make_tuple(Pop<Idx>()...);
+		return std::apply(func, params);
 	}
 };
 
@@ -73,17 +72,7 @@ void Interpreter::ExecuteMethod(const MethodDesc& method)
 {
 	if (method.IsECall)
 	{
-		switch (method.ECall.ParamsCount)
-		{
-			DEFINE_ECALL_THUNK(0);
-			DEFINE_ECALL_THUNK(1);
-			DEFINE_ECALL_THUNK(2);
-			DEFINE_ECALL_THUNK(3);
-			DEFINE_ECALL_THUNK(4);
-			DEFINE_ECALL_THUNK(5);
-		default:
-			THROW_ALWAYS(ExecutionException, "ECall params count exceeded.");
-		}
+		method.ECall.Call(method.ECall.EntryPoint, evalStack_);
 	}
 	else
 	{
@@ -139,13 +128,13 @@ void Interpreter::ExecuteOp<CEE_CALL>(OpInfo& op, OpArgsVal& args)
 template<>
 void Interpreter::ExecuteOp<CEE_LDC_I4_S>(OpInfo& op, OpArgsVal& args)
 {
-	evalStack_.push(args.i);
+	evalStack_.Push(args.i);
 }
 
 template<>
 void Interpreter::ExecuteOp<CEE_LDC_R4>(OpInfo& op, OpArgsVal& args)
 {
-	evalStack_.push(args.r);
+	evalStack_.Push(static_cast<float>(args.r));
 }
 
 #define EXECUTE_OP(opCode) case opCode: \

@@ -14,11 +14,14 @@ namespace clr
 			using exception::exception;
 		};
 
+		class EvaluationStack;
+
 		struct ECall
 		{
 			const char* MethodName;
-			size_t ParamsCount;
+
 			uintptr_t EntryPoint;
+			void(*Call)(uintptr_t entryPoint, EvaluationStack& stack);
 		};
 
 		struct ECallClass
