@@ -14,60 +14,6 @@ Interpreter::Interpreter(loader::AssemblyLoader& assemblyLoader)
 
 }
 
-template<typename T, size_t N>
-struct ECallParam
-{
-	using Type = T;
-};
-
-template<typename Seq>
-struct ECallThunkImpl;
-
-template<size_t ...Idx>
-struct ECallThunkImpl<std::index_sequence<Idx...>>
-{
-	typedef uintptr_t(*Callable)(typename ECallParam<uintptr_t, Idx>::Type...);
-};
-
-template<size_t ParamsCount>
-struct ECallThunk : ECallThunkImpl<std::make_index_sequence<ParamsCount>>
-{
-	EvaluationStack& EvalStack;
-
-	ECallThunk(EvaluationStack& evalStack)
-		:EvalStack(evalStack)
-	{
-
-	}
-
-	uintptr_t operator()(uintptr_t entryPoint)
-	{
-		return Invoke(entryPoint, std::make_index_sequence<ParamsCount>());
-	}
-private:
-	uintptr_t PopImpl()
-	{
-		return EvalStack.Pop<uintptr_t>();
-	}
-
-	template<size_t Idx>
-	uintptr_t Pop()
-	{
-		return PopImpl();
-	}
-
-	template<size_t ...Idx>
-	uintptr_t Invoke(uintptr_t entryPoint, std::index_sequence<Idx...>)
-	{
-		auto func = reinterpret_cast<Callable>(entryPoint);
-		auto params = std::make_tuple(Pop<Idx>()...);
-		return std::apply(func, params);
-	}
-};
-
-#define DEFINE_ECALL_THUNK(n) \
-case n: { ECallThunk<n> thunk(evalStack_); thunk(method.ECall.EntryPoint); break; }
-
 void Interpreter::ExecuteMethod(const MethodDesc& method)
 {
 	if (method.IsECall)
