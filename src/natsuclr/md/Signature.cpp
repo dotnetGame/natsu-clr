@@ -250,9 +250,44 @@ void SignatureVisitor::VisitEndParam()
 
 }
 
+void SignatureVisitor::VisitBeginLocalVars(uint8_t flag)
+{
+
+}
+
+void SignatureVisitor::VisitEndLocalVars()
+{
+
+}
+
+void SignatureVisitor::VisitLocalVarCount(size_t number)
+{
+
+}
+
+void SignatureVisitor::VisitBeginLocalVar()
+{
+
+}
+
+void SignatureVisitor::VisitEndLocalVar()
+{
+
+}
+
 void SignatureVisitor::ParseLocals(SigParser& parser, uint8_t flag)
 {
-	assert(!"Not impl");
+	VisitBeginLocalVars(flag);
+
+	auto localVarCount = parser.GetNumber();
+	VisitLocalVarCount(localVarCount);
+
+	for (size_t i = 0; i < localVarCount; i++)
+	{
+		ParseLocalVar(parser);
+	}
+
+	VisitEndLocalVars();
 }
 
 void SignatureVisitor::ParseProperty(SigParser& parser, uint8_t flag)
@@ -363,4 +398,15 @@ void SignatureVisitor::ParseParam(SigParser& parser)
 	ParseType(parser);
 
 	VisitEndParam();
+}
+
+void SignatureVisitor::ParseLocalVar(SigParser& parser)
+{
+	VisitBeginLocalVar();
+
+	ParseOptionalCustomMods(parser);
+
+	ParseType(parser);
+
+	VisitEndLocalVar();
 }

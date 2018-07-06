@@ -13,21 +13,10 @@ using namespace clr::vm;
 template<typename Func>
 struct func_info;
 
-template<size_t I, size_t N, typename ...TArgs>
-struct arg_info;
-
-template<size_t I, size_t N, class TArg>
-struct arg_info<I, N, TArg>
+template<size_t I, typename ...TArgs>
+struct arg_info
 {
-	using Type = TArg;
-	static constexpr auto Offset = I >= N ? align(sizeof(TArg), sizeof(uintptr_t)) / sizeof(uintptr_t) : 0;
-};
-
-template<size_t I, size_t N, typename TArg, typename... TArgs>
-struct arg_info<I, N, TArg, TArgs...>
-{
-	using Type = TArg;
-	static constexpr auto Offset = arg_info<I, N, TArg>::Offset + arg_info<I + 1, N, TArgs...>::Offset;
+	using Type = std::tuple_element_t<I, std::tuple<TArgs...>>;
 };
 
 template<typename TRet, typename... TArgs>
@@ -36,25 +25,24 @@ struct func_info<TRet(*)(TArgs...)>
 	static_assert(std::is_void_v<TRet>, "Now just support void return.");
 
 	static const auto ArgsCount = sizeof...(TArgs);
-	static const auto ArgsSize = arg_info<0, 0, TArgs...>::Offset;
 
-	static void Call(uintptr_t entryPoint, EvaluationStack& stack)
+	static void Call(uintptr_t entryPoint, CalleeInfo& callee)
 	{
-		CallImp(entryPoint, stack, std::make_index_sequence<ArgsCount>());
+		CallImp(entryPoint, callee, std::make_index_sequence<ArgsCount>());
 	}
 private:
 	template<size_t N>
-	static auto ArgAt(EvaluationStack& stack)
+	static auto ArgAt(CalleeInfo& callee)
 	{
-		using arg_t = arg_info<0, N, TArgs...>;
-		return reinterpret_cast<typename arg_t::Type&>(stack.GetFromTop(arg_t::Offset));
+		using arg_t = arg_info<N, TArgs...>;
+		return *reinterpret_cast<typename arg_t::Type*>(callee.GetArg(N).Data);
 	}
 
 	template<size_t ...ArgIdx>
-	static auto CallImp(uintptr_t entryPoint, EvaluationStack& stack, std::index_sequence<ArgIdx...>)
+	static auto CallImp(uintptr_t entryPoint, CalleeInfo& callee, std::index_sequence<ArgIdx...>)
 	{
 		auto func = reinterpret_cast<TRet(*)(TArgs...)>(entryPoint);
-		func(ArgAt<ArgIdx>(stack)...);
+		func(ArgAt<ArgIdx>(callee)...);
 	}
 };
 

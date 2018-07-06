@@ -21,8 +21,22 @@ namespace clr
 			clsLoad_StaticFields
 		};
 
+		struct VarDesc
+		{
+			uint32_t Offset;
+			metadata::CorElementType Type;
+
+			VarDesc() = default;
+			VarDesc(uint32_t offset, metadata::CorElementType type)
+				:Offset(offset), Type(type) {}
+		};
+
 		class EvaluationStack;
+		class CalleeInfo;
 		struct EEClass;
+
+		typedef void(*ECallInvoker)(uintptr_t entryPoint, CalleeInfo& callee);
+
 		struct MethodDesc
 		{
 			EEClass* Class;
@@ -31,7 +45,13 @@ namespace clr
 			bool IsECall;
 
 			uint32_t ArgsSize;
+			uint32_t ArgsCount;
+			uint32_t LocalVarsSize;
+			uint32_t LocalVarsCount;
 			uint32_t RetSize;
+
+			std::unique_ptr<VarDesc[]> ArgsDesc;
+			std::unique_ptr<VarDesc[]> LocalVarsDesc;
 
 			union
 			{
@@ -45,7 +65,7 @@ namespace clr
 				struct
 				{
 					uintptr_t EntryPoint;
-					void(*Call)(uintptr_t entryPoint, EvaluationStack& stack);
+					ECallInvoker Call;
 				} ECall;
 			};
 		};
@@ -95,6 +115,8 @@ namespace clr
 
 			template<metadata::MetadataTables Type>
 			metadata::Ridx<Type> As() const noexcept { return {value_ & ~TypeMask }; }
+
+			operator bool() const noexcept { return value_ != 0; }
 		private:
 			uint32_t value_;
 		};

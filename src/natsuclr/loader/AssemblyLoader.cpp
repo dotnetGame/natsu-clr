@@ -89,8 +89,9 @@ class MethodSigVisitor : public SignatureVisitor
 {
 public:
 	AssemblyLoader * AssemblyLoader;
+	std::vector<VarDesc> ArgDescs;
 
-	size_t RetSize = 0, ArgsSize = 0;
+	size_t RetSize = 0, ArgsSize = 0, ArgsCount = 0;
 	bool GetSizeFromType;
 	size_t* Size;
 
@@ -103,6 +104,11 @@ public:
 	virtual void VisitBeginParam() override
 	{
 		Size = &ArgsSize;
+	}
+
+	virtual void VisitParamCount(size_t count) override
+	{
+		ArgsCount = count;
 	}
 
 	virtual void VisitBeginType(CorElementType elementType) override
@@ -149,7 +155,9 @@ public:
 			break;
 		}
 
-		*Size += align(size, sizeof(uintptr_t)) / sizeof(uintptr_t);
+		ArgDescs.emplace_back(*Size, elementType);
+		auto argSize = align(size, sizeof(uintptr_t)) / sizeof(uintptr_t);
+		*Size += argSize;
 	}
 
 	virtual void VisitTypeDefOrRefEncoded(CodedRidx<crid_TypeDefOrRef> cridx) override
@@ -161,7 +169,87 @@ public:
 			auto& eeClass = AssemblyLoader->GetClasses()[classId];
 			assert(eeClass.LoadLevel >= clsLoad_InstanceFields);
 
-			*Size += align(eeClass.InstanceSize, sizeof(uintptr_t)) / sizeof(uintptr_t);
+			auto argSize = align(eeClass.InstanceSize, sizeof(uintptr_t)) / sizeof(uintptr_t);
+			*Size += argSize;
+			GetSizeFromType = false;
+		}
+	}
+};
+
+class LocalVarSigVisitor : public SignatureVisitor
+{
+public:
+	AssemblyLoader * AssemblyLoader;
+	std::vector<VarDesc> LocalVarDescs;
+
+	size_t LocalVarsSize = 0, LocalVarsCount = 0;
+	bool GetSizeFromType;
+
+	virtual void VisitLocalVarCount(size_t count) override
+	{
+		LocalVarsCount = count;
+	}
+
+	virtual void VisitBeginType(CorElementType elementType) override
+	{
+		uint32_t size;
+		switch (elementType)
+		{
+		case ELEMENT_TYPE_VOID:
+			size = 0;
+			break;
+		case ELEMENT_TYPE_BOOLEAN:
+		case ELEMENT_TYPE_CHAR:
+		case ELEMENT_TYPE_I1:
+		case ELEMENT_TYPE_U1:
+			size = 1;
+			break;
+		case ELEMENT_TYPE_U2:
+		case ELEMENT_TYPE_I2:
+			size = 2;
+			break;
+		case ELEMENT_TYPE_I4:
+		case ELEMENT_TYPE_U4:
+		case ELEMENT_TYPE_R4:
+			size = 4;
+			break;
+		case ELEMENT_TYPE_I8:
+		case ELEMENT_TYPE_U8:
+		case ELEMENT_TYPE_R8:
+			size = 8;
+			break;
+		case ELEMENT_TYPE_I:
+		case ELEMENT_TYPE_U:
+		case ELEMENT_TYPE_STRING:
+		case ELEMENT_TYPE_OBJECT:
+		case ELEMENT_TYPE_CLASS:
+			size = sizeof(uintptr_t);
+			break;
+		case ELEMENT_TYPE_VALUETYPE:
+			GetSizeFromType = true;
+			size = 0;
+			break;
+		default:
+			THROW_ALWAYS(NotSupportedException);
+			break;
+		}
+
+		LocalVarDescs.emplace_back(LocalVarsSize, elementType);
+		auto argSize = align(size, sizeof(uintptr_t)) / sizeof(uintptr_t);
+		LocalVarsSize += argSize;
+	}
+
+	virtual void VisitTypeDefOrRefEncoded(CodedRidx<crid_TypeDefOrRef> cridx) override
+	{
+		if (GetSizeFromType)
+		{
+			assert(cridx.GetType() == mdt_TypeDef);
+			auto classId = cridx.As<mdt_TypeDef>();
+			auto& eeClass = AssemblyLoader->GetClasses()[classId];
+			assert(eeClass.LoadLevel >= clsLoad_InstanceFields);
+
+			auto argSize = align(eeClass.InstanceSize, sizeof(uintptr_t)) / sizeof(uintptr_t);
+			LocalVarsSize += argSize;
 			GetSizeFromType = false;
 		}
 	}
@@ -214,8 +302,30 @@ void AssemblyLoader::LoadMethodDef(size_t index)
 				auto headerSize = (fatFloags >> 12) * 4;
 				method.MaxStack = br.Read<uint16_t>();
 				bodyLength = br.Read<uint32_t>();
+				auto localVarSigToken = br.Read<mdToken>();
 
 				method.BodyBegin = headerOffset + headerSize;
+
+				if (localVarSigToken)
+				{
+					assert(localVarSigToken.GetType() == mdt_StandAloneSig);
+					auto row = mdImporter_.GetTables().GetStandAloneSig(localVarSigToken.As<mdt_StandAloneSig>());
+					Signature sig(mdImporter_.GetBlobs().GetBlob(row.Signature));
+					auto localVarParser = sig.CreateParser();
+					LocalVarSigVisitor visitor;
+					visitor.AssemblyLoader = this;
+					visitor.Parse(localVarParser);
+
+					if (!visitor.LocalVarDescs.empty())
+					{
+						auto offsets = std::make_unique<VarDesc[]>(visitor.LocalVarDescs.size());
+						std::copy(visitor.LocalVarDescs.begin(), visitor.LocalVarDescs.end(), offsets.get());
+						method.LocalVarsDesc = std::move(offsets);
+					}
+
+					method.LocalVarsSize = visitor.LocalVarsSize;
+					method.LocalVarsCount = visitor.LocalVarsCount;
+				}
 			}
 			else
 			{
@@ -233,7 +343,15 @@ void AssemblyLoader::LoadMethodDef(size_t index)
 	visitor.Parse(methodParser);
 
 	method.ArgsSize = visitor.ArgsSize;
+	method.ArgsCount = visitor.ArgsCount;
 	method.RetSize = visitor.RetSize;
+
+	if (!visitor.ArgDescs.empty())
+	{
+		auto offsets = std::make_unique<VarDesc[]>(visitor.ArgDescs.size());
+		std::copy(visitor.ArgDescs.begin(), visitor.ArgDescs.end(), offsets.get());
+		method.ArgsDesc = std::move(offsets);
+	}
 }
 
 class FieldSigVisitor : public SignatureVisitor

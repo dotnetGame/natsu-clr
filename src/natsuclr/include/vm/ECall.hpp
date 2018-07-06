@@ -21,7 +21,7 @@ namespace clr
 			const char* MethodName;
 
 			uintptr_t EntryPoint;
-			void(*Call)(uintptr_t entryPoint, EvaluationStack& stack);
+			ECallInvoker Call;
 		};
 
 		struct ECallClass

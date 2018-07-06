@@ -30,7 +30,10 @@ namespace clr
 			void ExecuteOp(OpInfo& op, OpArgsVal& args);
 		private:
 			EvaluationStack evalStack_;
+			CalleeInfo calleeInfo_;
 			loader::AssemblyLoader& assemblyLoader_;
+
+			std::stack<const uint8_t*> IP_;
 		};
 	}
 }

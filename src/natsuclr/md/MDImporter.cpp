@@ -89,6 +89,8 @@ void MetadataStream::Initialize(uintptr_t content)
 
 	const std::bitset<64> valid(header->Valid);
 
+	assert(valid.count() == 13);
+
 	auto rows = header->Rows;
 	INIT_TABLE_COUNT(Module);
 	INIT_TABLE_COUNT(TypeDef);

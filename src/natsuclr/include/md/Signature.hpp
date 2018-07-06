@@ -56,6 +56,11 @@ namespace clr
 			virtual void VisitEndRetType();
 			virtual void VisitBeginParam();
 			virtual void VisitEndParam();
+			virtual void VisitBeginLocalVars(uint8_t flag);
+			virtual void VisitEndLocalVars();
+			virtual void VisitLocalVarCount(size_t number);
+			virtual void VisitBeginLocalVar();
+			virtual void VisitEndLocalVar();
 		private:
 			void ParseMethod(SigParser& parser, uint8_t flag);
 			void ParseField(SigParser& parser, uint8_t flag);
@@ -68,6 +73,7 @@ namespace clr
 			void ParseTypeDefOrRefEncoded(SigParser& parser);
 			void ParseRetType(SigParser& parser);
 			void ParseParam(SigParser& parser);
+			void ParseLocalVar(SigParser& parser);
 		};
 	}
 }

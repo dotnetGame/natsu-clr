@@ -8,9 +8,14 @@ namespace System
         [MethodImpl(MethodImplOptions.InternalCall)]
         public extern static void SayHello(float value);
 
+        public static double GetValue()
+        {
+            return 100;
+        }
+
         public static void Test()
         {
-            SayHello(100);
+            SayHello((float)GetValue());
         }
     }
 }
