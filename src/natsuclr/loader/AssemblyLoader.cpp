@@ -83,6 +83,12 @@ void AssemblyLoader::LoadTypeDef(size_t index)
 		for (auto field = eeClass.FirstField; field != eeClass.LastField; field++)
 			field->Class = &eeClass;
 	}
+
+	if (typeDef.Extends)
+	{
+		assert(typeDef.Extends.GetType() == mdt_TypeDef);
+		eeClass.Parent = &GetClass(typeDef.Extends.As<mdt_TypeDef>());
+	}
 }
 
 class MethodSigVisitor : public SignatureVisitor
@@ -94,6 +100,16 @@ public:
 	size_t RetSize = 0, ArgsSize = 0, ArgsCount = 0;
 	bool GetSizeFromType;
 	size_t* Size;
+
+	virtual void VisitBeginMethod(uint8_t flag) override
+	{
+		if (flag & SIG_HASTHIS)
+		{
+			Size = &ArgsSize;
+			ArgsCount++;
+			VisitBeginType(ELEMENT_TYPE_CLASS);
+		}
+	}
 
 	virtual void VisitBeginRetType() override
 	{
@@ -108,7 +124,7 @@ public:
 
 	virtual void VisitParamCount(size_t count) override
 	{
-		ArgsCount = count;
+		ArgsCount += count;
 	}
 
 	virtual void VisitBeginType(CorElementType elementType) override
@@ -361,6 +377,7 @@ public:
 
 	size_t Size = 0;
 	bool GetSizeFromType;
+	CorElementType Type;
 
 	virtual void VisitBeginType(CorElementType elementType) override
 	{
@@ -404,6 +421,7 @@ public:
 		}
 
 		Size = size;
+		Type = elementType;
 	}
 
 	virtual void VisitTypeDefOrRefEncoded(CodedRidx<crid_TypeDefOrRef> cridx) override
@@ -444,11 +462,12 @@ static void CalcFieldSize(AssemblyLoader* assemblyLoader, FieldDesc& fieldDesc, 
 	visitor.AssemblyLoader = assemblyLoader;
 	visitor.Parse(sigParser);
 	fieldDesc.Size = visitor.Size;
+	fieldDesc.Type = visitor.Type;
 }
 
-static uint32_t CalcFieldOffset(const std::multimap<uint32_t, FieldDesc*>& fieldSize)
+static uint32_t CalcFieldOffset(size_t parentSize, const std::multimap<uint32_t, FieldDesc*>& fieldSize)
 {
-	uint32_t offset = 0;
+	uint32_t offset = align(parentSize, sizeof(uintptr_t));
 	uint32_t lastSize = 0;
 	for (auto fieldPair = fieldSize.begin(); fieldPair != fieldSize.end(); ++fieldPair)
 	{
@@ -465,11 +484,12 @@ static uint32_t CalcFieldOffset(const std::multimap<uint32_t, FieldDesc*>& field
 	return offset;
 }
 
-void AssemblyLoader::LoadTypeInstanceField(size_t index)
+void AssemblyLoader::LoadTypeInstanceField(EEClass& eeClass)
 {
 	auto& tables = mdImporter_.GetTables();
 	auto& strings = mdImporter_.GetStrings();
-	auto& eeClass = eeClasses_[index];
+
+	if (eeClass.LoadLevel >= clsLoad_InstanceFields)return;
 
 	for (auto fieldDesc = eeClass.FirstField; fieldDesc != eeClass.LastField; ++fieldDesc)
 		if ((fieldDesc->Flags & FieldAttributes::Static) != FieldAttributes::Static)
@@ -487,10 +507,19 @@ void AssemblyLoader::LoadTypeInstanceField(size_t index)
 			if ((fieldDesc->Flags & FieldAttributes::Static) != FieldAttributes::Static)
 				fieldSize.emplace(fieldDesc->Size, fieldDesc);
 
-		eeClass.InstanceSize = CalcFieldOffset(fieldSize);
+		auto parentSize = eeClass.Parent ? eeClass.Parent->InstanceSize : 0;
+		if (eeClass.Parent && eeClass.Parent->LoadLevel < clsLoad_InstanceFields)
+			LoadTypeInstanceField(*eeClass.Parent);
+		assert(!eeClass.Parent || eeClass.Parent->LoadLevel >= clsLoad_InstanceFields);
+		eeClass.InstanceSize = CalcFieldOffset(parentSize, fieldSize);
 	}
 
 	eeClass.LoadLevel = clsLoad_InstanceFields;
+}
+
+void AssemblyLoader::LoadTypeInstanceField(size_t index)
+{
+	LoadTypeInstanceField(eeClasses_[index]);
 }
 
 void AssemblyLoader::LoadTypeStaticField(size_t index)
@@ -498,6 +527,8 @@ void AssemblyLoader::LoadTypeStaticField(size_t index)
 	auto& tables = mdImporter_.GetTables();
 	auto& strings = mdImporter_.GetStrings();
 	auto& eeClass = eeClasses_[index];
+
+	if (eeClass.LoadLevel >= clsLoad_StaticFields)return;
 
 	std::multimap<uint32_t, FieldDesc*> fieldSize;
 
@@ -511,7 +542,7 @@ void AssemblyLoader::LoadTypeStaticField(size_t index)
 				fieldSize.emplace(fieldDesc->Size, fieldDesc);
 		}
 
-		eeClass.StaticSize = CalcFieldOffset(fieldSize);
+		eeClass.StaticSize = CalcFieldOffset(0, fieldSize);
 		if (eeClass.StaticSize)
 			eeClass.StaticFields = std::make_unique<uint8_t[]>(eeClass.StaticSize);
 	}
@@ -519,14 +550,20 @@ void AssemblyLoader::LoadTypeStaticField(size_t index)
 	eeClass.LoadLevel = clsLoad_StaticFields;
 }
 
-const MethodDesc& AssemblyLoader::GetMethod(Ridx<mdt_MethodDef> method) const
+MethodDesc& AssemblyLoader::GetMethod(Ridx<mdt_MethodDef> method)
 {
 	assert(method);
 	return methodDescs_[method() - 1];
 }
 
-const EEClass& AssemblyLoader::GetClass(Ridx<mdt_TypeDef> type) const
+EEClass& AssemblyLoader::GetClass(Ridx<mdt_TypeDef> type)
 {
 	assert(type);
 	return eeClasses_[type() - 1];
+}
+
+FieldDesc& AssemblyLoader::GetField(Ridx<mdt_Field> field)
+{
+	assert(field);
+	return fieldDescs_[field() - 1];
 }

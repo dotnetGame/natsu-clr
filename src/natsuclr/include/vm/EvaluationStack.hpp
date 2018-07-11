@@ -40,28 +40,30 @@ namespace clr
 			template<class T, class = std::enable_if_t<std::is_trivially_copyable<T>::value>>
 			void Push(T value, metadata::CorElementType type)
 			{
-				PushImp(reinterpret_cast<const uint8_t*>(&value), sizeof(T), type);
+				PushBytes(reinterpret_cast<const uint8_t*>(&value), sizeof(T), type);
 			}
 
 			template<class T, class = std::enable_if_t<std::is_trivially_copyable<T>::value>>
 			EvalStackValue<T> Pop()
 			{
 				EvalStackValue<T> value;
-				PopImp(reinterpret_cast<uint8_t*>(&value.Value), sizeof(T), value.Type);
+				PopBytes(reinterpret_cast<uint8_t*>(&value.Value), sizeof(T), value.Type);
 				return value;
 			}
 
-			void PushVar(const uint8_t* ptr, size_t size, metadata::CorElementType type)
+			void PushArgOrLocal(const uintptr_t* ptr, size_t size, metadata::CorElementType type)
 			{
-				PushImp(ptr, size * sizeof(uintptr_t), type);
+				PushBytes(reinterpret_cast<const uint8_t*>(ptr), size * sizeof(uintptr_t), type);
 			}
 
-			metadata::CorElementType PopVar(uint8_t* ptr, size_t size)
+			metadata::CorElementType PopArgOrLocal(uintptr_t* ptr, size_t size)
 			{
 				metadata::CorElementType type;
-				PopImp(ptr, size * sizeof(uintptr_t), type);
+				PopBytes(reinterpret_cast<uint8_t*>(ptr), size * sizeof(uintptr_t), type);
 				return type;
 			}
+
+			uintptr_t* GetFromTop(size_t size);
 
 			void PushFrame(const MethodDesc* method, size_t argsSize, size_t argsCount, size_t retSize, uintptr_t* argsStore);
 
@@ -86,21 +88,21 @@ namespace clr
 			{
 				return stackType_.back();
 			}
-		private:
-			void PushImp(const uint8_t* ptr, size_t size, metadata::CorElementType type)
+
+			void PushBytes(const uint8_t* ptr, size_t size, metadata::CorElementType type)
 			{
 				auto offset = stack_.size();
-				size = align(size, sizeof(uintptr_t)) / sizeof(uintptr_t);
-				stack_.resize(offset + size);
+				auto alignSize = align(size, sizeof(uintptr_t));
+				stack_.resize(offset + alignSize / sizeof(uintptr_t));
 				stackType_.emplace_back(type);
-				memcpy(stack_.data() + offset, ptr, size * sizeof(uintptr_t));
+				memcpy(stack_.data() + offset, ptr, size);
 			}
 
-			void PopImp(uint8_t* ptr, size_t size, metadata::CorElementType& type)
+			void PopBytes(uint8_t* ptr, size_t size, metadata::CorElementType& type)
 			{
-				size = align(size, sizeof(uintptr_t)) / sizeof(uintptr_t);
-				auto offset = stack_.size() - size;
-				memcpy(ptr, stack_.data() + offset, size * sizeof(uintptr_t));
+				auto alignSize = align(size, sizeof(uintptr_t));
+				auto offset = stack_.size() - (alignSize / sizeof(uintptr_t));
+				memcpy(ptr, stack_.data() + offset, size);
 				stack_.resize(offset);
 				type = stackType_.back();
 				stackType_.pop_back();
@@ -124,6 +126,7 @@ namespace clr
 			void EndCall(bool hasRet);
 
 			StackVar GetArg(size_t index);
+			size_t GetArgSize(size_t index);
 			StackVar GetLocalVar(size_t index);
 			size_t GetLocalVarSize(size_t index);
 		private:

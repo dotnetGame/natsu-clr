@@ -7,7 +7,8 @@
 using namespace clr;
 using namespace clr::corlib;
 
-void Console::SayHello(float value)
+void Console::SayHello(int obj)
 {
-	printf("Say Hello %f\n", value);
+	printf("%d\n", obj);
+	//printf("Say Hello %s\n", obj->GetHeader().Class->TypeName);
 }

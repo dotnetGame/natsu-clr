@@ -22,15 +22,17 @@ namespace clr
 			void Load();
 			metadata::MDImporter& GetMDImporter() noexcept { return mdImporter_; }
 
-			const std::vector<vm::EEClass>& GetClasses() const noexcept { return eeClasses_; }
-			const vm::MethodDesc& GetMethod(metadata::Ridx<metadata::mdt_MethodDef> method) const;
-			const vm::EEClass& GetClass (metadata::Ridx<metadata::mdt_TypeDef> type) const;
+			std::vector<vm::EEClass>& GetClasses() noexcept { return eeClasses_; }
+			vm::MethodDesc& GetMethod(metadata::Ridx<metadata::mdt_MethodDef> method);
+			vm::EEClass& GetClass (metadata::Ridx<metadata::mdt_TypeDef> type);
+			vm::FieldDesc& GetField(metadata::Ridx<metadata::mdt_Field> field);
 		private:
 			void LoadTypeDef(size_t index);
 			void LoadMethodDef(size_t index);
 			void LoadField(size_t index);
 			void LoadTypeInstanceField(size_t index);
 			void LoadTypeStaticField(size_t index);
+			void LoadTypeInstanceField(vm::EEClass& eeClass);
 		private:
 			std::shared_ptr<AssemblyFile> assemblyFile_;
 			metadata::MDImporter mdImporter_;

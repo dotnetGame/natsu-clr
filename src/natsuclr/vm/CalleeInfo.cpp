@@ -24,6 +24,11 @@ void EvaluationStack::PushFrame(const MethodDesc* method, size_t argsSize, size_
 	frames_.push({ method, offset, retSize, stackTypeOffset });
 }
 
+uintptr_t* EvaluationStack::GetFromTop(size_t size)
+{
+	return &stack_.at(stack_.size() - size);
+}
+
 void CalleeInfo::BeginCall(const MethodDesc* method, EvaluationStack& stack)
 {
 	method_ = method;
@@ -42,6 +47,12 @@ StackVar CalleeInfo::GetArg(size_t index)
 {
 	auto& info = method_->ArgsDesc[index];
 	return { &data_.at(info.Offset), info.Type };
+}
+
+size_t CalleeInfo::GetArgSize(size_t index)
+{
+	auto offset = method_->ArgsDesc[index].Offset;
+	return index + 1 == method_->ArgsCount ? method_->ArgsSize - offset : method_->ArgsDesc[index + 1].Offset - offset;
 }
 
 StackVar CalleeInfo::GetLocalVar(size_t index)

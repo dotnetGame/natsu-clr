@@ -2,6 +2,7 @@
 // Natsu CLR Class Lib Native
 //
 #pragma once
+#include "Object.hpp"
 
 namespace clr
 {
@@ -10,7 +11,7 @@ namespace clr
 		class Console
 		{
 		public:
-			static void SayHello(float value);
+			static void SayHello(int obj);
 		};
 	}
 }

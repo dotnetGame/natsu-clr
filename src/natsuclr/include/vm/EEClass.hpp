@@ -80,6 +80,8 @@ namespace clr
 
 			uint32_t Offset;
 			uint32_t Size;
+
+			metadata::CorElementType Type;
 		};
 
 		struct EEClass
@@ -88,6 +90,8 @@ namespace clr
 
 			const char* TypeName;
 			const char* TypeNamespace;
+
+			EEClass* Parent;
 
 			MethodDesc* FirstMethod;
 			MethodDesc* LastMethod;
