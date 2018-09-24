@@ -27,11 +27,11 @@ namespace clr
 			vm::EEClass& GetClass (metadata::Ridx<metadata::mdt_TypeDef> type);
 			vm::FieldDesc& GetField(metadata::Ridx<metadata::mdt_Field> field);
 		private:
-			void LoadTypeDef(size_t index);
-			void LoadMethodDef(size_t index);
-			void LoadField(size_t index);
-			void LoadTypeInstanceField(size_t index);
-			void LoadTypeStaticField(size_t index);
+			void LoadTypeDef(uint32_t index);
+			void LoadMethodDef(uint32_t index);
+			void LoadField(uint32_t index);
+			void LoadTypeInstanceField(uint32_t index);
+			void LoadTypeStaticField(uint32_t index);
 			void LoadTypeInstanceField(vm::EEClass& eeClass);
 		private:
 			std::shared_ptr<AssemblyFile> assemblyFile_;

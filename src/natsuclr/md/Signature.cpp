@@ -207,7 +207,7 @@ void SignatureVisitor::VisitEndMethod()
 
 }
 
-void SignatureVisitor::VisitParamCount(size_t count)
+void SignatureVisitor::VisitParamCount(uint32_t count)
 {
 
 }
@@ -242,7 +242,7 @@ void SignatureVisitor::VisitEndLocalVars()
 
 }
 
-void SignatureVisitor::VisitLocalVarCount(size_t number)
+void SignatureVisitor::VisitLocalVarCount(uint32_t number)
 {
 
 }

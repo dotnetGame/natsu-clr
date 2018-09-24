@@ -69,14 +69,14 @@ namespace clr
 			virtual void VisitEndType();
 			virtual void VisitBeginMethod(uint8_t flag);
 			virtual void VisitEndMethod();
-			virtual void VisitParamCount(size_t number);
+			virtual void VisitParamCount(uint32_t number);
 			virtual void VisitBeginRetType();
 			virtual void VisitEndRetType();
 			virtual void VisitBeginParam();
 			virtual void VisitEndParam();
 			virtual void VisitBeginLocalVars(uint8_t flag);
 			virtual void VisitEndLocalVars();
-			virtual void VisitLocalVarCount(size_t number);
+			virtual void VisitLocalVarCount(uint32_t number);
 			virtual void VisitBeginLocalVar();
 			virtual void VisitEndLocalVar();
 		private:

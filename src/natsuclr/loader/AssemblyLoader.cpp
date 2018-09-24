@@ -28,24 +28,24 @@ void AssemblyLoader::Load()
 	methodDescs_.resize(methodDefs);
 
 	// Type
-	for (size_t i = 0; i < typeDefs; i++)
+	for (uint32_t i = 0; i < typeDefs; i++)
 		LoadTypeDef(i);
 
 	// Field
-	for (size_t i = 0; i < fields; i++)
+	for (uint32_t i = 0; i < fields; i++)
 		LoadField(i);
 
-	for (size_t i = 0; i < typeDefs; i++)
+	for (uint32_t i = 0; i < typeDefs; i++)
 		LoadTypeInstanceField(i);
-	for (size_t i = 0; i < typeDefs; i++)
+	for (uint32_t i = 0; i < typeDefs; i++)
 		LoadTypeStaticField(i);
 
 	// Method
-	for (size_t i = 0; i < methodDefs; i++)
+	for (uint32_t i = 0; i < methodDefs; i++)
 		LoadMethodDef(i);
 }
 
-void AssemblyLoader::LoadTypeDef(size_t index)
+void AssemblyLoader::LoadTypeDef(uint32_t index)
 {
 	auto& tables = mdImporter_.GetTables();
 	auto& strings = mdImporter_.GetStrings();
@@ -97,9 +97,9 @@ public:
 	AssemblyLoader * AssemblyLoader;
 	std::vector<VarDesc> ArgDescs;
 
-	size_t RetSize = 0, ArgsSize = 0, ArgsCount = 0;
+    uint32_t RetSize = 0, ArgsSize = 0, ArgsCount = 0;
 	bool GetSizeFromType;
-	size_t* Size;
+    uint32_t* Size;
 
 	virtual void VisitBeginMethod(uint8_t flag) override
 	{
@@ -122,7 +122,7 @@ public:
 		Size = &ArgsSize;
 	}
 
-	virtual void VisitParamCount(size_t count) override
+	virtual void VisitParamCount(uint32_t count) override
 	{
 		ArgsCount += count;
 	}
@@ -198,10 +198,10 @@ public:
 	AssemblyLoader * AssemblyLoader;
 	std::vector<VarDesc> LocalVarDescs;
 
-	size_t LocalVarsSize = 0, LocalVarsCount = 0;
+    uint32_t LocalVarsSize = 0, LocalVarsCount = 0;
 	bool GetSizeFromType;
 
-	virtual void VisitLocalVarCount(size_t count) override
+	virtual void VisitLocalVarCount(uint32_t count) override
 	{
 		LocalVarsCount = count;
 	}
@@ -271,7 +271,7 @@ public:
 	}
 };
 
-void AssemblyLoader::LoadMethodDef(size_t index)
+void AssemblyLoader::LoadMethodDef(uint32_t index)
 {
 	auto& tables = mdImporter_.GetTables();
 	auto& strings = mdImporter_.GetStrings();
@@ -440,7 +440,7 @@ public:
 	}
 };
 
-void AssemblyLoader::LoadField(size_t index)
+void AssemblyLoader::LoadField(uint32_t index)
 {
 	auto& tables = mdImporter_.GetTables();
 	auto& strings = mdImporter_.GetStrings();
@@ -517,12 +517,12 @@ void AssemblyLoader::LoadTypeInstanceField(EEClass& eeClass)
 	eeClass.LoadLevel = clsLoad_InstanceFields;
 }
 
-void AssemblyLoader::LoadTypeInstanceField(size_t index)
+void AssemblyLoader::LoadTypeInstanceField(uint32_t index)
 {
 	LoadTypeInstanceField(eeClasses_[index]);
 }
 
-void AssemblyLoader::LoadTypeStaticField(size_t index)
+void AssemblyLoader::LoadTypeStaticField(uint32_t index)
 {
 	auto& tables = mdImporter_.GetTables();
 	auto& strings = mdImporter_.GetStrings();
