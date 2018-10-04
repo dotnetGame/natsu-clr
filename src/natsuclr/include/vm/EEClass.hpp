@@ -7,122 +7,136 @@
 
 namespace clr
 {
-	namespace metadata
-	{
-		class MDImporter;
-	}
+namespace metadata
+{
+    class MDImporter;
+}
 
-	namespace vm
-	{
-		enum ClassLoadLevel
-		{
-			clsLoad_NotLoaded,
-			clsLoad_InstanceFields,
-			clsLoad_StaticFields
-		};
+namespace vm
+{
+    enum ClassLoadLevel
+    {
+        clsLoad_NotLoaded,
+        clsLoad_InstanceFields,
+        clsLoad_StaticFields
+    };
 
-		struct VarDesc
-		{
-			uint32_t Offset;
-			metadata::CorElementType Type;
+    struct EEClass;
 
-			VarDesc() = default;
-			VarDesc(uint32_t offset, metadata::CorElementType type)
-				:Offset(offset), Type(type) {}
-		};
+    struct TypeDesc
+    {
+        bool IsByRef;
+        metadata::CorElementType Type;
+        EEClass* Class;
 
-		class EvaluationStack;
-		class CalleeInfo;
-		struct EEClass;
+        bool IsEmpty() const noexcept;
+        size_t GetStackSize() const noexcept;
+        size_t GetAlign() const noexcept;
+    };
 
-		typedef void(*ECallInvoker)(uintptr_t entryPoint, CalleeInfo& callee);
+    struct VarDesc
+    {
+        uint32_t Offset;
+        TypeDesc Type;
+    };
 
-		struct MethodDesc
-		{
-			EEClass* Class;
+    class EvaluationStack;
+    class CalleeInfo;
+    struct EEClass;
 
-			const char* Name;
-			bool IsECall;
+    typedef void (*ECallInvoker)(uintptr_t entryPoint, CalleeInfo& callee);
 
-			uint32_t ArgsSize;
-			uint32_t ArgsCount;
-			uint32_t LocalVarsSize;
-			uint32_t LocalVarsCount;
-			uint32_t RetSize;
+    struct MethodDesc
+    {
+        EEClass* Class;
 
-			std::unique_ptr<VarDesc[]> ArgsDesc;
-			std::unique_ptr<VarDesc[]> LocalVarsDesc;
+        const char* Name;
+        bool IsECall;
 
-			union
-			{
-				struct
-				{
-					uint16_t MaxStack;
-					const uint8_t* BodyBegin;
-					const uint8_t* BodyEnd;
-				};
+        std::unique_ptr<VarDesc[]> ParamDescs;
+        std::unique_ptr<VarDesc[]> LocalVarDescs;
+        TypeDesc RetDesc;
 
-				struct
-				{
-					uintptr_t EntryPoint;
-					ECallInvoker Call;
-				} ECall;
-			};
-		};
+        uint32_t ParamCount;
+        uint32_t LocalVarSize;
+        uint32_t LocalVarCount;
 
-		struct FieldDesc
-		{
-			EEClass* Class;
-			metadata::Ridx<metadata::mdt_Field> Ridx;
-			metadata::FieldAttributes Flags;
+        union {
+            struct
+            {
+                uint16_t MaxStack;
+                const uint8_t* BodyBegin;
+                const uint8_t* BodyEnd;
+            };
 
-			const char* Name;
+            struct
+            {
+                uintptr_t EntryPoint;
+                ECallInvoker Call;
+            } ECall;
+        };
 
-			uint32_t Offset;
-			uint32_t Size;
+        size_t GetParamSize() const;
+        size_t GetLocalVarSize() const;
+        size_t GetRetSize() const;
 
-			metadata::CorElementType Type;
-		};
+        size_t GetParamAlign() const;
+        size_t GetLocalVarAlign() const;
+        size_t GetRetAlign() const;
+    };
 
-		struct EEClass
-		{
-			metadata::MDImporter* MDImporter;
+    struct FieldDesc
+    {
+        EEClass* Class;
+        metadata::Ridx<metadata::mdt_Field> Ridx;
+        metadata::FieldAttributes Flags;
 
-			const char* TypeName;
-			const char* TypeNamespace;
+        const char* Name;
 
-			EEClass* Parent;
+        VarDesc Var;
+    };
 
-			MethodDesc* FirstMethod;
-			MethodDesc* LastMethod;
+    struct EEClass
+    {
+        metadata::MDImporter* MDImporter;
 
-			FieldDesc* FirstField;
-			FieldDesc* LastField;
+        const char* TypeName;
+        const char* TypeNamespace;
 
-			uint32_t InstanceSize;
-			uint32_t StaticSize;
+        EEClass* Parent;
 
-			std::unique_ptr<uint8_t[]> StaticFields;
+        MethodDesc* FirstMethod;
+        MethodDesc* LastMethod;
 
-			ClassLoadLevel LoadLevel;
-		};
+        FieldDesc* FirstField;
+        FieldDesc* LastField;
 
-		struct mdToken
-		{
-			mdToken(uint32_t value)
-				:value_(value) {}
+        uint32_t Align;
 
-			static constexpr uint32_t TypeBitsOffset = 24;
-			static constexpr uint32_t TypeMask = 0xFF << TypeBitsOffset;
+        uint32_t InstanceSize;
 
-			metadata::MetadataTables GetType() const noexcept { return static_cast<metadata::MetadataTables>((value_ & TypeMask) >> TypeBitsOffset); }
+        std::unique_ptr<uint8_t[]> StaticFields;
 
-			template<metadata::MetadataTables Type>
-			metadata::Ridx<Type> As() const noexcept { return {value_ & ~TypeMask }; }
+        ClassLoadLevel LoadLevel;
+    };
 
-			operator bool() const noexcept { return value_ != 0; }
-		private:
-			uint32_t value_;
-		};
-	}
+    struct mdToken
+    {
+        mdToken(uint32_t value)
+            : value_(value) {}
+
+        static constexpr uint32_t TypeBitsOffset = 24;
+        static constexpr uint32_t TypeMask = 0xFF << TypeBitsOffset;
+
+        metadata::MetadataTables GetType() const noexcept { return static_cast<metadata::MetadataTables>((value_ & TypeMask) >> TypeBitsOffset); }
+
+        template <metadata::MetadataTables Type>
+        metadata::Ridx<Type> As() const noexcept { return { value_ & ~TypeMask }; }
+
+        operator bool() const noexcept { return value_ != 0; }
+
+    private:
+        uint32_t value_;
+    };
+}
 }

@@ -7,12 +7,12 @@
 #include "../vm/EEClass.hpp"
 #include <vector>
 
-class FieldSigVisitor;
-
 namespace clr
 {
 	namespace loader
 	{
+class FieldSigVisitor;
+
 		class AssemblyLoader
 		{
 			friend class FieldSigVisitor;
