@@ -7,30 +7,30 @@
 
 namespace clr
 {
-	namespace vm
-	{
-		class ECallNotFoundException : std::exception
-		{
-			using exception::exception;
-		};
+namespace vm
+{
+    class ECallNotFoundException : std::exception
+    {
+        using exception::exception;
+    };
 
-		class EvaluationStack;
+    class EvaluationStack;
 
-		struct ECall
-		{
-			const char* MethodName;
+    struct ECall
+    {
+        std::string_view MethodName;
 
-			uintptr_t EntryPoint;
-			ECallInvoker Call;
-		};
+        uintptr_t EntryPoint;
+        ECallInvoker Call;
+    };
 
-		struct ECallClass
-		{
-			const char* Namespace;
-			const char* ClassName;
-			const ECall* ECalls;
-		};
+    struct ECallClass
+    {
+        std::string_view Namespace;
+        std::string_view ClassName;
+        const ECall* ECalls;
+    };
 
-		const ECall& FindECall(const MethodDesc& method);
-	}
+    const ECall& FindECall(const MethodDesc& method);
+}
 }

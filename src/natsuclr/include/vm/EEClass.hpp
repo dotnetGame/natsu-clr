@@ -4,6 +4,7 @@
 #pragma once
 #include "../md/mddefs.hpp"
 #include <memory>
+#include <string_view>
 
 namespace clr
 {
@@ -50,7 +51,7 @@ namespace vm
     {
         EEClass* Class;
 
-        const char* Name;
+        std::string_view Name;
         bool IsECall;
 
         std::unique_ptr<VarDesc[]> ParamDescs;
@@ -91,7 +92,7 @@ namespace vm
         metadata::Ridx<metadata::mdt_Field> Ridx;
         metadata::FieldAttributes Flags;
 
-        const char* Name;
+        std::string_view Name;
 
         VarDesc Var;
     };
@@ -100,8 +101,8 @@ namespace vm
     {
         metadata::MDImporter* MDImporter;
 
-        const char* TypeName;
-        const char* TypeNamespace;
+        std::string_view TypeName;
+        std::string_view TypeNamespace;
 
         EEClass* Parent;
 

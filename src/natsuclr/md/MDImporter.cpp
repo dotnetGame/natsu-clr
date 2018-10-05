@@ -431,7 +431,7 @@ void StringsStream::Initialize(uintptr_t content)
 	content_ = reinterpret_cast<const char*>(content);
 }
 
-const char* StringsStream::GetString(Sidx<stm_String> sidx) const noexcept
+std::string_view StringsStream::GetString(Sidx<stm_String> sidx) const noexcept
 {
 	return content_ + sidx();
 }

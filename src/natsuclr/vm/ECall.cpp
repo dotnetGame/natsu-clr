@@ -52,7 +52,7 @@ private:
 #define ECFuncElement(name, func) { name, uintptr_t(func), &func_info<decltype(func)>::Call },
 #define ECFuncEnd()   \
     {                 \
-        nullptr, 0, 0 \
+        {}, 0, 0      \
     }                 \
     }                 \
     ;
@@ -65,7 +65,7 @@ private:
 
 static const ECallClass g_ECalls[] = {
 #include <vm/ECallList.hpp>
-    { nullptr, nullptr, nullptr }
+    { {}, {}, nullptr }
 };
 
 const ECall& clr::vm::FindECall(const MethodDesc& method)
@@ -77,11 +77,11 @@ const ECall& clr::vm::FindECall(const MethodDesc& method)
     {
         auto ns = method.Class->TypeNamespace;
         auto cls = method.Class->TypeName;
-        while (ecallClass->Namespace)
+        while (!ecallClass->Namespace.empty())
         {
-            if (strcmp(ns, ecallClass->Namespace) == 0)
+            if (ecallClass->Namespace == ns)
             {
-                if (strcmp(cls, ecallClass->ClassName) == 0)
+                if (ecallClass->ClassName == cls)
                 {
                     found = true;
                     break;
@@ -94,9 +94,9 @@ const ECall& clr::vm::FindECall(const MethodDesc& method)
     {
         auto name = method.Name;
         const ECall* ecall = ecallClass->ECalls;
-        while (ecall->MethodName)
+        while (!ecall->MethodName.empty())
         {
-            if (strcmp(name, ecall->MethodName) == 0)
+            if (ecall->MethodName == name)
                 return *ecall;
         }
     }

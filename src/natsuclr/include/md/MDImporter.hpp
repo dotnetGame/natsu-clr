@@ -5,6 +5,7 @@
 #include "../loader/AssemblyFile.hpp"
 #include "mddefs.hpp"
 #include <optional>
+#include <string_view>
 
 namespace clr
 {
@@ -289,7 +290,7 @@ namespace clr
 		public:
 			void Initialize(uintptr_t content);
 
-			const char* GetString(Sidx<stm_String> sidx) const noexcept;
+			std::string_view GetString(Sidx<stm_String> sidx) const noexcept;
 		private:
 			const char* content_;
 		};

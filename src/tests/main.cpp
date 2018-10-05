@@ -6,6 +6,7 @@
 #include <cassert>
 #include <loader/AssemblyLoader.hpp>
 #include <binder/Binder.hpp>
+#include <binder/CorlibBinder.hpp>
 #include <vm/Thread.hpp>
 
 using namespace clr;
@@ -32,17 +33,15 @@ void dummy_deleter(const uint8_t* ptr)
 
 int main()
 {
-	char path[256];
-	GetCurrentDirectoryA(256, path);
 	auto file = load_file(__FILE__ R"(\..\..\System.Private.CorLib\bin\Debug\System.Private.CorLib.dll)");
 	auto asmfile = std::make_shared<AssemblyFile>(std::shared_ptr<const uint8_t[]>(file.data(), dummy_deleter), file.size());
 	auto loader = std::make_shared<AssemblyLoader>(asmfile);
 	loader->Load();
 
-	Binder binder(loader);
+    CorlibBinder::Initialize(loader);
 	Thread thread;
 	thread.assemblyLoader_ = loader.get();
-	thread.Execute(*binder.BindMethod("Console", "Test"));
+	thread.Execute(*CorlibBinder::Current().BindMethod("System", "Console", "Test"));
 
 	std::cout << "Test" << std::endl;
 }
