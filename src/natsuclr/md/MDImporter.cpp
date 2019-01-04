@@ -105,6 +105,7 @@ void MetadataStream::Initialize(uintptr_t content)
 	INIT_TABLE_COUNT(Property);
 	INIT_TABLE_COUNT(MethodSemantics);
 	INIT_TABLE_COUNT(Assembly);
+	INIT_TABLE_COUNT(GenericParam);
 
 	auto tableContent = uintptr_t(header->Rows) + valid.count() * sizeof(uint32_t);
 	INIT_TABLE(Module);
@@ -120,6 +121,7 @@ void MetadataStream::Initialize(uintptr_t content)
 	INIT_TABLE(Property);
 	INIT_TABLE(MethodSemantics);
 	INIT_TABLE(Assembly);
+	INIT_TABLE(GenericParam);
 }
 
 size_t MetadataStream::GetSidxSize(StreamType stream) const noexcept
