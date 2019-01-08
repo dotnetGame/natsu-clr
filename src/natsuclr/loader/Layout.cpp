@@ -1,11 +1,11 @@
 //
 // Natsu CLR Loader
 //
+#include <cassert>
+#include <utils.hpp>
 #include <loader/AssemblyLoader.hpp>
 #include <loader/Layout.hpp>
 #include <md/Signature.hpp>
-#include <cassert>
-#include <utils.hpp>
 
 using namespace clr::loader;
 using namespace clr::metadata;
@@ -30,7 +30,7 @@ void MethodSigVisitor::VisitBeginParam()
         cntVar_++;
     cntParam_++;
 
-    cntVar_->Type.IsByRef = false;
+    cntVar_->Type.Flags |= tda_Normal;
 }
 
 void MethodSigVisitor::VisitParamCount(uint32_t count)
@@ -39,15 +39,21 @@ void MethodSigVisitor::VisitParamCount(uint32_t count)
     ParamDescs = std::make_unique<VarDesc[]>(ParamCount);
 
     if (flag_ & SIG_HASTHIS)
-        ParamDescs[0].Type = { false, ELEMENT_TYPE_CLASS, Class };
+        ParamDescs[0].Type = { tda_Normal, ELEMENT_TYPE_CLASS, 0, Class };
 }
 
 void MethodSigVisitor::VisitBeginType(CorElementType elementType)
 {
     if (elementType == ELEMENT_TYPE_BYREF)
-        cntVar_->Type.IsByRef = true;
+        cntVar_->Type.Flags |= tda_ByRef;
     else
         cntVar_->Type.Type = elementType;
+}
+
+void MethodSigVisitor::VisitTypeGenericParamNumber(uint32_t number)
+{
+    cntVar_->Type.Flags |= tda_Generic;
+    cntVar_->Type.GenericParam = &Class->GenericParams[number];
 }
 
 void MethodSigVisitor::VisitTypeDefOrRefEncoded(CodedRidx<crid_TypeDefOrRef> cridx)
@@ -74,7 +80,7 @@ void LocalVarSigVisitor::VisitBeginLocalVar()
 void LocalVarSigVisitor::VisitBeginType(CorElementType elementType)
 {
     if (elementType == ELEMENT_TYPE_BYREF)
-        cntVar_->Type.IsByRef = true;
+        cntVar_->Type.Flags |= tda_ByRef;
     else
         cntVar_->Type.Type = elementType;
 }
@@ -89,7 +95,7 @@ void LocalVarSigVisitor::VisitTypeDefOrRefEncoded(CodedRidx<crid_TypeDefOrRef> c
 void FieldSigVisitor::VisitBeginType(CorElementType elementType)
 {
     if (elementType == ELEMENT_TYPE_BYREF)
-        FieldVarDesc.Type.IsByRef = true;
+        FieldVarDesc.Type.Flags |= tda_ByRef;
     else
         FieldVarDesc.Type.Type = elementType;
 }

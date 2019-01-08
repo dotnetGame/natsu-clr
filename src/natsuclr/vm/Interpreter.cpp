@@ -81,7 +81,7 @@ TypeDesc ClassToType(EEClass* cls)
         type = ELEMENT_TYPE_VOID;
     else
         type = ELEMENT_TYPE_CLASS;
-    return { false, type, cls };
+    return { tda_Normal, type, 0, cls };
 }
 
 void Interpreter::ExecuteMethod(const MethodDesc& method)
@@ -215,13 +215,13 @@ template <>
 void Interpreter::ExecuteOp<CEE_LDC_R4>(OpInfo& op, OpArgsVal& args)
 {
     auto f = static_cast<float>(args.r);
-    evalStack_.PushVar(&f, { false, ELEMENT_TYPE_R4, nullptr });
+    evalStack_.PushVar(&f, { tda_Normal, ELEMENT_TYPE_R4, 0, CorlibBinder::Current().Types.Single });
 }
 
 template <>
 void Interpreter::ExecuteOp<CEE_LDC_R8>(OpInfo& op, OpArgsVal& args)
 {
-    evalStack_.PushVar(&args.r, { false, ELEMENT_TYPE_R8, nullptr });
+    evalStack_.PushVar(&args.r, { tda_Normal, ELEMENT_TYPE_R8, 0, CorlibBinder::Current().Types.Double });
 }
 
 template <>
@@ -241,7 +241,7 @@ void Interpreter::ExecuteOp<CEE_CONV_R4>(OpInfo& op, OpArgsVal& args)
     }
 
     evalStack_.PopVar();
-    evalStack_.PushVar(&value, { false, ELEMENT_TYPE_R4, nullptr });
+    evalStack_.PushVar(&value, { tda_Normal, ELEMENT_TYPE_R4, 0, CorlibBinder::Current().Types.Single });
 }
 
 template <>
@@ -409,5 +409,5 @@ void Interpreter::ExecuteOp_STLOC(size_t index)
 
 void Interpreter::ExecuteOp_LDC_I4(int32_t i)
 {
-    evalStack_.PushVar(&i, { false, ELEMENT_TYPE_I4, CorlibBinder::Current().Types.Int32 });
+    evalStack_.PushVar(&i, { tda_Normal, ELEMENT_TYPE_I4, 0, CorlibBinder::Current().Types.Int32 });
 }

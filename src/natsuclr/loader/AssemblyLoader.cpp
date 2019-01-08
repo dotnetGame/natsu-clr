@@ -1,21 +1,20 @@
 //
 // Natsu CLR Loader
 //
-#include <utils.hpp>
+#include <cassert>
 #include <loader/AssemblyLoader.hpp>
 #include <loader/Layout.hpp>
 #include <md/Signature.hpp>
+#include <utils.hpp>
 #include <vm/ECall.hpp>
-#include <cassert>
 
 using namespace clr::loader;
 using namespace clr::metadata;
 using namespace clr::vm;
 
 AssemblyLoader::AssemblyLoader(std::shared_ptr<AssemblyFile> assemblyFile)
-    :mdImporter_(assemblyFile), assemblyFile_(assemblyFile)
+    : mdImporter_(assemblyFile), assemblyFile_(assemblyFile)
 {
-
 }
 
 void AssemblyLoader::Load()
@@ -30,6 +29,11 @@ void AssemblyLoader::Load()
     // Type
     for (uint32_t i = 0; i < typeDefs; i++)
         LoadTypeDef(i);
+
+    // GenericParam
+    auto genericParams = mdImporter_.GetTables().GetRowsCount(mdt_GenericParam);
+    for (uint32_t i = 0; i < genericParams; i++)
+        LoadGenericParam(i);
 
     // Field
     for (uint32_t i = 0; i < fields; i++)
@@ -108,6 +112,9 @@ void AssemblyLoader::LoadMethodDef(uint32_t index)
         auto& ecall = FindECall(method);
         method.ECall.EntryPoint = ecall.EntryPoint;
         method.ECall.Call = ecall.Call;
+    }
+    else if ((methodDef.Flags & MethodAttributes::Abstract) == MethodAttributes::Abstract)
+    {
     }
     else
     {
@@ -204,7 +211,8 @@ void AssemblyLoader::LoadTypeInstanceField(EEClass& eeClass)
     auto& tables = mdImporter_.GetTables();
     auto& strings = mdImporter_.GetStrings();
 
-    if (eeClass.LoadLevel >= clsLoad_InstanceFields)return;
+    if (eeClass.LoadLevel >= clsLoad_InstanceFields)
+        return;
 
     if (eeClass.Parent && eeClass.Parent->LoadLevel < clsLoad_InstanceFields)
         LoadTypeInstanceField(*eeClass.Parent);
@@ -247,7 +255,8 @@ void AssemblyLoader::LoadTypeStaticField(uint32_t index)
     auto& strings = mdImporter_.GetStrings();
     auto& eeClass = eeClasses_[index];
 
-    if (eeClass.LoadLevel >= clsLoad_StaticFields)return;
+    if (eeClass.LoadLevel >= clsLoad_StaticFields)
+        return;
 
     // Static & not literal field
     {
@@ -255,8 +264,7 @@ void AssemblyLoader::LoadTypeStaticField(uint32_t index)
         for (auto fieldDesc = eeClass.FirstField; fieldDesc != eeClass.LastField; ++fieldDesc)
         {
             auto flag = fieldDesc->Flags;
-            if ((flag & FieldAttributes::Static) == FieldAttributes::Static &&
-                (flag & FieldAttributes::Literal) != FieldAttributes::Literal)
+            if ((flag & FieldAttributes::Static) == FieldAttributes::Static && (flag & FieldAttributes::Literal) != FieldAttributes::Literal)
             {
                 auto& varDesc = fieldDesc->Var;
                 offset = align(offset, varDesc.Type.GetAlign());
@@ -271,6 +279,29 @@ void AssemblyLoader::LoadTypeStaticField(uint32_t index)
     }
 
     eeClass.LoadLevel = clsLoad_StaticFields;
+}
+
+void AssemblyLoader::LoadGenericParam(uint32_t index)
+{
+    auto& tables = mdImporter_.GetTables();
+    auto& strings = mdImporter_.GetStrings();
+    auto row = tables.GetGenericParam({ index + 1 });
+    auto owner = row.Owner;
+
+    GenericDesc* desc;
+    if (owner.GetType() == mdt_TypeDef)
+    {
+        auto& type = GetClass(owner.As<mdt_TypeDef>());
+        desc = &type.GenericParams.emplace_back();
+    }
+    else
+    {
+        auto& method = GetMethod(owner.As<mdt_MethodDef>());
+        desc = &method.GenericParams.emplace_back();
+    }
+
+    desc->Name = strings.GetString(row.Name);
+    desc->Number = row.Number;
 }
 
 MethodDesc& AssemblyLoader::GetMethod(Ridx<mdt_MethodDef> method)

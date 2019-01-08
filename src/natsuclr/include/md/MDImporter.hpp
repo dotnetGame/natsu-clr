@@ -36,7 +36,7 @@ namespace metadata
     public:
         struct Row
         {
-            uint32_t HashAlgId;
+            AssemblyHashAlgorithm HashAlgId;
             uint16_t MajorVersion;
             uint16_t MinorVersion;
             uint16_t BuildNumber;
@@ -44,9 +44,12 @@ namespace metadata
             AssemblyFlags Flags;
             Sidx<stm_Blob> PublicKey;
             Sidx<stm_String> Name;
+            Sidx<stm_String> Culture;
         };
 
         using MetadataTable::MetadataTable;
+
+        Row GetRow(Ridx<mdt_Assembly> ridx, const MetadataStream& context) const;
 
     protected:
         virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
@@ -125,19 +128,20 @@ namespace metadata
         virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
     };
 
-    class FieldTable final : public MetadataTable
+    class GenericParamTable final : public MetadataTable
     {
     public:
         struct Row
         {
-            FieldAttributes Flags;
+            uint16_t Number;
+            GenericParamAttributes Flags;
+            CodedRidx<crid_TypeOrMethodDef> Owner;
             Sidx<stm_String> Name;
-            Sidx<stm_Blob> Signature;
         };
 
         using MetadataTable::MetadataTable;
 
-        Row GetRow(Ridx<mdt_Field> ridx, const MetadataStream& context) const;
+        Row GetRow(Ridx<mdt_GenericParam> ridx, const MetadataStream& context) const;
 
     protected:
         virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
@@ -313,6 +317,8 @@ namespace metadata
         DECL_METASTREAM_GET_ROW(PropertyMap);
         DECL_METASTREAM_GET_ROW(Property);
         DECL_METASTREAM_GET_ROW(MethodSemantics);
+        DECL_METASTREAM_GET_ROW(Assembly);
+        DECL_METASTREAM_GET_ROW(GenericParam);
 
     private:
         std::unique_ptr<MetadataTable> tables_[mdt_Count];

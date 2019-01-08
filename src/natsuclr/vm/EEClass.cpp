@@ -17,7 +17,7 @@ bool TypeDesc::IsEmpty() const noexcept
 
 size_t TypeDesc::GetStackSize() const noexcept
 {
-    assert(!IsByRef);
+    assert(!(Flags & tda_ByRef));
 
     assert(Type);
 
@@ -54,6 +54,8 @@ size_t TypeDesc::GetStackSize() const noexcept
         return sizeof(intptr_t);
     case ELEMENT_TYPE_U:
         return sizeof(uintptr_t);
+    case ELEMENT_TYPE_VAR:
+        return 0;
     default:
         assert(!"Invalid type.");
         return 0;
@@ -62,7 +64,7 @@ size_t TypeDesc::GetStackSize() const noexcept
 
 size_t TypeDesc::GetAlign() const noexcept
 {
-    assert(!IsByRef);
+    assert(!(Flags & tda_ByRef));
 
     assert(Type);
 
@@ -98,6 +100,8 @@ size_t TypeDesc::GetAlign() const noexcept
         return sizeof(intptr_t);
     case ELEMENT_TYPE_U:
         return sizeof(uintptr_t);
+    case ELEMENT_TYPE_VAR:
+        return 1;
     default:
         assert(!"Invalid type.");
         return 1;

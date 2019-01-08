@@ -32,6 +32,7 @@ namespace loader
         virtual void VisitParamCount(uint32_t count) override;
         virtual void VisitBeginType(metadata::CorElementType elementType) override;
         virtual void VisitTypeDefOrRefEncoded(metadata::CodedRidx<metadata::crid_TypeDefOrRef> cridx) override;
+        virtual void VisitTypeGenericParamNumber(uint32_t number) override;
 
     private:
         vm::VarDesc* cntVar_;

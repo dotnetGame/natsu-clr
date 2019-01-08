@@ -2,43 +2,47 @@
 // Natsu CLR Loader
 //
 #pragma once
-#include "AssemblyFile.hpp"
 #include "../md/MDImporter.hpp"
 #include "../vm/EEClass.hpp"
+#include "AssemblyFile.hpp"
 #include <vector>
 
 namespace clr
 {
-	namespace loader
-	{
-class FieldSigVisitor;
+namespace loader
+{
+    class FieldSigVisitor;
 
-		class AssemblyLoader
-		{
-			friend class FieldSigVisitor;
-		public:
-			AssemblyLoader(std::shared_ptr<AssemblyFile> assemblyFile);
+    class AssemblyLoader
+    {
+        friend class FieldSigVisitor;
 
-			void Load();
-			metadata::MDImporter& GetMDImporter() noexcept { return mdImporter_; }
+    public:
+        AssemblyLoader(std::shared_ptr<AssemblyFile> assemblyFile);
 
-			std::vector<vm::EEClass>& GetClasses() noexcept { return eeClasses_; }
-			vm::MethodDesc& GetMethod(metadata::Ridx<metadata::mdt_MethodDef> method);
-			vm::EEClass& GetClass (metadata::Ridx<metadata::mdt_TypeDef> type);
-			vm::FieldDesc& GetField(metadata::Ridx<metadata::mdt_Field> field);
-		private:
-			void LoadTypeDef(uint32_t index);
-			void LoadMethodDef(uint32_t index);
-			void LoadField(uint32_t index);
-			void LoadTypeInstanceField(uint32_t index);
-			void LoadTypeStaticField(uint32_t index);
-			void LoadTypeInstanceField(vm::EEClass& eeClass);
-		private:
-			std::shared_ptr<AssemblyFile> assemblyFile_;
-			metadata::MDImporter mdImporter_;
-			std::vector<vm::EEClass> eeClasses_;
-			std::vector<vm::MethodDesc> methodDescs_;
-			std::vector<vm::FieldDesc> fieldDescs_;
-		};
-	}
+        void Load();
+        metadata::MDImporter& GetMDImporter() noexcept { return mdImporter_; }
+
+        std::vector<vm::EEClass>& GetClasses() noexcept { return eeClasses_; }
+        vm::MethodDesc& GetMethod(metadata::Ridx<metadata::mdt_MethodDef> method);
+        vm::EEClass& GetClass(metadata::Ridx<metadata::mdt_TypeDef> type);
+        vm::FieldDesc& GetField(metadata::Ridx<metadata::mdt_Field> field);
+
+    private:
+        void LoadTypeDef(uint32_t index);
+        void LoadMethodDef(uint32_t index);
+        void LoadField(uint32_t index);
+        void LoadTypeInstanceField(uint32_t index);
+        void LoadTypeStaticField(uint32_t index);
+        void LoadTypeInstanceField(vm::EEClass& eeClass);
+        void LoadGenericParam(uint32_t index);
+
+    private:
+        std::shared_ptr<AssemblyFile> assemblyFile_;
+        metadata::MDImporter mdImporter_;
+        std::vector<vm::EEClass> eeClasses_;
+        std::vector<vm::MethodDesc> methodDescs_;
+        std::vector<vm::FieldDesc> fieldDescs_;
+    };
+}
 }

@@ -1,76 +1,18 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{0D306948-EF8B-4E69-AFAF-9FD3B09D1C30}</ProjectGuid>
     <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <TargetFramework>netstandard1.3</TargetFramework>
     <RootNamespace>System</RootNamespace>
     <AssemblyName>System.Private.CorLib</AssemblyName>
-    <TargetFrameworkVersion>v2.0</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <NoStdLib>true</NoStdLib>
-    <TargetFrameworkProfile />
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+    <RuntimeMetadataVersion>0</RuntimeMetadataVersion>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <NoWarn>1701;1702;0169</NoWarn>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <NoWarn>1701;1702;0169</NoWarn>
   </PropertyGroup>
-  <ItemGroup>
-    <Folder Include="Properties\" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Attribute.cs" />
-    <Compile Include="AttributeTargets.cs" />
-    <Compile Include="AttributeUsageAttribute.cs" />
-    <Compile Include="Boolean.cs" />
-    <Compile Include="CLSCompliantAttribute.cs" />
-    <Compile Include="Console.cs" />
-    <Compile Include="Double.cs" />
-    <Compile Include="Enum.cs" />
-    <Compile Include="FlagsAttribute.cs" />
-    <Compile Include="Char.cs" />
-    <Compile Include="IComparable.cs" />
-    <Compile Include="IConvertible.cs" />
-    <Compile Include="IEquatable.cs" />
-    <Compile Include="IFormatProvider.cs" />
-    <Compile Include="Byte.cs" />
-    <Compile Include="IFormattable.cs" />
-    <Compile Include="UInt64.cs" />
-    <Compile Include="Int64.cs" />
-    <Compile Include="SByte.cs" />
-    <Compile Include="Int16.cs" />
-    <Compile Include="Int32.cs" />
-    <Compile Include="Object.cs" />
-    <Compile Include="Runtime\CompilerServices\MethodImplAttribute.cs" />
-    <Compile Include="Runtime\CompilerServices\MethodImplOptions.cs" />
-    <Compile Include="Runtime\InteropServices\CharSet.cs" />
-    <Compile Include="Runtime\InteropServices\LayoutKind.cs" />
-    <Compile Include="Runtime\InteropServices\StructLayoutAttribute.cs" />
-    <Compile Include="SerializableAttribute.cs" />
-    <Compile Include="Single.cs" />
-    <Compile Include="String.cs" />
-    <Compile Include="Type.cs" />
-    <Compile Include="TypeCode.cs" />
-    <Compile Include="UInt16.cs" />
-    <Compile Include="UInt32.cs" />
-    <Compile Include="ValueType.cs" />
-    <Compile Include="Void.cs" />
-  </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

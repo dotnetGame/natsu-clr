@@ -5,6 +5,7 @@
 #include "../md/mddefs.hpp"
 #include <memory>
 #include <string_view>
+#include <vector>
 
 namespace clr
 {
@@ -22,12 +23,31 @@ namespace vm
         clsLoad_StaticFields
     };
 
+    enum TypeDescAttributes
+    {
+        tda_Normal = 0x0,
+        tda_ByRef = 0x1,
+        tda_Generic = 0x2
+    };
+
+#ifdef MAKE_ENUM_CLASS_BITMASK_TYPE
+    MAKE_ENUM_CLASS_BITMASK_TYPE(TypeDescAttributes);
+#endif
+
     struct EEClass;
+
+    struct GenericDesc
+    {
+        uint32_t Number;
+        std::string_view Name;
+    };
 
     struct TypeDesc
     {
-        bool IsByRef;
+        TypeDescAttributes Flags;
         metadata::CorElementType Type;
+        GenericDesc* GenericParam;
+
         EEClass* Class;
 
         bool IsEmpty() const noexcept;
@@ -56,6 +76,7 @@ namespace vm
 
         std::unique_ptr<VarDesc[]> ParamDescs;
         std::unique_ptr<VarDesc[]> LocalVarDescs;
+        std::vector<GenericDesc> GenericParams;
         TypeDesc RetDesc;
 
         uint32_t ParamCount;
@@ -117,6 +138,7 @@ namespace vm
         uint32_t InstanceSize;
 
         std::unique_ptr<uint8_t[]> StaticFields;
+        std::vector<GenericDesc> GenericParams;
 
         ClassLoadLevel LoadLevel;
     };
