@@ -33,7 +33,7 @@ void dummy_deleter(const uint8_t* ptr)
 
 int main()
 {
-	auto file = load_file(__FILE__ R"(\..\..\System.Private.CorLib\bin\Debug\netstandard1.3\System.Private.CorLib.dll)");
+	auto file = load_file(__FILE__ R"(\..\..\System.Private.CorLib\bin\Debug\netstandard2.0\System.Private.CorLib.dll)");
 	auto asmfile = std::make_shared<AssemblyFile>(std::shared_ptr<const uint8_t[]>(file.data(), dummy_deleter), file.size());
 	auto loader = std::make_shared<AssemblyLoader>(asmfile);
 	loader->Load();
@@ -42,6 +42,4 @@ int main()
 	Thread thread;
 	thread.assemblyLoader_ = loader.get();
 	thread.Execute(*CorlibBinder::Current().BindMethod("System", "Console", "Test"));
-
-	std::cout << "Test" << std::endl;
 }

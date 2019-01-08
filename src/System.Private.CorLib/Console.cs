@@ -5,11 +5,11 @@ namespace System
 {
     class Haha
     {
-        public int Value;
+        public int[] Value;
 
         public Haha()
         {
-            Value = 1;
+            Value = new[] { 1 };
         }
     }
 
@@ -26,7 +26,7 @@ namespace System
         public static void Test()
         {
             var v = new Haha();
-            SayHello(v.Value);
+            SayHello(v.Value[0]);
         }
     }
 }

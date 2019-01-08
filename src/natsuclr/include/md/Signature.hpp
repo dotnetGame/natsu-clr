@@ -84,6 +84,8 @@ namespace metadata
         virtual void VisitBeginLocalVar();
         virtual void VisitEndLocalVar();
         virtual void VisitTypeGenericParamNumber(uint32_t number);
+        virtual void VisitBeginSzArray();
+        virtual void VisitEndSzArray();
 
     private:
         void ParseMethod(SigParser& parser, uint8_t flag);

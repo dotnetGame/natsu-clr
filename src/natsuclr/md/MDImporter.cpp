@@ -100,7 +100,7 @@ void MetadataStream::Initialize(uintptr_t content)
 
     const std::bitset<64> valid(header->Valid);
 
-    assert(valid.count() == 14);
+    assert(valid.count() == 16);
 
     auto rows = header->Rows;
     INIT_TABLE_COUNT(Module);
@@ -108,6 +108,7 @@ void MetadataStream::Initialize(uintptr_t content)
     INIT_TABLE_COUNT(Field);
     INIT_TABLE_COUNT(MethodDef);
     INIT_TABLE_COUNT(Param);
+    INIT_TABLE_COUNT(MemberRef);
     INIT_TABLE_COUNT(Constant);
     INIT_TABLE_COUNT(CustomAttribute);
     INIT_TABLE_COUNT(ClassLayout);
@@ -115,6 +116,7 @@ void MetadataStream::Initialize(uintptr_t content)
     INIT_TABLE_COUNT(PropertyMap);
     INIT_TABLE_COUNT(Property);
     INIT_TABLE_COUNT(MethodSemantics);
+    INIT_TABLE_COUNT(TypeSpec);
     INIT_TABLE_COUNT(Assembly);
     INIT_TABLE_COUNT(GenericParam);
 
@@ -124,6 +126,7 @@ void MetadataStream::Initialize(uintptr_t content)
     INIT_TABLE(Field);
     INIT_TABLE(MethodDef);
     INIT_TABLE(Param);
+    INIT_TABLE(MemberRef);
     INIT_TABLE(Constant);
     INIT_TABLE(CustomAttribute);
     INIT_TABLE(ClassLayout);
@@ -131,6 +134,7 @@ void MetadataStream::Initialize(uintptr_t content)
     INIT_TABLE(PropertyMap);
     INIT_TABLE(Property);
     INIT_TABLE(MethodSemantics);
+    INIT_TABLE(TypeSpec);
     INIT_TABLE(Assembly);
     INIT_TABLE(GenericParam);
 }
@@ -177,8 +181,15 @@ size_t MetadataStream::GetCodedRidxSize(CodedRowIndex ridxType) const noexcept
         IMPL_CODED_RIDX_SIZE(crid_TypeDefOrRef);
         IMPL_CODED_RIDX_SIZE(crid_HasConstant);
         IMPL_CODED_RIDX_SIZE(crid_HasCustomAttribute);
-        IMPL_CODED_RIDX_SIZE(crid_CustomAttributeType);
+        //IMPL_CODED_RIDX_SIZE(crid_HasFieldMarshall);
+        //IMPL_CODED_RIDX_SIZE(crid_HasDeclSecurity);
+        IMPL_CODED_RIDX_SIZE(crid_MemberRefParent);
         IMPL_CODED_RIDX_SIZE(crid_HasSemantics);
+        //IMPL_CODED_RIDX_SIZE(crid_MethodDefOrRef);
+        //IMPL_CODED_RIDX_SIZE(crid_MemberForwarded);
+        //IMPL_CODED_RIDX_SIZE(crid_Implementation);
+        IMPL_CODED_RIDX_SIZE(crid_CustomAttributeType);
+        //IMPL_CODED_RIDX_SIZE(crid_ResolutionScope);
         IMPL_CODED_RIDX_SIZE(crid_TypeOrMethodDef);
     default:
         assert(!"invalid coded row index type");
@@ -198,6 +209,7 @@ IMPL_GET_ROW1(TypeDef);
 IMPL_GET_ROW1(MethodDef);
 IMPL_GET_ROW1(Field);
 IMPL_GET_ROW1(Param);
+IMPL_GET_ROW1(MemberRef);
 IMPL_GET_ROW1(Constant);
 IMPL_GET_ROW1(CustomAttribute);
 IMPL_GET_ROW1(ClassLayout);
@@ -205,6 +217,7 @@ IMPL_GET_ROW1(StandAloneSig);
 IMPL_GET_ROW1(PropertyMap);
 IMPL_GET_ROW1(Property);
 IMPL_GET_ROW1(MethodSemantics);
+IMPL_GET_ROW1(TypeSpec);
 IMPL_GET_ROW1(Assembly);
 IMPL_GET_ROW1(GenericParam);
 
@@ -335,6 +348,23 @@ auto GenericParamTable::GetRow(Ridx<mdt_GenericParam> ridx, const MetadataStream
     };
 }
 
+// MemberRef
+
+size_t MemberRefTable::GetRowSize(MetadataStream& context) const noexcept
+{
+    return context.GetCodedRidxSize(crid_MemberRefParent) + context.GetSidxSize(stm_String) + context.GetSidxSize(stm_Blob);
+}
+
+auto MemberRefTable::GetRow(Ridx<mdt_MemberRef> ridx, const MetadataStream& context) const -> Row
+{
+    BinaryReader br(GetRowBase(ridx()));
+    return {
+        br.Read<CodedRidx<crid_MemberRefParent>>(context.GetCodedRidxSize(crid_MemberRefParent)),
+        br.Read<Sidx<stm_String>>(context.GetSidxSize(stm_String)),
+        br.Read<Sidx<stm_Blob>>(context.GetSidxSize(stm_Blob))
+    };
+}
+
 // MethodDef
 
 size_t MethodDefTable::GetRowSize(MetadataStream& context) const noexcept
@@ -437,6 +467,21 @@ size_t StandAloneSigTable::GetRowSize(MetadataStream& context) const noexcept
 }
 
 auto StandAloneSigTable::GetRow(Ridx<mdt_StandAloneSig> ridx, const MetadataStream& context) const -> Row
+{
+    BinaryReader br(GetRowBase(ridx()));
+    return {
+        br.Read<Sidx<stm_Blob>>(context.GetSidxSize(stm_Blob))
+    };
+}
+
+// TypeSpec
+
+size_t TypeSpecTable::GetRowSize(MetadataStream& context) const noexcept
+{
+    return context.GetSidxSize(stm_Blob);
+}
+
+auto TypeSpecTable::GetRow(Ridx<mdt_TypeSpec> ridx, const MetadataStream& context) const -> Row
 {
     BinaryReader br(GetRowBase(ridx()));
     return {

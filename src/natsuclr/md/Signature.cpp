@@ -242,7 +242,14 @@ void SignatureVisitor::VisitEndLocalVar()
 
 void SignatureVisitor::VisitTypeGenericParamNumber(uint32_t number)
 {
+}
 
+void SignatureVisitor::VisitBeginSzArray()
+{
+}
+
+void SignatureVisitor::VisitEndSzArray()
+{
 }
 
 void SignatureVisitor::ParseLocals(SigParser& parser, uint8_t flag)
@@ -319,6 +326,12 @@ void SignatureVisitor::ParseType(SigParser& parser)
         break;
     case ELEMENT_TYPE_VAR:
         VisitTypeGenericParamNumber(parser.GetNumber());
+        break;
+    case ELEMENT_TYPE_SZARRAY:
+        VisitBeginSzArray();
+        ParseOptionalCustomMods(parser);
+        ParseType(parser);
+        VisitEndSzArray();
         break;
     case ELEMENT_TYPE_PTR:
     case ELEMENT_TYPE_ARRAY:

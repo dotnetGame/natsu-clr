@@ -87,6 +87,8 @@ const ECall& clr::vm::FindECall(const MethodDesc& method)
                     break;
                 }
             }
+
+			ecallClass++;
         }
     }
 
@@ -98,6 +100,7 @@ const ECall& clr::vm::FindECall(const MethodDesc& method)
         {
             if (ecall->MethodName == name)
                 return *ecall;
+            ecall++;
         }
     }
 

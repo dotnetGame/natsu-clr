@@ -2,9 +2,9 @@
 // Natsu CLR Metadata
 //
 #pragma once
+#include "../utils.hpp"
 #include <cstdint>
 #include <exception>
-#include "../utils.hpp"
 
 namespace clr
 {
@@ -62,7 +62,7 @@ namespace metadata
 
     enum class GenericParamAttributes : uint16_t
     {
-		None = 0x0000,
+        None = 0x0000,
         Covariant = 0x0001,
         Contravariant = 0x0002,
         ReferenceTypeConstraint = 0x004,
@@ -279,8 +279,17 @@ namespace metadata
             Ridx<Table> As() const { return { CodedValue >> TagBits }; }
             operator bool() const noexcept { return (CodedValue >> TagBits) != 0; }
 
+            MetadataTables GetType() const
+            {
+                auto tag = GetTag();
+                if (tag >= sizeof...(Types))
+                    THROW_ALWAYS(BadMetadataException);
+                return TypeValues[tag];
+            }
+
         protected:
             static constexpr size_t TagMask = (1 << TagBits) - 1;
+            static constexpr MetadataTables TypeValues[] = { Types... };
 
             size_t GetTag() const noexcept { return CodedValue & TagMask; }
         };
@@ -289,37 +298,36 @@ namespace metadata
     template <>
     struct CodedRidx<crid_TypeDefOrRef> : public impl::CodedRidxImpl<2, mdt_TypeDef, mdt_TypeRef, mdt_TypeSpec>
     {
-        MetadataTables GetType() const;
     };
 
     template <>
     struct CodedRidx<crid_HasConstant> : public impl::CodedRidxImpl<2, mdt_Field, mdt_Param, mdt_Property>
     {
-        MetadataTables GetType() const;
     };
 
     template <>
     struct CodedRidx<crid_HasCustomAttribute> : public impl::CodedRidxImpl<5, mdt_MethodDef, mdt_Field, mdt_TypeRef, mdt_TypeDef, mdt_Param, mdt_InterfaceImp, mdt_MemberRef, mdt_Module, mdt_Property, mdt_Event, mdt_StandAloneSig, mdt_ModuleRef, mdt_TypeSpec, mdt_Assembly, mdt_AssemblyRef, mdt_File, mdt_ExportedType, mdt_ManifestResource, mdt_GenericParam, mdt_GenericParamConstraint, mdt_MethodSpec>
     {
-        MetadataTables GetType() const;
     };
 
     template <>
     struct CodedRidx<crid_CustomAttributeType> : public impl::CodedRidxImpl<3, mdt_MethodDef, mdt_MemberRef>
     {
-        MetadataTables GetType() const;
     };
 
     template <>
     struct CodedRidx<crid_HasSemantics> : public impl::CodedRidxImpl<1, mdt_Event, mdt_Property>
     {
-        MetadataTables GetType() const;
     };
 
     template <>
     struct CodedRidx<crid_TypeOrMethodDef> : public impl::CodedRidxImpl<1, mdt_TypeDef, mdt_MethodDef>
     {
-        MetadataTables GetType() const;
+    };
+
+    template <>
+    struct CodedRidx<crid_MemberRefParent> : public impl::CodedRidxImpl<3, mdt_TypeDef, mdt_TypeRef, mdt_ModuleRef, mdt_MethodDef, mdt_TypeSpec>
+    {
     };
 
     struct BlobData

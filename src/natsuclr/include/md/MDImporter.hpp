@@ -147,6 +147,24 @@ namespace metadata
         virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
     };
 
+    class MemberRefTable final : public MetadataTable
+    {
+    public:
+        struct Row
+        {
+            CodedRidx<crid_MemberRefParent> Class;
+            Sidx<stm_String> Name;
+            Sidx<stm_Blob> Signature;
+        };
+
+        using MetadataTable::MetadataTable;
+
+        Row GetRow(Ridx<mdt_MemberRef> ridx, const MetadataStream& context) const;
+
+    protected:
+        virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
+    };
+
     class MethodDefTable final : public MetadataTable
     {
     public:
@@ -294,6 +312,22 @@ namespace metadata
         virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
     };
 
+    class TypeSpecTable final : public MetadataTable
+    {
+    public:
+        struct Row
+        {
+            Sidx<stm_Blob> Signature;
+        };
+
+        using MetadataTable::MetadataTable;
+
+        Row GetRow(Ridx<mdt_TypeSpec> ridx, const MetadataStream& context) const;
+
+    protected:
+        virtual size_t GetRowSize(MetadataStream& context) const noexcept override;
+    };
+
     class MetadataStream
     {
     public:
@@ -310,6 +344,7 @@ namespace metadata
         DECL_METASTREAM_GET_ROW(MethodDef);
         DECL_METASTREAM_GET_ROW(Field);
         DECL_METASTREAM_GET_ROW(Param);
+        DECL_METASTREAM_GET_ROW(MemberRef);
         DECL_METASTREAM_GET_ROW(Constant);
         DECL_METASTREAM_GET_ROW(CustomAttribute);
         DECL_METASTREAM_GET_ROW(ClassLayout);
@@ -317,6 +352,7 @@ namespace metadata
         DECL_METASTREAM_GET_ROW(PropertyMap);
         DECL_METASTREAM_GET_ROW(Property);
         DECL_METASTREAM_GET_ROW(MethodSemantics);
+        DECL_METASTREAM_GET_ROW(TypeSpec);
         DECL_METASTREAM_GET_ROW(Assembly);
         DECL_METASTREAM_GET_ROW(GenericParam);
 
