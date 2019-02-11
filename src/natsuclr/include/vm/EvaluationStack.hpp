@@ -30,6 +30,7 @@ namespace vm
         void PushVar(const void* value, const TypeDesc& type);
         uint8_t* GetTopVar(TypeDesc& type);
         void PopVar();
+        uint8_t* PopTopVar(TypeDesc& type);
 
         void PushFrame(const MethodDesc& method);
         void PopFrame();

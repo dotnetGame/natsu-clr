@@ -28,7 +28,7 @@ namespace vm
         tda_Normal = 0x0,
         tda_ByRef = 0x1,
         tda_Generic = 0x2,
-		tda_SzArray = 0x4
+        tda_SzArray = 0x4
     };
 
 #ifdef MAKE_ENUM_CLASS_BITMASK_TYPE

@@ -8,15 +8,11 @@ namespace clr
 {
 namespace corlib
 {
+    class Object;
+
     struct ObjectHeader
     {
-        const vm::EEClass* Class;
-    };
-
-    class Object
-    {
-    public:
-        ObjectHeader& GetHeader() noexcept;
+        vm::EEClass* Class;
     };
 
     template <class T = Object>
@@ -33,8 +29,21 @@ namespace corlib
             return ptr_;
         }
 
+        T* operator->() const noexcept
+        {
+            return Get();
+        }
+
     private:
         T* ptr_;
+    };
+
+    class Object
+    {
+    public:
+        ObjectHeader& GetHeader() noexcept;
+
+        static uintptr_t GetType(ObjectRef<> this_);
     };
 }
 }

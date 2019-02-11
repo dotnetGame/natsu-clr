@@ -1,10 +1,10 @@
 //
 // Natsu CLR VM
 //
+#include <cassert>
 #include <gc/gc.hpp>
 #include <utils.hpp>
 #include <vm/EvaluationStack.hpp>
-#include <cassert>
 
 using namespace clr;
 using namespace clr::corlib;
@@ -23,7 +23,7 @@ void EvaluationStack::PushVar(const void* value, const TypeDesc& type)
     auto offset = align(stackPointer_, type.GetAlign());
     THROW_IF_NOT(offset + size <= stackSize_, StackOverflowException);
 
-    VarDesc var{ (uint32_t)offset, type };
+    VarDesc var { (uint32_t)offset, type };
     stackVars_.emplace_back(var);
     memcpy(&stack_[offset], value, size);
     stackPointer_ += offset + size;
@@ -53,9 +53,16 @@ void EvaluationStack::PopVar()
     }
 }
 
+uint8_t* EvaluationStack::PopTopVar(TypeDesc& type)
+{
+    auto data = GetTopVar(type);
+    PopVar();
+    return data;
+}
+
 void EvaluationStack::PushFrame(const MethodDesc& method)
 {
-    FrameMarker marker{ method, stackVars_.size() };
+    FrameMarker marker { method, stackVars_.size() };
     frames_.emplace(marker);
 }
 

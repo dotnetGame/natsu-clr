@@ -35,6 +35,8 @@ namespace vm
         void ExecuteOp_LDLOC(size_t index);
         void ExecuteOp_STLOC(size_t index);
         void ExecuteOp_LDC_I4(int32_t i);
+        void ExecuteOp_STELEM(clr::metadata::CorElementType type);
+        uint64_t PopIndexOrArrayLength();
     private:
         EvaluationStack evalStack_;
         loader::AssemblyLoader& assemblyLoader_;

@@ -1,7 +1,10 @@
 //
 // Natsu CLR VM
 //
+#include <classlibnative/System/Array.hpp>
 #include <classlibnative/System/Console.hpp>
+#include <classlibnative/System/Object.hpp>
+#include <cassert>
 #include <cstring>
 #include <utils.hpp>
 #include <vm/ECall.hpp>
@@ -22,13 +25,22 @@ struct arg_info
 template <typename TRet, typename... TArgs>
 struct func_info<TRet (*)(TArgs...)>
 {
-    static_assert(std::is_void_v<TRet>, "Now just support void return.");
-
     static const auto ArgsCount = sizeof...(TArgs);
 
     static void Call(uintptr_t entryPoint, CalleeInfo& callee)
     {
-        CallImp(entryPoint, callee, std::make_index_sequence<ArgsCount>());
+        if constexpr (std::is_void_v<TRet>)
+        {
+            return CallImp(entryPoint, callee, std::make_index_sequence<ArgsCount>());
+        }
+        else
+        {
+            TypeDesc retType;
+            auto dest = callee.GetRet(retType);
+            assert(retType.GetStackSize() == align(sizeof(TRet), 8));
+            auto ret = CallImp(entryPoint, callee, std::make_index_sequence<ArgsCount>());
+            memcpy(dest, &ret, sizeof(TRet));
+        }
     }
 
 private:
@@ -44,17 +56,17 @@ private:
     static auto CallImp(uintptr_t entryPoint, CalleeInfo& callee, std::index_sequence<ArgIdx...>)
     {
         auto func = reinterpret_cast<TRet (*)(TArgs...)>(entryPoint);
-        func(ArgAt<ArgIdx>(callee)...);
+        return func(ArgAt<ArgIdx>(callee)...);
     }
 };
 
 #define ECFuncStart(funcvar, ns, cls) static const ECall funcvar[] = {
 #define ECFuncElement(name, func) { name, uintptr_t(func), &func_info<decltype(func)>::Call },
-#define ECFuncEnd()   \
-    {                 \
-        {}, 0, 0      \
-    }                 \
-    }                 \
+#define ECFuncEnd() \
+    {               \
+        {}, 0, 0    \
+    }               \
+    }               \
     ;
 
 #include <vm/ECallList.hpp>
@@ -88,7 +100,7 @@ const ECall& clr::vm::FindECall(const MethodDesc& method)
                 }
             }
 
-			ecallClass++;
+            ecallClass++;
         }
     }
 

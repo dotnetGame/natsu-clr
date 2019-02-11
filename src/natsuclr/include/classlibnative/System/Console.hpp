@@ -6,12 +6,12 @@
 
 namespace clr
 {
-	namespace corlib
-	{
-		class Console
-		{
-		public:
-			static void SayHello(int obj);
-		};
-	}
+namespace corlib
+{
+    class Console
+    {
+    public:
+        static void SayHello(int obj);
+    };
+}
 }

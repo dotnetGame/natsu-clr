@@ -326,6 +326,50 @@ void Interpreter::ExecuteOp<CEE_STFLD>(OpInfo& op, OpArgsVal& args)
     evalStack_.PopVar();
 }
 
+template <>
+void Interpreter::ExecuteOp<CEE_NEWARR>(OpInfo& op, OpArgsVal& args)
+{
+    mdToken token(static_cast<uint32_t>(args.i));
+    EEClass* cls;
+
+    switch (token.GetType())
+    {
+    case mdt_TypeDef:
+        cls = &assemblyLoader_.GetClass(token.As<mdt_TypeDef>());
+        break;
+    default:
+        assert(!"Invalid token type");
+        break;
+    }
+
+    auto obj = GC::Current().AllocateArray(cls, PopIndexOrArrayLength());
+    evalStack_.PushVar(&obj, { tda_Normal | tda_SzArray, ELEMENT_TYPE_SZARRAY, 0, cls });
+}
+
+template <>
+void Interpreter::ExecuteOp<CEE_DUP>(OpInfo& op, OpArgsVal& args)
+{
+    TypeDesc srcType;
+    auto src = reinterpret_cast<ObjectRef<>*>(evalStack_.GetTopVar(srcType));
+    evalStack_.PushVar(src, srcType);
+}
+
+#define IMP_STELEM(op, type)                                       \
+    template <>                                                    \
+    void Interpreter::ExecuteOp<op>(OpInfo & op, OpArgsVal & args) \
+    {                                                              \
+        ExecuteOp_STELEM(type);                                    \
+    }
+
+IMP_STELEM(CEE_STELEM_I1, ELEMENT_TYPE_I1)
+IMP_STELEM(CEE_STELEM_I2, ELEMENT_TYPE_I2)
+IMP_STELEM(CEE_STELEM_I4, ELEMENT_TYPE_I4)
+IMP_STELEM(CEE_STELEM_I8, ELEMENT_TYPE_I8)
+IMP_STELEM(CEE_STELEM_R4, ELEMENT_TYPE_R4)
+IMP_STELEM(CEE_STELEM_R8, ELEMENT_TYPE_R8)
+IMP_STELEM(CEE_STELEM_I, ELEMENT_TYPE_I)
+IMP_STELEM(CEE_STELEM_REF, ELEMENT_TYPE_BYREF)
+
 #define EXECUTE_OP(opCode)           \
     case opCode:                     \
         ExecuteOp<opCode>(op, args); \
@@ -372,8 +416,18 @@ void Interpreter::ExecuteOp(OpInfo& op, OpArgsVal& args)
         EXECUTE_OP(CEE_CONV_R4);
         EXECUTE_OP(CEE_BR_S);
         EXECUTE_OP(CEE_NEWOBJ);
+        EXECUTE_OP(CEE_NEWARR);
+        EXECUTE_OP(CEE_DUP);
         EXECUTE_OP(CEE_LDFLD);
         EXECUTE_OP(CEE_STFLD);
+        EXECUTE_OP(CEE_STELEM_I1);
+        EXECUTE_OP(CEE_STELEM_I2);
+        EXECUTE_OP(CEE_STELEM_I4);
+        EXECUTE_OP(CEE_STELEM_I8);
+        EXECUTE_OP(CEE_STELEM_R4);
+        EXECUTE_OP(CEE_STELEM_R8);
+        EXECUTE_OP(CEE_STELEM_I);
+        EXECUTE_OP(CEE_STELEM_REF);
     default:
         assert(!"Invalid OpCode");
         break;
@@ -410,4 +464,113 @@ void Interpreter::ExecuteOp_STLOC(size_t index)
 void Interpreter::ExecuteOp_LDC_I4(int32_t i)
 {
     evalStack_.PushVar(&i, { tda_Normal, ELEMENT_TYPE_I4, 0, CorlibBinder::Current().Types.Int32 });
+}
+
+void Interpreter::ExecuteOp_STELEM(CorElementType type)
+{
+    TypeDesc valType, arrType;
+    auto valSrc = evalStack_.PopTopVar(valType);
+
+    auto index = PopIndexOrArrayLength();
+    auto arr = *reinterpret_cast<ObjectRef<Array>*>(evalStack_.PopTopVar(arrType));
+    auto elemType = ClassToType(arr->GetHeader().Class);
+    assert(elemType.Flags | tda_SzArray);
+    assert(type != ELEMENT_TYPE_BYREF || elemType.Type == ELEMENT_TYPE_BYREF);
+
+    union {
+        uint64_t ival;
+        double rval;
+        uintptr_t refval;
+    } val;
+    bool isRealVal = false;
+
+    switch (type)
+    {
+    case ELEMENT_TYPE_I1:
+        val.ival = *reinterpret_cast<uint8_t*>(valSrc);
+        break;
+    case ELEMENT_TYPE_I2:
+        val.ival = *reinterpret_cast<uint16_t*>(valSrc);
+        break;
+    case ELEMENT_TYPE_I4:
+        val.ival = *reinterpret_cast<uint32_t*>(valSrc);
+        break;
+    case ELEMENT_TYPE_I8:
+        val.ival = *reinterpret_cast<uint64_t*>(valSrc);
+        break;
+    case ELEMENT_TYPE_R4:
+        val.rval = *reinterpret_cast<float*>(valSrc);
+        isRealVal = true;
+        break;
+    case ELEMENT_TYPE_R8:
+        val.rval = *reinterpret_cast<double*>(valSrc);
+        isRealVal = true;
+        break;
+    case ELEMENT_TYPE_BYREF:
+        val.refval = *reinterpret_cast<uintptr_t*>(valSrc);
+        break;
+    default:
+        assert(!"Invalid type.");
+        break;
+    }
+
+    if (!isRealVal && (arrType.Type == ELEMENT_TYPE_R4 || arrType.Type == ELEMENT_TYPE_R8))
+        val.rval = static_cast<double>(val.ival);
+    if (isRealVal && (arrType.Type >= ELEMENT_TYPE_BOOLEAN && arrType.Type <= ELEMENT_TYPE_U8))
+        val.ival = (uint64_t)round(val.rval);
+
+    switch (elemType.Type)
+    {
+    case ELEMENT_TYPE_BOOLEAN:
+    case ELEMENT_TYPE_I1:
+    case ELEMENT_TYPE_U1:
+        arr->At<uint8_t>(index) = static_cast<uint8_t>(val.ival);
+        break;
+    case ELEMENT_TYPE_CHAR:
+    case ELEMENT_TYPE_I2:
+    case ELEMENT_TYPE_U2:
+        arr->At<uint16_t>(index) = static_cast<uint16_t>(val.ival);
+        break;
+    case ELEMENT_TYPE_I4:
+    case ELEMENT_TYPE_U4:
+        arr->At<uint32_t>(index) = static_cast<uint32_t>(val.ival);
+        break;
+    case ELEMENT_TYPE_I8:
+    case ELEMENT_TYPE_U8:
+        arr->At<uint64_t>(index) = val.ival;
+        break;
+    case ELEMENT_TYPE_R4:
+        arr->At<float>(index) = static_cast<float>(val.rval);
+        break;
+    case ELEMENT_TYPE_R8:
+        arr->At<double>(index) = val.rval;
+        break;
+    case ELEMENT_TYPE_BYREF:
+        arr->At<uintptr_t>(index) = val.refval;
+        break;
+    default:
+        assert(!"Invalid type.");
+        break;
+    }
+}
+
+uint64_t Interpreter::PopIndexOrArrayLength()
+{
+    TypeDesc lenType;
+    auto lenSrc = evalStack_.GetTopVar(lenType);
+    uint64_t len;
+    switch (lenType.Type)
+    {
+    case ELEMENT_TYPE_I4:
+        len = *reinterpret_cast<int32_t*>(lenSrc);
+        break;
+    case ELEMENT_TYPE_I:
+        len = *reinterpret_cast<intptr_t*>(lenSrc);
+        break;
+    default:
+        assert(!"Invalid num elements type");
+        break;
+    }
+    evalStack_.PopVar();
+    return len;
 }

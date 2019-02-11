@@ -3,6 +3,7 @@
 //
 #pragma once
 #include "../classlibnative/System/Object.hpp"
+#include "../classlibnative/System/Array.hpp"
 #include <vector>
 
 namespace clr
@@ -14,7 +15,7 @@ namespace gc
     public:
         GCHeap(size_t size);
 
-        corlib::ObjectRef<> AllocateObject(const vm::EEClass* cls);
+        corlib::ObjectRef<> AllocateObject(vm::EEClass* cls);
         void Collect();
     private:
         std::unique_ptr<uint8_t[]> heap_;
@@ -27,7 +28,8 @@ namespace gc
     public:
         static GC& Current();
 
-        corlib::ObjectRef<> AllocateObject(const vm::EEClass* cls);
+        corlib::ObjectRef<> AllocateObject(vm::EEClass* cls);
+        corlib::ObjectRef<corlib::Array> AllocateArray(vm::EEClass* cls, uint64_t length);
 
     private:
         GC();
