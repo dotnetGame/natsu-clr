@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.29021.104
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Natsu.Compiler", "Natsu.Compiler\Natsu.Compiler.csproj", "{AC6248DB-5117-4C47-A3E7-D0B7E6258F6B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Natsu.Compiler", "Natsu.Compiler\Natsu.Compiler.csproj", "{AC6248DB-5117-4C47-A3E7-D0B7E6258F6B}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "System.Private.CorLib", "..\System.Private.CorLib\System.Private.CorLib.csproj", "{84230461-4F26-4EDD-AAFE-402C7FABD071}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "System.Private.CorLib", "System.Private.CorLib\System.Private.CorLib.csproj", "{CE15C733-B010-41FD-B1B6-D0D4327F0653}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -17,10 +17,10 @@ Global
 		{AC6248DB-5117-4C47-A3E7-D0B7E6258F6B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AC6248DB-5117-4C47-A3E7-D0B7E6258F6B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AC6248DB-5117-4C47-A3E7-D0B7E6258F6B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{84230461-4F26-4EDD-AAFE-402C7FABD071}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{84230461-4F26-4EDD-AAFE-402C7FABD071}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{84230461-4F26-4EDD-AAFE-402C7FABD071}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{84230461-4F26-4EDD-AAFE-402C7FABD071}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CE15C733-B010-41FD-B1B6-D0D4327F0653}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CE15C733-B010-41FD-B1B6-D0D4327F0653}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CE15C733-B010-41FD-B1B6-D0D4327F0653}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CE15C733-B010-41FD-B1B6-D0D4327F0653}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
