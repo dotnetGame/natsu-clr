@@ -1,14 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
     <RootNamespace>System</RootNamespace>
     <AssemblyName>System.Private.CorLib</AssemblyName>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>8.0</LangVersion>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <RuntimeMetadataVersion>v4.0.30319</RuntimeMetadataVersion>
     <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
-    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <NoWarn>1701;1702;0169</NoWarn>

@@ -2,9 +2,11 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection.Metadata;
 using System.Runtime.CompilerServices;
 using System.Text;
 using dnlib.DotNet;
+using dnlib.DotNet.Emit;
 
 namespace Natsu.Compiler
 {
@@ -12,7 +14,7 @@ namespace Natsu.Compiler
     {
         static void Main(string[] args)
         {
-            var fileName = @"..\..\..\..\System.Private.CorLib\bin\Debug\netstandard2.0\System.Private.CorLib.dll";
+            var fileName = @"..\..\..\..\System.Private.CorLib\bin\Debug\netcoreapp3.0\System.Private.CorLib.dll";
             var module = ModuleDefMD.Load(fileName);
             var generator = new Generator(module);
             generator.Generate();
@@ -487,6 +489,79 @@ namespace Natsu.Compiler
         private void WriteILBody(StreamWriter writer, int ident, MethodDef method)
         {
             var body = method.Body;
+            var stack = new EvaluationStack();
+            foreach (var op in body.Instructions)
+            {
+                WriteInstruction(op, stack, writer, ident, method);
+            }
+        }
+
+        private void WriteInstruction(Instruction op, EvaluationStack stack, StreamWriter writer, int ident, MethodDef method)
+        {
+            void ConvertLdarg(int index)
+            {
+                var param = method.Parameters[index];
+                string expr;
+                if (!method.IsStatic && index == 0)
+                {
+                    if (method.DeclaringType.IsValueType)
+                        expr = "*this";
+                    else
+                        expr = "this";
+                }
+                else
+                {
+                    expr = EscapeIdentifier(param.Name);
+                }
+
+                stack.Push(param.Type, expr);
+            }
+
+            void ConvertLdfld(MemberRef member)
+            {
+                var target = stack.Pop();
+                string expr = target.expression + (target.type.IsValueType ? "." : "->") + EscapeIdentifier(member.Name);
+                stack.Push(member.FieldSig.Type, expr);
+            }
+
+            switch (op.OpCode.Code)
+            {
+                case Code.Ldarg_0:
+                    ConvertLdarg(0);
+                    break;
+                case Code.Ldarg_1:
+                    ConvertLdarg(1);
+                    break;
+                case Code.Ldarg_2:
+                    ConvertLdarg(2);
+                    break;
+                case Code.Ldarg_3:
+                    ConvertLdarg(3);
+                    break;
+                case Code.Ldarg:
+                    ConvertLdarg((int)op.Operand);
+                    break;
+                case Code.Ldfld:
+                    ConvertLdfld((MemberRef)op.Operand);
+                    break;
+                default:
+                    throw new NotSupportedException(op.ToString());
+            }
+        }
+
+        class EvaluationStack
+        {
+            private readonly Stack<(TypeSig type, string expression)> _stackValues = new Stack<(TypeSig type, string expression)>();
+
+            public void Push(TypeSig type, string expression)
+            {
+                _stackValues.Push((type, expression));
+            }
+
+            public (TypeSig type, string expression) Pop()
+            {
+                return _stackValues.Pop();
+            }
         }
 
         private static string GetEnumUnderlyingTypeName(ElementType type)
