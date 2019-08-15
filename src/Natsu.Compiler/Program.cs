@@ -26,10 +26,12 @@ namespace Natsu.Compiler
         private readonly ModuleDefMD _module;
         private readonly Dictionary<TypeDef, TypeDesc> _typeDescs = new Dictionary<TypeDef, TypeDesc>();
         private readonly List<TypeDesc> _sortedTypeDescs = new List<TypeDesc>();
+        private readonly CorLibTypes _corLibTypes;
 
         public Generator(ModuleDefMD module)
         {
             _module = module;
+            _corLibTypes = new CorLibTypes(module);
         }
 
         public void Generate()
@@ -284,7 +286,7 @@ namespace Natsu.Compiler
             writer.WriteLine();
         }
 
-        private string EscapeTypeName(ITypeDefOrRef type, bool isBaseType, bool hasModuleName = false)
+        private string EscapeTypeName(ITypeDefOrRef type, bool isBaseType, bool hasModuleName = false, bool hasGenParams = false)
         {
             var sb = new StringBuilder();
             if (!isBaseType && !type.IsValueType)
@@ -297,6 +299,13 @@ namespace Natsu.Compiler
             foreach (var ns in nss)
                 sb.Append($"{ns}::");
             sb.Append(EscapeTypeName(type.Name));
+            if (hasGenParams && type.NumberOfGenericParameters != 0
+                && type is TypeDef typeDef)
+            {
+                sb.Append("<");
+                sb.Append(string.Join(", ", typeDef.GenericParameters.Select(x => x.Name)));
+                sb.Append(">");
+            }
 
             if (!isBaseType && !type.IsValueType)
                 sb.Append(">");
@@ -320,21 +329,25 @@ namespace Natsu.Compiler
 
         private void WriteMethodDeclare(StreamWriter writer, int ident, MethodDef method)
         {
-            string prefix = string.Empty;
-            if (method.IsStatic)
-                prefix = "static ";
-
-            writer.Ident(ident).Write(prefix);
-            if (!method.IsInstanceConstructor)
-                writer.Write(EscapeTypeName(method.ReturnType) + " ");
+            writer.Ident(ident).Write("static " + EscapeTypeName(method.ReturnType) + " ");
             writer.Write(EscapeMethodName(method) + "(");
 
             var index = 0;
-            var parameters = method.IsStatic ? method.Parameters.ToList() : method.Parameters.Skip(1).ToList();
+            var parameters = method.Parameters.ToList();
             foreach (var param in parameters)
             {
-                writer.Write(EscapeTypeName(param.Type));
-                writer.Write(" " + EscapeIdentifier(param.Name));
+                if (param.IsHiddenThisParameter)
+                {
+                    writer.Write(EscapeTypeName(method.DeclaringType, false, true, true));
+                    if (method.DeclaringType.IsValueType)
+                        writer.Write("&");
+                }
+                else
+                {
+                    writer.Write(EscapeTypeName(param.Type));
+                }
+                var paramName = param.IsHiddenThisParameter ? "_this" : param.Name;
+                writer.Write(" " + EscapeIdentifier(paramName));
                 if (index++ != parameters.Count - 1)
                     writer.Write(", ");
             }
@@ -373,21 +386,39 @@ namespace Natsu.Compiler
                         if (cntSig.TryGetTypeDef() == declaringType)
                             sb.Append(GetConstantTypeName(cntSig.ElementType));
                         else
-                            sb.Append(EscapeTypeName(cntSig.ToTypeDefOrRef(), isBaseType: false));
+                            sb.Append(EscapeTypeName(cntSig.ToTypeDefOrRef(), isBaseType: false, hasModuleName: true));
                     }
                     break;
                 case ElementType.ValueType:
                 case ElementType.Class:
                 case ElementType.Object:
-                    sb.Append(EscapeTypeName(cntSig.ToTypeDefOrRef(), isBaseType: false));
+                    sb.Append(EscapeTypeName(cntSig.ToTypeDefOrRef(), isBaseType: false, hasModuleName: true));
                     break;
                 case ElementType.SZArray:
-                    sb.Append("::natsu::sz_array<");
+                    sb.Append("::natsu::gc_ptr<::natsu::sz_array<");
                     EscapeTypeName(sb, cntSig.Next, declaringType);
-                    sb.Append(">");
+                    sb.Append(">>");
                     break;
                 case ElementType.Var:
                     sb.Append(cntSig.ToGenericVar().GetName());
+                    break;
+                case ElementType.GenericInst:
+                    {
+                        var sig = cntSig.ToGenericInstSig();
+                        EscapeTypeName(sb, sig.GenericType, declaringType);
+                        sb.Append("<");
+                        for (int i = 0; i < sig.GenericArguments.Count; i++)
+                        {
+                            EscapeTypeName(sb, sig.GenericArguments[i], null);
+                            if (i != sig.GenericArguments.Count - 1)
+                                sb.Append(", ");
+                        }
+                        sb.Append(">");
+                    }
+                    break;
+                case ElementType.ByRef:
+                    EscapeTypeName(sb, cntSig.Next, declaringType);
+                    sb.Append("&");
                     break;
                 default:
                     throw new NotSupportedException();
@@ -438,7 +469,7 @@ namespace Natsu.Compiler
         {
             foreach (var method in type.TypeDef.Methods)
             {
-                if (!method.IsInternalCall)
+                if (!method.IsInternalCall && !method.IsAbstract)
                 {
                     if (inHeader == (type.TypeDef.HasGenericParameters || method.HasGenericParameters))
                     {
@@ -463,37 +494,64 @@ namespace Natsu.Compiler
             if (typeGens.Any() || methodGens.Any())
                 writer.WriteLine($"template <{string.Join(", ", typeGens.Concat(methodGens).Select(x => "class " + x))}>");
 
-            if (!method.IsInstanceConstructor)
-                writer.Write(EscapeTypeName(method.ReturnType) + " ");
+            writer.Write(EscapeTypeName(method.ReturnType) + " ");
             writer.Write(EscapeTypeName(method.DeclaringType, true, false));
             if (typeGens.Any())
                 writer.Write($"<{string.Join(", ", typeGens)}>");
             writer.Write("::" + EscapeMethodName(method) + "(");
 
             var index = 0;
-            var parameters = method.IsStatic ? method.Parameters.ToList() : method.Parameters.Skip(1).ToList();
+            var parameters = method.Parameters.ToList();
             foreach (var param in parameters)
             {
-                writer.Write(EscapeTypeName(param.Type));
-                writer.Write(" " + EscapeIdentifier(param.Name));
+                if (param.IsHiddenThisParameter)
+                {
+                    writer.Write(EscapeTypeName(method.DeclaringType, false, true, true));
+                    if (method.DeclaringType.IsValueType)
+                        writer.Write("&");
+                }
+                else
+                {
+                    writer.Write(EscapeTypeName(param.Type));
+                }
+                var paramName = param.IsHiddenThisParameter ? "_this" : param.Name;
+                writer.Write(" " + EscapeIdentifier(paramName));
                 if (index++ != parameters.Count - 1)
                     writer.Write(", ");
             }
 
             writer.WriteLine(")");
             writer.Ident(ident).WriteLine("{");
-            WriteILBody(writer, ident, method);
+            WriteILBody(writer, ident + 1, method);
             writer.Ident(ident).WriteLine("}");
+            writer.Flush();
         }
 
         private void WriteILBody(StreamWriter writer, int ident, MethodDef method)
         {
             var body = method.Body;
-            var stack = new EvaluationStack();
+            var stack = new EvaluationStack(writer, ident);
+
+            foreach (var local in body.Variables)
+            {
+                WriteLocal(local, stack, writer, ident, method);
+            }
+
             foreach (var op in body.Instructions)
             {
+                writer.Write(GetLabel(method, op.Offset) + ":");
                 WriteInstruction(op, stack, writer, ident, method);
             }
+        }
+
+        private string GetLabel(MethodDef method, uint offset)
+        {
+            return $"M{method.Rid:X4}_{offset:X4}";
+        }
+
+        private void WriteLocal(Local local, EvaluationStack stack, StreamWriter writer, int ident, MethodDef method)
+        {
+            writer.Ident(ident).WriteLine($"{EscapeTypeName(local.Type)} _l{local.Index};");
         }
 
         private void WriteInstruction(Instruction op, EvaluationStack stack, StreamWriter writer, int ident, MethodDef method)
@@ -501,20 +559,8 @@ namespace Natsu.Compiler
             void ConvertLdarg(int index)
             {
                 var param = method.Parameters[index];
-                string expr;
-                if (!method.IsStatic && index == 0)
-                {
-                    if (method.DeclaringType.IsValueType)
-                        expr = "*this";
-                    else
-                        expr = "this";
-                }
-                else
-                {
-                    expr = EscapeIdentifier(param.Name);
-                }
-
-                stack.Push(param.Type, expr);
+                var paramName = param.IsHiddenThisParameter ? "_this" : param.Name;
+                stack.Push(param.Type, paramName);
             }
 
             void ConvertLdfld(MemberRef member)
@@ -522,6 +568,95 @@ namespace Natsu.Compiler
                 var target = stack.Pop();
                 string expr = target.expression + (target.type.IsValueType ? "." : "->") + EscapeIdentifier(member.Name);
                 stack.Push(member.FieldSig.Type, expr);
+            }
+
+            void ConvertStfld(MemberRef member)
+            {
+                var value = stack.Pop();
+                var target = stack.Pop();
+                string expr = target.expression + (target.type.IsValueType ? "." : "->") + EscapeIdentifier(member.Name);
+                writer.Ident(ident).WriteLine($"{expr} = {value.expression};");
+            }
+
+            void ConvertLdloc(int index)
+            {
+                var local = method.Body.Variables[index];
+                stack.Push(local.Type, $"_l{index}");
+            }
+
+            void ConvertStloc(int index)
+            {
+                var value = stack.Pop();
+                writer.Ident(ident).WriteLine($"_l{index} = {value.expression};");
+            }
+
+            void ConvertRet()
+            {
+                if (method.HasReturnType)
+                {
+                    string expr = stack.Pop().expression;
+                    writer.Ident(ident).WriteLine($"return {expr};");
+                }
+                else
+                {
+                    writer.Ident(ident).WriteLine("return;");
+                }
+            }
+
+            void ConvertLdc_I4(int value)
+            {
+                stack.Push(_corLibTypes.Int32, value.ToString());
+            }
+
+            void ConvertLdlen()
+            {
+                var target = stack.Pop();
+                stack.Push(_corLibTypes.UInt32, $"{target.expression}->length()");
+            }
+
+            void ConvertConv_I4()
+            {
+                var target = stack.Pop();
+                stack.Push(_corLibTypes.Int32, $"static_cast<int32_t>({target.expression})");
+            }
+
+            void ConvertNop()
+            {
+                writer.Ident(ident).WriteLine("::natsu::nop();");
+            }
+
+            void ConvertBr(uint offset)
+            {
+                writer.Ident(ident).WriteLine($"goto {GetLabel(method, offset)};");
+            }
+
+            void ConvertCall(IMethodDefOrRef member)
+            {
+                var method = member.MethodSig;
+                var para = new List<string>();
+                var parasCount = method.Params.Count;
+                for (int i = parasCount - 1; i >= 0; i--)
+                    para.Add(stack.Pop().expression);
+
+                if (method.HasThis)
+                {
+                    para.Add(stack.Pop().expression);
+                    if (member.Name == ".ctor")
+                    {
+                        var t = member.DeclaringType;
+                        var expr = EscapeTypeName(t, true, true);
+                        var isValueType = member.DeclaringType.IsValueType ? "true" : "false";
+                        stack.Push(member.DeclaringType.ToTypeSig(), $"::natsu::make_object<{expr}, {isValueType}>({string.Join(", ", para.Skip(1))})");
+                    }
+                    else
+                    {
+                        stack.Push(method.RetType, $"{EscapeTypeName(member.DeclaringType, true, true, true)}::{EscapeMethodName(member)}({string.Join(", ", para)})");
+                    }
+                }
+                else
+                {
+                    throw new NotImplementedException();
+                }
             }
 
             switch (op.OpCode.Code)
@@ -544,18 +679,64 @@ namespace Natsu.Compiler
                 case Code.Ldfld:
                     ConvertLdfld((MemberRef)op.Operand);
                     break;
+                case Code.Stfld:
+                    ConvertStfld((MemberRef)op.Operand);
+                    break;
+                case Code.Ret:
+                    ConvertRet();
+                    break;
+                case Code.Ldc_I4_0:
+                    ConvertLdc_I4(0);
+                    break;
+                case Code.Ldlen:
+                    ConvertLdlen();
+                    break;
+                case Code.Conv_I4:
+                    ConvertConv_I4();
+                    break;
+                case Code.Call:
+                    ConvertCall((IMethodDefOrRef)op.Operand);
+                    break;
+                case Code.Callvirt:
+                    ConvertCall((IMethodDefOrRef)op.Operand);
+                    break;
+                case Code.Ldloc_0:
+                    ConvertLdloc(0);
+                    break;
+                case Code.Stloc_0:
+                    ConvertStloc(0);
+                    break;
+                case Code.Nop:
+                    ConvertNop();
+                    break;
+                case Code.Br_S:
+                    ConvertBr(((Instruction)op.Operand).Offset);
+                    break;
                 default:
                     throw new NotSupportedException(op.ToString());
             }
+
+            writer.Flush();
         }
 
         class EvaluationStack
         {
             private readonly Stack<(TypeSig type, string expression)> _stackValues = new Stack<(TypeSig type, string expression)>();
+            private int _paramIndex = 0;
+            private StreamWriter _writer;
+            public int Ident { get; }
+
+            public EvaluationStack(StreamWriter writer, int ident)
+            {
+                _writer = writer;
+                Ident = ident;
+            }
 
             public void Push(TypeSig type, string expression)
             {
-                _stackValues.Push((type, expression));
+                var id = $"_v{_paramIndex++}";
+                _writer.Ident(Ident).WriteLine($"auto&& {id} = {expression};");
+                _stackValues.Push((type, id));
             }
 
             public (TypeSig type, string expression) Pop()
@@ -639,11 +820,10 @@ namespace Natsu.Compiler
 
         private static string EscapeMethodName(IMethodDefOrRef method)
         {
-            if (method.Name == ".ctor")
-                return EscapeTypeName(method.DeclaringType.Name);
-            else if (method.Name == ".cctor")
-                return "_cctor";
-            return EscapeIdentifier(method.Name);
+            if (method.MethodSig.HasThis)
+                return EscapeIdentifier(method.Name);
+            else
+                return "_s_" + EscapeIdentifier(method.Name);
         }
 
         private static string EscapeNamespaceName(string ns)
@@ -685,7 +865,10 @@ namespace Natsu.Compiler
 
         private static string EscapeIdentifier(string name)
         {
-            return name.Replace('<', '_').Replace('>', '_').Replace('`', '_');
+            if (string.IsNullOrEmpty(name))
+                throw new ArgumentException("Invalid identifier");
+
+            return name.Replace('<', '_').Replace('>', '_').Replace('`', '_').Replace('.', '_');
         }
     }
 
