@@ -437,24 +437,24 @@ namespace Natsu.Compiler
             if (value.IsStatic)
                 prefix = "static ";
 
-            writer.Ident(ident).WriteLine($"{prefix}constexpr {GetConstantTypeName(value.ElementType)} {EscapeIdentifier(value.Name)} = {LiteralConstant(value.Constant.Value)}");
+            writer.Ident(ident).WriteLine($"{prefix}constexpr {GetConstantTypeName(value.ElementType)} {EscapeIdentifier(value.Name)} = {LiteralConstant(value.Constant.Value)};");
         }
 
-        private object LiteralConstant(object value)
+        private string LiteralConstant(object value)
         {
             var text = value switch
             {
-                char i => ((ushort)i).ToString() + ";",
-                byte i => i.ToString() + ";",
-                sbyte i => i.ToString() + ";",
-                ushort i => i.ToString() + ";",
-                short i => i.ToString() + ";",
-                uint i => i.ToString() + ";",
-                int i => i.ToString() + ";",
-                ulong i => i.ToString() + "ULL;",
-                long i => "::natsu::to_int64(0x" + Unsafe.As<long, ulong>(ref i).ToString("X") + "); // " + i.ToString(),
-                float i => "::natsu::to_float(0x" + Unsafe.As<float, uint>(ref i).ToString("X") + "); // " + i.ToString(),
-                double i => "::natsu::to_double(0x" + Unsafe.As<double, ulong>(ref i).ToString("X") + "); // " + i.ToString(),
+                char i => ((ushort)i).ToString(),
+                byte i => i.ToString(),
+                sbyte i => i.ToString(),
+                ushort i => i.ToString(),
+                short i => i.ToString(),
+                uint i => i.ToString(),
+                int i => i.ToString(),
+                ulong i => i.ToString() + "ULL",
+                long i => "::natsu::to_int64(0x" + Unsafe.As<long, ulong>(ref i).ToString("X") + ") /* " + i.ToString() + "*/",
+                float i => "::natsu::to_float(0x" + Unsafe.As<float, uint>(ref i).ToString("X") + ") /* " + i.ToString() + "*/",
+                double i => "::natsu::to_double(0x" + Unsafe.As<double, ulong>(ref i).ToString("X") + ") /* " + i.ToString() + "*/",
 
                 _ => throw new NotSupportedException("Unsupported constant")
             };
@@ -543,16 +543,107 @@ namespace Natsu.Compiler
                 WriteLocal(local, stack, writer, ident, method);
             }
 
-            foreach (var op in body.Instructions)
+            var head = ImportBlocks(body.Instructions);
+
+            void VisitBlock(int ident, BasicBlock block, EvaluationStack evaluationStack)
             {
-                writer.Write(GetLabel(method, op.Offset) + ":");
-                WriteInstruction(op, stack, writer, ident, method);
+                writer.WriteLine(GetLabel(method, block.Id) + ":");
+
+                foreach (var op in block.Instructions)
+                {
+                    WriteInstruction(op, evaluationStack, writer, ident, method, block);
+                }
+
+                foreach (var next in block.Next)
+                {
+                    writer.Ident(ident).WriteLine("{");
+                    VisitBlock(ident + 1, next, evaluationStack.Clone(1));
+                    writer.Ident(ident).WriteLine("}");
+                }
             }
+
+            VisitBlock(ident, head, stack);
         }
 
-        private string GetLabel(MethodDef method, uint offset)
+        private BasicBlock ImportBlocks(IList<Instruction> instructions)
         {
-            return $"M{method.Rid:X4}_{offset:X4}";
+            int id = 0;
+            Instruction NextInst(Instruction inst)
+            {
+                var index = instructions.IndexOf(inst);
+                if (index < instructions.Count - 1)
+                    return instructions[index + 1];
+                return null;
+            }
+
+            BasicBlock ImportBlock(Instruction inst)
+            {
+                if (inst == null) return null;
+
+                var block = new BasicBlock { Id = id++ };
+                bool conti = true;
+
+                while (conti)
+                {
+                    switch (inst.OpCode.Code)
+                    {
+                        case Code.Br_S:
+                            block.Instructions.Add(inst);
+                            block.Next.Add(ImportBlock((Instruction)inst.Operand));
+                            conti = false;
+                            break;
+                        case Code.Brfalse:
+                        case Code.Brfalse_S:
+                        case Code.Bne_Un_S:
+                            block.Instructions.Add(inst);
+                            block.Next.Add(ImportBlock((Instruction)inst.Operand));
+                            block.Next.Add(ImportBlock(NextInst(inst)));
+                            conti = false;
+                            break;
+                        case Code.Ret:
+                            block.Instructions.Add(inst);
+                            conti = false;
+                            break;
+                        default:
+                            if (inst.OpCode.Code.ToString().StartsWith('B'))
+                                throw new NotImplementedException();
+
+                            block.Instructions.Add(inst);
+                            inst = NextInst(inst);
+                            break;
+                    }
+                }
+
+                return block;
+            }
+
+            BasicBlock head;
+            if (instructions.Count != 0)
+                head = ImportBlock(instructions[0]);
+            else
+                head = new BasicBlock { Id = 0 };
+
+            return head;
+        }
+
+        class BasicBlock
+        {
+            public int Id { get; set; }
+
+            public List<Instruction> Instructions { get; } = new List<Instruction>();
+
+            public List<BasicBlock> Next { get; set; } = new List<BasicBlock>();
+        }
+
+        private string GetLabel(MethodDef method, int id)
+        {
+            return $"M{method.Rid:X4}_{id}";
+        }
+
+        private string GetLabel(MethodDef method, Instruction instruction, BasicBlock block)
+        {
+            var id = block.Next.First(x => x.Instructions[0] == instruction).Id;
+            return GetLabel(method, id);
         }
 
         private void WriteLocal(Local local, EvaluationStack stack, StreamWriter writer, int ident, MethodDef method)
@@ -560,7 +651,7 @@ namespace Natsu.Compiler
             writer.Ident(ident).WriteLine($"{EscapeTypeName(local.Type)} _l{local.Index};");
         }
 
-        private void WriteInstruction(Instruction op, EvaluationStack stack, StreamWriter writer, int ident, MethodDef method)
+        private void WriteInstruction(Instruction op, EvaluationStack stack, StreamWriter writer, int ident, MethodDef method, BasicBlock block)
         {
             void ConvertLdarg(int index)
             {
@@ -572,7 +663,7 @@ namespace Natsu.Compiler
             void ConvertLdfld(IField field)
             {
                 var target = stack.Pop();
-                string expr = target.expression + (target.type.IsValueType ? "." : "->") + EscapeIdentifier(field.Name);
+                string expr = target.expression + (IsTargetValueType(target.type) ? "." : "->") + EscapeIdentifier(field.Name);
                 stack.Push(field.FieldSig.Type, expr);
             }
 
@@ -580,8 +671,40 @@ namespace Natsu.Compiler
             {
                 var value = stack.Pop();
                 var target = stack.Pop();
-                string expr = target.expression + (target.type.IsValueType ? "." : "->") + EscapeIdentifier(field.Name);
-                writer.Ident(ident).WriteLine($"{expr} = {value.expression};");
+                string expr = target.expression + (IsTargetValueType(target.type) ? "." : "->") + EscapeIdentifier(field.Name);
+                var fieldType = field.FieldSig.Type;
+
+                if (fieldType != value.type && fieldType.IsValueType)
+                {
+                    writer.Ident(ident).WriteLine($"{expr} = static_cast<{EscapeTypeName(fieldType)}>({value.expression});");
+                }
+                else
+                {
+                    writer.Ident(ident).WriteLine($"{expr} = {value.expression};");
+                }
+            }
+
+            bool IsTargetValueType(TypeSig type)
+            {
+                if (type.ElementType == ElementType.ByRef)
+                    type = type.Next;
+                return type.IsValueType;
+            }
+
+            void ConvertStsfld(IField field)
+            {
+                var value = stack.Pop();
+                string expr = EscapeTypeName(field.DeclaringType, true, true, true) + "::" + EscapeIdentifier(field.Name);
+                var fieldType = field.FieldSig.Type;
+
+                if (fieldType != value.type && fieldType.IsValueType)
+                {
+                    writer.Ident(ident).WriteLine($"{expr} = static_cast<{EscapeTypeName(fieldType)}>({value.expression});");
+                }
+                else
+                {
+                    writer.Ident(ident).WriteLine($"{expr} = {value.expression};");
+                }
             }
 
             void ConvertLdloc(int index)
@@ -611,12 +734,17 @@ namespace Natsu.Compiler
 
             void ConvertLdc_I4(int value)
             {
-                stack.Push(_corLibTypes.Int32, value.ToString());
+                stack.Push(_corLibTypes.Int32, LiteralConstant(value));
+            }
+
+            void ConvertLdc_R8(double value)
+            {
+                stack.Push(_corLibTypes.Double, LiteralConstant(value));
             }
 
             void ConvertLdnull()
             {
-                stack.Push(_corLibTypes.Object, "nullptr");
+                stack.Push(_corLibTypes.Object, "::natsu::null");
             }
 
             void ConvertLdlen()
@@ -636,9 +764,9 @@ namespace Natsu.Compiler
                 writer.Ident(ident).WriteLine("::natsu::nop();");
             }
 
-            void ConvertBr(uint offset)
+            void ConvertBr(Instruction instruction)
             {
-                writer.Ident(ident).WriteLine($"goto {GetLabel(method, offset)};");
+                writer.Ident(ident).WriteLine($"goto {GetLabel(method, instruction, block)};");
             }
 
             void ConvertCeq()
@@ -657,30 +785,89 @@ namespace Natsu.Compiler
                     para.Add(stack.Pop().expression);
 
                 if (method.HasThis)
-                {
                     para.Add(stack.Pop().expression);
-                    if (member.Name == ".ctor")
-                    {
-                        var t = member.DeclaringType;
-                        var expr = EscapeTypeName(t, true, true);
-                        var isValueType = member.DeclaringType.IsValueType ? "true" : "false";
-                        stack.Push(member.DeclaringType.ToTypeSig(), $"::natsu::make_object<{expr}, {isValueType}>({string.Join(", ", para.Skip(1))})");
-                    }
-                    else
-                    {
-                        stack.Push(method.RetType, $"{EscapeTypeName(member.DeclaringType, true, true, true)}::{EscapeMethodName(member)}({string.Join(", ", para)})");
-                    }
-                }
-                else
-                {
-                    throw new NotImplementedException();
-                }
+
+                para.Reverse();
+                stack.Push(method.RetType, $"{EscapeTypeName(member.DeclaringType, true, true, true)}::{EscapeMethodName(member)}({string.Join(", ", para)})");
             }
 
-            void ConvertBrfalse(uint offset)
+            void ConvertNewobj(IMethodDefOrRef member)
+            {
+                var method = member.MethodSig;
+                var para = new List<string>();
+                var parasCount = method.Params.Count;
+                for (int i = parasCount - 1; i >= 0; i--)
+                    para.Add(stack.Pop().expression);
+
+                para.Reverse();
+
+                var t = member.DeclaringType;
+                var expr = EscapeTypeName(t, true, true);
+                var isValueType = member.DeclaringType.IsValueType ? "true" : "false";
+                stack.Push(member.DeclaringType.ToTypeSig(), $"::natsu::make_object<{expr}, {isValueType}>({string.Join(", ", para.Skip(1))})");
+            }
+
+            void ConvertNewarr(ITypeDefOrRef type)
+            {
+                var len = stack.Pop();
+                stack.Push(new SZArraySig(type.ToTypeSig()), $"::natsu::gc_new_array<{EscapeTypeName(type.ToTypeSig())}>({len.expression})");
+            }
+
+            void ConvertBrfalse(Instruction instruction)
             {
                 var v1 = stack.Pop();
-                writer.Ident(ident).WriteLine($"if (!{v1.expression}) goto {GetLabel(method, offset)};");
+                writer.Ident(ident).WriteLine($"if (!{v1.expression}) goto {GetLabel(method, instruction, block)};");
+            }
+
+            void ConvertLdstr(string str)
+            {
+                stack.Push(_corLibTypes.String, $"::natsu::load_string(R\"NS({str})NS\")");
+            }
+
+            void ConvertConv_I8()
+            {
+                var v1 = stack.Pop();
+                stack.Push(_corLibTypes.Int64, $"static_cast<int64_t>({v1.expression})");
+            }
+
+            void ConvertDup()
+            {
+                var value = stack.Peek();
+                stack.Push(value.type, value.expression);
+            }
+
+            void ConvertStelem_I4()
+            {
+                var value = stack.Pop();
+                var index = stack.Pop();
+                var target = stack.Pop();
+                writer.Ident(ident).WriteLine($"{target.expression}->set({index.expression}, {value.expression});");
+            }
+
+            void ConvertLdelem_I4()
+            {
+                var index = stack.Pop();
+                var target = stack.Pop();
+                stack.Push(((SZArraySig)target.type).Next, $"{target.expression}->get({index.expression})");
+            }
+
+            void ConvertIsinst(ITypeDefOrRef type)
+            {
+                var target = stack.Pop();
+                stack.Push(new SZArraySig(type.ToTypeSig()), $"{target.expression}.as<{EscapeTypeName(type, true, true, true)}>()");
+            }
+
+            void ConvertCgt_Un()
+            {
+                var v2 = stack.Pop();
+                var v1 = stack.Pop();
+                stack.Push(_corLibTypes.Int32, $"(static_cast<uintptr_t>({v1.expression}) > static_cast<uintptr_t>({v2.expression}) ? 1 : 0)");
+            }
+
+            void ConvertUnbox_Any(ITypeDefOrRef type)
+            {
+                var target = stack.Pop();
+                stack.Push(new ByRefSig(type.ToTypeSig()), $"{target.expression}.unbox<{EscapeTypeName(type, true, true, true)}>()");
             }
 
             switch (op.OpCode.Code)
@@ -706,6 +893,9 @@ namespace Natsu.Compiler
                 case Code.Stfld:
                     ConvertStfld((IField)op.Operand);
                     break;
+                case Code.Stsfld:
+                    ConvertStsfld((IField)op.Operand);
+                    break;
                 case Code.Ret:
                     ConvertRet();
                     break;
@@ -714,6 +904,12 @@ namespace Natsu.Compiler
                     break;
                 case Code.Ldc_I4_1:
                     ConvertLdc_I4(1);
+                    break;
+                case Code.Ldc_I4:
+                    ConvertLdc_I4((int)op.Operand);
+                    break;
+                case Code.Ldc_R8:
+                    ConvertLdc_R8((double)op.Operand);
                     break;
                 case Code.Ldlen:
                     ConvertLdlen();
@@ -749,16 +945,46 @@ namespace Natsu.Compiler
                     ConvertNop();
                     break;
                 case Code.Br_S:
-                    ConvertBr(((Instruction)op.Operand).Offset);
+                    ConvertBr((Instruction)op.Operand);
                     break;
                 case Code.Ceq:
                     ConvertCeq();
                     break;
                 case Code.Brfalse_S:
-                    ConvertBrfalse(((Instruction)op.Operand).Offset);
+                    ConvertBrfalse((Instruction)op.Operand);
                     break;
                 case Code.Ldnull:
                     ConvertLdnull();
+                    break;
+                case Code.Ldstr:
+                    ConvertLdstr((string)op.Operand);
+                    break;
+                case Code.Conv_I8:
+                    ConvertConv_I8();
+                    break;
+                case Code.Newobj:
+                    ConvertNewobj((IMethodDefOrRef)op.Operand);
+                    break;
+                case Code.Newarr:
+                    ConvertNewarr((ITypeDefOrRef)op.Operand);
+                    break;
+                case Code.Dup:
+                    ConvertDup();
+                    break;
+                case Code.Ldelem_I4:
+                    ConvertLdelem_I4();
+                    break;
+                case Code.Stelem_I4:
+                    ConvertStelem_I4();
+                    break;
+                case Code.Isinst:
+                    ConvertIsinst((ITypeDefOrRef)op.Operand);
+                    break;
+                case Code.Cgt_Un:
+                    ConvertCgt_Un();
+                    break;
+                case Code.Unbox_Any:
+                    ConvertUnbox_Any((ITypeDefOrRef)op.Operand);
                     break;
                 default:
                     throw new NotSupportedException(op.ToString());
@@ -782,14 +1008,35 @@ namespace Natsu.Compiler
 
             public void Push(TypeSig type, string expression)
             {
-                var id = $"_v{_paramIndex++}";
-                _writer.Ident(Ident).WriteLine($"auto&& {id} = {expression};");
-                _stackValues.Push((type, id));
+                if (type.ElementType == ElementType.Void)
+                {
+                    _writer.Ident(Ident).WriteLine($"{expression};");
+                }
+                else
+                {
+                    var id = $"_v{_paramIndex++}";
+                    _writer.Ident(Ident).WriteLine($"auto&& {id} = {expression};");
+                    _stackValues.Push((type, id));
+                }
             }
 
             public (TypeSig type, string expression) Pop()
             {
                 return _stackValues.Pop();
+            }
+
+            public (TypeSig type, string expression) Peek()
+            {
+                return _stackValues.Peek();
+            }
+
+            public EvaluationStack Clone(int identInc = 0)
+            {
+                var stack = new EvaluationStack(_writer, Ident + identInc);
+                foreach (var value in _stackValues)
+                    stack._stackValues.Push(value);
+                stack._paramIndex = _paramIndex;
+                return stack;
             }
         }
 
