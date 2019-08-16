@@ -278,6 +278,12 @@ namespace Natsu.Compiler
                     WriteMethodDeclare(writer, ident + 1, method);
                 }
 
+                if (type.TypeDef.IsPrimitive)
+                {
+                    writer.WriteLine();
+                    writer.Ident(ident + 1).WriteLine($"NATSU_PRIMITIVE_IMPL_{type.TypeDef.Name.ToUpperInvariant()}");
+                }
+
                 writer.Ident(ident).WriteLine("};");
             }
 
@@ -563,18 +569,18 @@ namespace Natsu.Compiler
                 stack.Push(param.Type, paramName);
             }
 
-            void ConvertLdfld(MemberRef member)
+            void ConvertLdfld(IField field)
             {
                 var target = stack.Pop();
-                string expr = target.expression + (target.type.IsValueType ? "." : "->") + EscapeIdentifier(member.Name);
-                stack.Push(member.FieldSig.Type, expr);
+                string expr = target.expression + (target.type.IsValueType ? "." : "->") + EscapeIdentifier(field.Name);
+                stack.Push(field.FieldSig.Type, expr);
             }
 
-            void ConvertStfld(MemberRef member)
+            void ConvertStfld(IField field)
             {
                 var value = stack.Pop();
                 var target = stack.Pop();
-                string expr = target.expression + (target.type.IsValueType ? "." : "->") + EscapeIdentifier(member.Name);
+                string expr = target.expression + (target.type.IsValueType ? "." : "->") + EscapeIdentifier(field.Name);
                 writer.Ident(ident).WriteLine($"{expr} = {value.expression};");
             }
 
@@ -608,6 +614,11 @@ namespace Natsu.Compiler
                 stack.Push(_corLibTypes.Int32, value.ToString());
             }
 
+            void ConvertLdnull()
+            {
+                stack.Push(_corLibTypes.Object, "nullptr");
+            }
+
             void ConvertLdlen()
             {
                 var target = stack.Pop();
@@ -628,6 +639,13 @@ namespace Natsu.Compiler
             void ConvertBr(uint offset)
             {
                 writer.Ident(ident).WriteLine($"goto {GetLabel(method, offset)};");
+            }
+
+            void ConvertCeq()
+            {
+                var v1 = stack.Pop();
+                var v2 = stack.Pop();
+                stack.Push(_corLibTypes.Int32, $"({v1.expression} == {v2.expression} ? 1 : 0)");
             }
 
             void ConvertCall(IMethodDefOrRef member)
@@ -659,6 +677,12 @@ namespace Natsu.Compiler
                 }
             }
 
+            void ConvertBrfalse(uint offset)
+            {
+                var v1 = stack.Pop();
+                writer.Ident(ident).WriteLine($"if (!{v1.expression}) goto {GetLabel(method, offset)};");
+            }
+
             switch (op.OpCode.Code)
             {
                 case Code.Ldarg_0:
@@ -677,16 +701,19 @@ namespace Natsu.Compiler
                     ConvertLdarg((int)op.Operand);
                     break;
                 case Code.Ldfld:
-                    ConvertLdfld((MemberRef)op.Operand);
+                    ConvertLdfld((IField)op.Operand);
                     break;
                 case Code.Stfld:
-                    ConvertStfld((MemberRef)op.Operand);
+                    ConvertStfld((IField)op.Operand);
                     break;
                 case Code.Ret:
                     ConvertRet();
                     break;
                 case Code.Ldc_I4_0:
                     ConvertLdc_I4(0);
+                    break;
+                case Code.Ldc_I4_1:
+                    ConvertLdc_I4(1);
                     break;
                 case Code.Ldlen:
                     ConvertLdlen();
@@ -703,14 +730,35 @@ namespace Natsu.Compiler
                 case Code.Ldloc_0:
                     ConvertLdloc(0);
                     break;
+                case Code.Ldloc_1:
+                    ConvertLdloc(1);
+                    break;
+                case Code.Ldloc_2:
+                    ConvertLdloc(2);
+                    break;
                 case Code.Stloc_0:
                     ConvertStloc(0);
+                    break;
+                case Code.Stloc_1:
+                    ConvertStloc(1);
+                    break;
+                case Code.Stloc_2:
+                    ConvertStloc(2);
                     break;
                 case Code.Nop:
                     ConvertNop();
                     break;
                 case Code.Br_S:
                     ConvertBr(((Instruction)op.Operand).Offset);
+                    break;
+                case Code.Ceq:
+                    ConvertCeq();
+                    break;
+                case Code.Brfalse_S:
+                    ConvertBrfalse(((Instruction)op.Operand).Offset);
+                    break;
+                case Code.Ldnull:
+                    ConvertLdnull();
                     break;
                 default:
                     throw new NotSupportedException(op.ToString());
