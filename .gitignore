@@ -13,3 +13,4 @@ CMakeSettings.json
 bin
 obj
 src/Native/Generated
+out

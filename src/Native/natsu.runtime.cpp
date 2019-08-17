@@ -27,11 +27,6 @@ gc_ptr<::System_Private_CorLib::System::String> load_string(std::u16string_view 
     auto ptr = reinterpret_cast<::System_Private_CorLib::System::String *>(obj);
     ptr->_stringLength = string.length();
     std::copy(string.begin(), string.end(), &ptr->_firstChar);
-    return ptr;
-}
-
-uint8_t *gc_alloc(size_t size)
-{
-    return new uint8_t[size];
+    return gc_ptr<::System_Private_CorLib::System::String>(ptr);
 }
 } // namespace  natsu

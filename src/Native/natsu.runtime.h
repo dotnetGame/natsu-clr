@@ -249,7 +249,7 @@ struct gc_ptr
     {
     }
 
-    constexpr gc_ptr(T *ptr) noexcept
+    explicit constexpr gc_ptr(T *ptr) noexcept
         : ptr_(ptr)
     {
     }
@@ -292,7 +292,7 @@ struct gc_ptr
     template <class U>
     gc_ptr<U> as() const noexcept
     {
-        return dynamic_cast<U *>(ptr_);
+        return gc_ptr<U>(dynamic_cast<U *>(ptr_));
     }
 
     template <class U>
@@ -315,7 +315,7 @@ template <class T>
 gc_ptr<T> gc_new()
 {
     auto ptr = gc_alloc(sizeof(T));
-    return reinterpret_cast<T *>(ptr);
+    return gc_ptr<T>(reinterpret_cast<T *>(ptr));
 }
 
 template <class T>
@@ -325,7 +325,7 @@ gc_ptr<::System_Private_CorLib::System::SZArray_1<T>> gc_new_array(int length)
     auto obj = gc_alloc(size);
     auto ptr = reinterpret_cast<::System_Private_CorLib::System::SZArray_1<T> *>(obj);
     ptr->header_.length_ = length;
-    return ptr;
+    return gc_ptr<::System_Private_CorLib::System::SZArray_1<T>>(ptr);
 }
 
 template <class T, bool IsValueType, class... TArgs>
@@ -334,13 +334,13 @@ auto make_object(TArgs... args)
     if constexpr (IsValueType)
     {
         T value;
-        value._ctor(std::move(args)...);
+        value._ctor(std::forward<TArgs>(args)...);
         return value;
     }
     else
     {
         auto value = gc_new<T>();
-        value->_ctor(std::move(args)...);
+        value->_ctor(std::forward<TArgs>(args)...);
         return value;
     }
 }
