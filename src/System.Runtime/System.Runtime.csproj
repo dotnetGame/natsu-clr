@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <RuntimeMetadataVersion>v4.0.30319</RuntimeMetadataVersion>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+    <OutputPath>$(SolutionDir)../out/bin/</OutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\System.Private.CorLib\System.Private.CorLib.csproj" />
+  </ItemGroup>
+
+</Project>

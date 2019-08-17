@@ -17,6 +17,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <NoWarn>1701;1702;0169</NoWarn>
     <DefineConstants>TRACE;BIT64</DefineConstants>
+    <OutputPath>$(SolutionDir)../out/bin/</OutputPath>
   </PropertyGroup>
   <ItemGroup>
     <Folder Include="Resources\" />

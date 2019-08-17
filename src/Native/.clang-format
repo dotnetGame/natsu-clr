@@ -1,0 +1,8 @@
+---
+BasedOnStyle: WebKit
+BreakBeforeBraces: Allman
+ConstructorInitializerAllOnOneLineOrOnePerLine: 'true'
+UseTab: Never
+PointerAlignment: Right
+
+...

@@ -12,3 +12,4 @@ CMakeSettings.json
 *.dtb
 bin
 obj
+src/Native/Generated
