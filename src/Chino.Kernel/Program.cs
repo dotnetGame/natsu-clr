@@ -7,7 +7,10 @@ namespace Chino.Kernel
     {
         static void Main()
         {
-            Debug.WriteLine("Hello Chino OS!");
+            for (int i = 0; i < 3; i++)
+            {
+                Debug.WriteLine("Hello Chino OS!");
+            }
         }
     }
 }

@@ -1112,6 +1112,13 @@ namespace Natsu.Compiler
                 stack.Push(_corLibTypes.Int32, $"{v1.expression} > {v2.expression}");
             }
 
+            void ConvertClt()
+            {
+                var v2 = stack.Pop();
+                var v1 = stack.Pop();
+                stack.Push(_corLibTypes.Int32, $"{v1.expression} < {v2.expression}");
+            }
+
             void ConvertUnbox_Any(ITypeDefOrRef type)
             {
                 var target = stack.Pop();
@@ -1373,6 +1380,9 @@ namespace Natsu.Compiler
                     break;
                 case Code.Cgt:
                     ConvertCgt();
+                    break;
+                case Code.Clt:
+                    ConvertClt();
                     break;
                 case Code.Unbox_Any:
                     ConvertUnbox_Any((ITypeDefOrRef)op.Operand);
