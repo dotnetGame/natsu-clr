@@ -1,7 +1,7 @@
 set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_SYSTEM_PROCESSOR riscv64)
 
-set(tools /opt/chino)
+set(tools /opt/chino-toolchain)
 set(CMAKE_C_COMPILER ${tools}/bin/riscv64-unknown-chino-gcc)
 set(CMAKE_CXX_COMPILER ${tools}/bin/riscv64-unknown-chino-g++)
 

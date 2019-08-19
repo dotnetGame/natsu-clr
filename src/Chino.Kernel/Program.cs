@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 
 namespace Chino.Kernel
 {
@@ -6,7 +7,7 @@ namespace Chino.Kernel
     {
         static void Main()
         {
-            Console.Test();
+            Debug.WriteLine("Hello Chino OS!");
         }
     }
 }

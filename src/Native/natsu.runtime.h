@@ -225,11 +225,11 @@ inline constexpr void nop() noexcept
 }
 
 template <class T>
-struct gc_ptr;
+struct gc_obj_ref;
 
-struct null_gc_ptr
+struct null_gc_obj_ref
 {
-    constexpr null_gc_ptr()
+    constexpr null_gc_obj_ref()
     {
     }
 
@@ -240,29 +240,173 @@ struct null_gc_ptr
 };
 
 template <class T>
-struct gc_ptr
+struct gc_ref
 {
     T *ptr_;
 
-    constexpr gc_ptr(null_gc_ptr = {}) noexcept
+    constexpr gc_ref() noexcept
         : ptr_(nullptr)
     {
     }
 
-    explicit constexpr gc_ptr(T *ptr) noexcept
+    constexpr gc_ref(T &ptr) noexcept
+        : ptr_(&ptr)
+    {
+    }
+
+    explicit operator uintptr_t() const noexcept
+    {
+        return reinterpret_cast<uintptr_t>(ptr_);
+    }
+
+    explicit operator T() const noexcept
+    {
+        return *ptr_;
+    }
+
+    T *operator->() const noexcept
+    {
+        return ptr_;
+    }
+
+    gc_ref &operator=(uintptr_t ptr) noexcept
+    {
+        ptr_ = reinterpret_cast<T *>(ptr);
+        return *this;
+    }
+};
+
+template <class T>
+struct gc_ptr
+{
+    T *ptr_;
+
+    constexpr gc_ptr() noexcept
+        : ptr_(nullptr)
+    {
+    }
+
+    constexpr gc_ptr(T *ptr) noexcept
+        : ptr_(ptr)
+    {
+    }
+
+    template <class U>
+    gc_ptr(const gc_ptr<U> &other) noexcept
+        : ptr_(reinterpret_cast<T *>(other.ptr_))
+    {
+    }
+
+    explicit operator uintptr_t() const noexcept
+    {
+        return reinterpret_cast<uintptr_t>(ptr_);
+    }
+
+    operator T *() const noexcept
+    {
+        return ptr_;
+    }
+
+    T *operator->() const noexcept
+    {
+        return ptr_;
+    }
+
+    T &operator*() const noexcept
+    {
+        return *ptr_;
+    }
+
+    gc_ptr &operator=(uintptr_t ptr) noexcept
+    {
+        ptr_ = reinterpret_cast<T *>(ptr);
+        return *this;
+    }
+
+    template <class TOffset>
+    gc_ptr operator+(TOffset offset) noexcept
+    {
+        auto new_ptr = *this;
+        new_ptr.ptr_ = reinterpret_cast<T *>(reinterpret_cast<uint8_t *>(new_ptr.ptr_) + offset);
+        return new_ptr;
+    }
+};
+
+template <>
+struct gc_ptr<void>
+{
+    void *ptr_;
+
+    constexpr gc_ptr() noexcept
+        : ptr_(nullptr)
+    {
+    }
+
+    constexpr gc_ptr(void *ptr) noexcept
+        : ptr_(ptr)
+    {
+    }
+
+    template <class U>
+    gc_ptr(const gc_ptr<U> &other) noexcept
+        : ptr_(reinterpret_cast<T *>(other.ptr_))
+    {
+    }
+
+    explicit operator uintptr_t() const noexcept
+    {
+        return reinterpret_cast<uintptr_t>(ptr_);
+    }
+
+    operator void *() const noexcept
+    {
+        return ptr_;
+    }
+
+    void *operator->() const noexcept
+    {
+        return ptr_;
+    }
+
+    gc_ptr &operator=(uintptr_t ptr) noexcept
+    {
+        ptr_ = reinterpret_cast<void *>(ptr);
+        return *this;
+    }
+
+    template <class TOffset>
+    gc_ptr operator+(TOffset offset) noexcept
+    {
+        auto new_ptr = *this;
+        new_ptr.ptr_ = reinterpret_cast<void *>(reinterpret_cast<uint8_t *>(new_ptr.ptr_) + offset);
+        return new_ptr;
+    }
+};
+
+template <class T>
+struct gc_obj_ref
+{
+    T *ptr_;
+
+    constexpr gc_obj_ref(null_gc_obj_ref = {}) noexcept
+        : ptr_(nullptr)
+    {
+    }
+
+    explicit constexpr gc_obj_ref(T *ptr) noexcept
         : ptr_(ptr)
     {
     }
 
     template <class U, class = std::enable_if_t<std::is_base_of_v<T, U>>>
-    gc_ptr(gc_ptr<U> &&other) noexcept
+    gc_obj_ref(gc_obj_ref<U> &&other) noexcept
         : ptr_(static_cast<T *>(other.ptr_))
     {
         other.ptr_ = nullptr;
     }
 
     template <class U, class = std::enable_if_t<std::is_base_of_v<T, U>>>
-    gc_ptr(const gc_ptr<U> &other) noexcept
+    gc_obj_ref(const gc_obj_ref<U> &other) noexcept
         : ptr_(static_cast<T *>(other.ptr_))
     {
     }
@@ -273,7 +417,7 @@ struct gc_ptr
         return ptr_;
     }
 
-    gc_ptr &operator=(std::nullptr_t) noexcept
+    gc_obj_ref &operator=(std::nullptr_t) noexcept
     {
         ptr_ = nullptr;
         return *this;
@@ -290,17 +434,17 @@ struct gc_ptr
     }
 
     template <class U>
-    gc_ptr<U> as() const noexcept
+    gc_obj_ref<U> as() const noexcept
     {
-        return gc_ptr<U>(dynamic_cast<U *>(ptr_));
+        return gc_obj_ref<U>(dynamic_cast<U *>(ptr_));
     }
 
     template <class U>
-    U &unbox()
+    gc_ref<U> &unbox()
     {
         auto value = dynamic_cast<U *>(ptr_);
         assert(value);
-        return *value;
+        return gc_ref_from_ref(*value);
     }
 };
 
@@ -309,23 +453,34 @@ struct object_header
     uintptr_t length_;
 };
 
+struct natsu_exception
+{
+    template <class T>
+    natsu_exception(gc_obj_ref<T> &&exception)
+        : exception_(std::move(exception))
+    {
+    }
+
+    gc_obj_ref<::System_Private_CorLib::System::Exception> exception_;
+};
+
 uint8_t *gc_alloc(size_t length);
 
 template <class T>
-gc_ptr<T> gc_new()
+gc_obj_ref<T> gc_new()
 {
     auto ptr = gc_alloc(sizeof(T));
-    return gc_ptr<T>(reinterpret_cast<T *>(ptr));
+    return gc_obj_ref<T>(reinterpret_cast<T *>(ptr));
 }
 
 template <class T>
-gc_ptr<::System_Private_CorLib::System::SZArray_1<T>> gc_new_array(int length)
+gc_obj_ref<::System_Private_CorLib::System::SZArray_1<T>> gc_new_array(int length)
 {
     auto size = sizeof(::System_Private_CorLib::System::SZArray_1<T>) + (size_t)length * sizeof(T);
     auto obj = gc_alloc(size);
     auto ptr = reinterpret_cast<::System_Private_CorLib::System::SZArray_1<T> *>(obj);
     ptr->header_.length_ = length;
-    return gc_ptr<::System_Private_CorLib::System::SZArray_1<T>>(ptr);
+    return gc_obj_ref<::System_Private_CorLib::System::SZArray_1<T>>(ptr);
 }
 
 template <class T, bool IsValueType, class... TArgs>
@@ -345,45 +500,70 @@ auto make_object(TArgs... args)
     }
 }
 
+template <class T>
+gc_obj_ref<T> gc_obj_ref_from_this(T *_this)
+{
+    return gc_obj_ref<T>(_this);
+}
+
+template <class T>
+gc_ref<T> gc_ref_from_this(T *_this)
+{
+    return gc_ref<T>(*_this);
+}
+
+template <class T>
+gc_ref<T> gc_ref_from_ref(T &ref)
+{
+    return gc_ref<T>(ref);
+}
+
+template <class T>
+natsu_exception make_exception(gc_obj_ref<T> exception)
+{
+    return { std::move(exception) };
+}
+
 template <class T, class U>
-constexpr bool operator==(const gc_ptr<T> &lhs, const gc_ptr<U> &rhs) noexcept
+constexpr bool operator==(const gc_obj_ref<T> &lhs, const gc_obj_ref<U> &rhs) noexcept
 {
     return lhs.ptr_ == rhs.ptr_;
 }
 
 template <class T, class U>
-constexpr bool operator==(const gc_ptr<T> &lhs, U *rhs) noexcept
+constexpr bool operator==(const gc_obj_ref<T> &lhs, U *rhs) noexcept
 {
     return lhs.ptr_ == rhs;
 }
 
 template <class T, class U>
-constexpr bool operator==(U *lhs, const gc_ptr<T> &rhs) noexcept
+constexpr bool operator==(U *lhs, const gc_obj_ref<T> &rhs) noexcept
 {
     return lhs == rhs.ptr_;
 }
 
 template <class T, class U>
-constexpr bool operator!=(const gc_ptr<T> &lhs, const gc_ptr<U> &rhs) noexcept
+constexpr bool operator!=(const gc_obj_ref<T> &lhs, const gc_obj_ref<U> &rhs) noexcept
 {
     return lhs.ptr_ != rhs.ptr_;
 }
 
 template <class T>
-constexpr bool operator==(const gc_ptr<T> &lhs, null_gc_ptr) noexcept
+constexpr bool operator==(const gc_obj_ref<T> &lhs, null_gc_obj_ref) noexcept
 {
     return !lhs.ptr_;
 }
 
 template <class T>
-constexpr bool operator==(null_gc_ptr, const gc_ptr<T> &rhs) noexcept
+constexpr bool operator==(null_gc_obj_ref, const gc_obj_ref<T> &rhs) noexcept
 {
     return !rhs.ptr_;
 }
 
-constexpr null_gc_ptr null;
+constexpr null_gc_obj_ref null;
 
-gc_ptr<::System_Private_CorLib::System::String> load_string(std::u16string_view string);
+gc_obj_ref<::System_Private_CorLib::System::String> load_string(std::u16string_view string);
+std::u16string_view to_string_view(gc_obj_ref<::System_Private_CorLib::System::String> string);
 }
 
 #define NATSU_PRIMITIVE_IMPL_BYTE \
@@ -414,9 +594,10 @@ gc_ptr<::System_Private_CorLib::System::String> load_string(std::u16string_view 
     Int16(int16_t value) : m_value(value) {} \
     operator int16_t() const noexcept { return m_value; }
 
-#define NATSU_PRIMITIVE_IMPL_UINT32 \
-    UInt32() = default;             \
-    UInt32(uint32_t value) : m_value(value) {}
+#define NATSU_PRIMITIVE_IMPL_UINT32            \
+    UInt32() = default;                        \
+    UInt32(uint32_t value) : m_value(value) {} \
+    operator uint32_t() const noexcept { return m_value; }
 
 #define NATSU_PRIMITIVE_IMPL_INT32           \
     Int32() = default;                       \
@@ -441,6 +622,10 @@ gc_ptr<::System_Private_CorLib::System::String> load_string(std::u16string_view 
     Double() = default;             \
     Double(double value) : m_value(value) {}
 
+#define NATSU_PRIMITIVE_IMPL_INTPTR
+
+#define NATSU_PRIMITIVE_IMPL_UINTPTR
+
 #define NATSU_ENUM_IMPL_INT32(name)         \
     name() = default;                       \
     name(int32_t value) : value__(value) {} \
@@ -449,18 +634,27 @@ gc_ptr<::System_Private_CorLib::System::String> load_string(std::u16string_view 
 #define NATSU_OBJECT_IMPL \
     ::natsu::object_header header_;
 
-#define NATSU_SZARRAY_IMPL               \
-    T &at(int index)                     \
-    {                                    \
-        assert(index < header_.length_); \
-        return elements_[index];         \
-    }                                    \
-    T get(int index)                     \
-    {                                    \
-        return at(index);                \
-    }                                    \
-    void set(int index, T value)         \
-    {                                    \
-        at(index) = value;               \
-    }                                    \
+#define NATSU_SZARRAY_IMPL                                 \
+    T &at(int index)                                       \
+    {                                                      \
+        assert(index < header_.length_);                   \
+        return elements_[index];                           \
+    }                                                      \
+    ::natsu::gc_ref<T> &ref_at(int index)                  \
+    {                                                      \
+        assert(index < header_.length_);                   \
+        return ::natsu::gc_ref_from_ref(elements_[index]); \
+    }                                                      \
+    T get(int index)                                       \
+    {                                                      \
+        return at(index);                                  \
+    }                                                      \
+    void set(int index, T value)                           \
+    {                                                      \
+        at(index) = value;                                 \
+    }                                                      \
+    uintptr_t length() const noexcept                      \
+    {                                                      \
+        return header_.length_;                            \
+    }                                                      \
     T elements_[0];

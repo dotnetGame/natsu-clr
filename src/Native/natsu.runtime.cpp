@@ -4,9 +4,7 @@
 
 namespace System_Private_CorLib
 {
-::natsu::gc_ptr<::System_Private_CorLib::System::AttributeUsageAttribute> System::AttributeUsageAttribute::Default;
-
-::natsu::gc_ptr<::System_Private_CorLib::System::Type> System::Object::GetType()
+::natsu::gc_obj_ref<::System_Private_CorLib::System::Type> System::Object::GetType()
 {
     return ::natsu::null;
 }
@@ -20,13 +18,18 @@ namespace System_Private_CorLib
 
 namespace natsu
 {
-gc_ptr<::System_Private_CorLib::System::String> load_string(std::u16string_view string)
+gc_obj_ref<::System_Private_CorLib::System::String> load_string(std::u16string_view string)
 {
-    auto size = sizeof(::System_Private_CorLib::System::String) + std::max(0, (int32_t)string.length() - 1);
-    auto obj = gc_alloc(size);
-    auto ptr = reinterpret_cast<::System_Private_CorLib::System::String *>(obj);
-    ptr->_stringLength = string.length();
-    std::copy(string.begin(), string.end(), &ptr->_firstChar);
-    return gc_ptr<::System_Private_CorLib::System::String>(ptr);
+    auto dest = System_Private_CorLib::System::String::_s_FastAllocateString(string.length());
+    std::copy(string.begin(), string.end(), &dest->_firstChar);
+    (&dest->_firstChar)[string.length()] = 0;
+    return dest;
+}
+
+std::u16string_view to_string_view(gc_obj_ref<::System_Private_CorLib::System::String> string)
+{
+    if (!string)
+        return {};
+    return { reinterpret_cast<const char16_t *>(&string->_firstChar), (size_t)string->_stringLength };
 }
 } // namespace  natsu
