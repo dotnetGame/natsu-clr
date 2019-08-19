@@ -32,4 +32,4 @@ std::u16string_view to_string_view(gc_obj_ref<::System_Private_CorLib::System::S
         return {};
     return { reinterpret_cast<const char16_t *>(&string->_firstChar), (size_t)string->_stringLength };
 }
-} // namespace  natsu
+} // namespace natsu

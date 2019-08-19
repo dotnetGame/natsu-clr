@@ -277,6 +277,12 @@ struct gc_ref
 };
 
 template <class T>
+gc_ref<T> gc_ref_from_ref(T &ref)
+{
+    return gc_ref<T>(ref);
+}
+
+template <class T>
 struct gc_ptr
 {
     T *ptr_;
@@ -349,7 +355,7 @@ struct gc_ptr<void>
 
     template <class U>
     gc_ptr(const gc_ptr<U> &other) noexcept
-        : ptr_(reinterpret_cast<T *>(other.ptr_))
+        : ptr_(reinterpret_cast<void *>(other.ptr_))
     {
     }
 
@@ -440,7 +446,7 @@ struct gc_obj_ref
     }
 
     template <class U>
-    gc_ref<U> &unbox()
+    gc_ref<U> unbox()
     {
         auto value = dynamic_cast<U *>(ptr_);
         assert(value);
@@ -513,12 +519,6 @@ gc_ref<T> gc_ref_from_this(T *_this)
 }
 
 template <class T>
-gc_ref<T> gc_ref_from_ref(T &ref)
-{
-    return gc_ref<T>(ref);
-}
-
-template <class T>
 natsu_exception make_exception(gc_obj_ref<T> exception)
 {
     return { std::move(exception) };
@@ -566,13 +566,15 @@ gc_obj_ref<::System_Private_CorLib::System::String> load_string(std::u16string_v
 std::u16string_view to_string_view(gc_obj_ref<::System_Private_CorLib::System::String> string);
 }
 
-#define NATSU_PRIMITIVE_IMPL_BYTE \
-    Byte() = default;             \
-    Byte(uint8_t value) : m_value(value) {}
+#define NATSU_PRIMITIVE_IMPL_BYTE           \
+    Byte() = default;                       \
+    Byte(uint8_t value) : m_value(value) {} \
+    operator uint8_t() const noexcept { return m_value; }
 
-#define NATSU_PRIMITIVE_IMPL_SBYTE \
-    SByte() = default;             \
-    SByte(int8_t value) : m_value(value) {}
+#define NATSU_PRIMITIVE_IMPL_SBYTE          \
+    SByte() = default;                      \
+    SByte(int8_t value) : m_value(value) {} \
+    operator int8_t() const noexcept { return m_value; }
 
 #define NATSU_PRIMITIVE_IMPL_BOOLEAN                   \
     Boolean() = default;                               \
@@ -640,7 +642,7 @@ std::u16string_view to_string_view(gc_obj_ref<::System_Private_CorLib::System::S
         assert(index < header_.length_);                   \
         return elements_[index];                           \
     }                                                      \
-    ::natsu::gc_ref<T> &ref_at(int index)                  \
+    ::natsu::gc_ref<T> ref_at(int index)                   \
     {                                                      \
         assert(index < header_.length_);                   \
         return ::natsu::gc_ref_from_ref(elements_[index]); \

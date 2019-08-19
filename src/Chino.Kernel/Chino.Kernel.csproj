@@ -3,14 +3,12 @@
   <PropertyGroup>
     <OutputType>Library</OutputType>
     <TargetFramework>netcoreapp3.0</TargetFramework>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <RuntimeMetadataVersion>v4.0.30319</RuntimeMetadataVersion>
-    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
     <OutputPath>$(SolutionDir)../out/bin/</OutputPath>
+    <RootNamespace>Chino</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\System.Private.CorLib\System.Private.CorLib.csproj" />
+    <PackageReference Include="BitFields" Version="0.1.0" />
   </ItemGroup>
 
 </Project>

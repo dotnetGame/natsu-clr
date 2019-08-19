@@ -1,5 +1,6 @@
 #include "Chino.Kernel.h"
 #include "System.Private.CorLib.h"
+#include <cstring>
 
 #ifdef WIN32
 #include <Windows.h>
