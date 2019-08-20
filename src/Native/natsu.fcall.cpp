@@ -8,6 +8,17 @@
 
 namespace System_Private_CorLib
 {
+::natsu::gc_obj_ref<::System_Private_CorLib::System::Type> System::Object::GetType(::natsu::gc_obj_ref<::System_Private_CorLib::System::Object> _this)
+{
+    return ::natsu::null;
+}
+
+::System_Private_CorLib::System::Int32 System::Array::GetLength(::natsu::gc_obj_ref<::System_Private_CorLib::System::Array> _this, ::System_Private_CorLib::System::Int32 dimension)
+{
+    assert(dimension == 0);
+    return _this->header_.length_;
+}
+
 void System::Diagnostics::Debug::_s_WriteCore(::natsu::gc_obj_ref<::System_Private_CorLib::System::String> message)
 {
 #ifdef WIN32
@@ -28,9 +39,9 @@ void System::Buffer::_s_Memmove(::natsu::gc_ptr<::System_Private_CorLib::System:
     std::memmove(dest, src, len);
 }
 
-::System_Private_CorLib::System::Int32 System::String::get_Length()
+::System_Private_CorLib::System::Int32 System::String::get_Length(::natsu::gc_obj_ref<::System_Private_CorLib::System::String> _this)
 {
-    return _stringLength;
+    return _this->_stringLength;
 }
 
 ::natsu::gc_obj_ref<::System_Private_CorLib::System::String> System::String::_s_FastAllocateString(::System_Private_CorLib::System::Int32 length)

@@ -5,11 +5,16 @@
 
 namespace System
 {
-    public struct Int32
+    public struct Int32 : IEquatable<Int32>
     {
         private int m_value; // Do not rename (binary serialization)
 
         public const int MaxValue = 0x7fffffff;
         public const int MinValue = unchecked((int)0x80000000);
+
+        public bool Equals(Int32 other)
+        {
+            return true;
+        }
     }
 }

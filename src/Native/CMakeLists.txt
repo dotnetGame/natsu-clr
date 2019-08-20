@@ -7,8 +7,7 @@ set(SRCS natsu.fcall.cpp
          natsu.gc.cpp
          main.cpp
          Generated/System.Private.CorLib.cpp
-         Generated/Chino.Kernel.cpp
-         Generated/BitFields.cpp)
+         Generated/Chino.Kernel.cpp)
          
 if (NOT WIN32)
     set(ASM_SRCS crt.S)

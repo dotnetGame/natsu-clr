@@ -30,5 +30,60 @@ namespace System
         // The false value.
         //
         internal const int False = 0;
+
+        //
+        // Internal Constants are real consts for performance.
+        //
+
+        // The internal string representation of true.
+        // 
+        internal const string TrueLiteral = "True";
+
+        // The internal string representation of false.
+        // 
+        internal const string FalseLiteral = "False";
+
+
+        //
+        // Public Constants
+        //
+
+        // The public string representation of true.
+        // 
+        public static readonly string TrueString = TrueLiteral;
+
+        // The public string representation of false.
+        // 
+        public static readonly string FalseString = FalseLiteral;
+
+        //
+        // Overriden Instance Methods
+        //
+        /*=================================GetHashCode==================================
+        **Args:  None
+        **Returns: 1 or 0 depending on whether this instance represents true or false.
+        **Exceptions: None
+        **Overriden From: Value
+        ==============================================================================*/
+        // Provides a hash code for this instance.
+        public override int GetHashCode()
+        {
+            return (m_value) ? True : False;
+        }
+
+        /*===================================ToString===================================
+        **Args: None
+        **Returns:  "True" or "False" depending on the state of the boolean.
+        **Exceptions: None.
+        ==============================================================================*/
+        // Converts the boolean value of this instance to a String.
+        public override string ToString()
+        {
+            if (false == m_value)
+            {
+                return FalseLiteral;
+            }
+            return TrueLiteral;
+        }
     }
 }

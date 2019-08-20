@@ -16,3 +16,5 @@ using System.Runtime.CompilerServices;
 [assembly: TypeForwardedTo(typeof(IntPtr))]
 [assembly: TypeForwardedTo(typeof(UIntPtr))]
 [assembly: TypeForwardedTo(typeof(String))]
+[assembly: TypeForwardedTo(typeof(Nullable))]
+[assembly: TypeForwardedTo(typeof(Nullable<>))]

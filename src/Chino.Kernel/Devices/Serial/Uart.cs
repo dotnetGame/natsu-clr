@@ -8,6 +8,5 @@ namespace Chino.Devices.Serial
 
     public partial struct Uart0Reg
     {
-        enum BitFields { A = 1 }
     }
 }

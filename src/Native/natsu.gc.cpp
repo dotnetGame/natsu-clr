@@ -84,6 +84,11 @@ extern "C"
 
 void InitializeHeap() noexcept
 {
+#ifdef WIN32
+    if (pHeapEnd_)
+        return;
+#endif
+
     BlockLink_t *pFirstFreeBlockInRegion = nullptr, *pPreviousFreeBlock;
     uintptr_t alignedHeap;
     size_t totalRegionSize, totalHeapSize = 0;

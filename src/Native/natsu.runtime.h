@@ -8,198 +8,13 @@
 
 namespace System_Private_CorLib
 {
-struct _Module_;
-namespace Microsoft
-{
-    namespace CodeAnalysis
-    {
-        struct EmbeddedAttribute;
-    }
-}
-namespace System
-{
-    namespace Runtime
-    {
-        namespace CompilerServices
-        {
-            struct IsReadOnlyAttribute;
-        }
-    }
-}
-namespace System
-{
-    struct ArgumentException;
-}
-namespace System
-{
-    struct ArgumentNullException;
-}
-namespace System
-{
-    struct Array;
-}
-namespace System
-{
-    struct Attribute;
-}
-namespace System
-{
-    struct AttributeUsageAttribute;
-}
-namespace System
-{
-    struct CLSCompliantAttribute;
-}
-namespace System
-{
-    struct Haha;
-}
-namespace System
-{
-    struct Console;
-}
-namespace System
-{
-    struct Enum;
-}
 namespace System
 {
     struct Exception;
-}
-namespace System
-{
-    struct FlagsAttribute;
-}
-namespace System
-{
-    struct HResults;
-}
-namespace System
-{
-    struct IComparable;
-}
-namespace System
-{
-    template <class T>
-    struct IComparable_1;
-}
-namespace System
-{
-    struct IConvertible;
-}
-namespace System
-{
-    template <class T>
-    struct IEquatable_1;
-}
-namespace System
-{
-    struct IFormatProvider;
-}
-namespace System
-{
-    struct IFormattable;
-}
-namespace System
-{
-    struct NotSupportedException;
-}
-namespace System
-{
-    struct Object;
-}
-namespace System
-{
-    struct ObsoleteAttribute;
-}
-namespace System
-{
-    struct SerializableAttribute;
-}
-namespace System
-{
     struct String;
-}
-namespace System
-{
-    struct SystemException;
-}
-namespace System
-{
+
     template <class T>
     struct SZArray_1;
-}
-namespace System
-{
-    struct Type;
-}
-namespace System
-{
-    struct ValueType;
-}
-namespace System
-{
-    namespace Runtime
-    {
-        namespace Versioning
-        {
-            struct NonVersionableAttribute;
-        }
-    }
-}
-namespace System
-{
-    namespace Runtime
-    {
-        namespace Versioning
-        {
-            struct TargetFrameworkAttribute;
-        }
-    }
-}
-namespace System
-{
-    namespace Runtime
-    {
-        namespace InteropServices
-        {
-            struct StructLayoutAttribute;
-        }
-    }
-}
-namespace System
-{
-    namespace Runtime
-    {
-        namespace CompilerServices
-        {
-            struct MethodImplAttribute;
-        }
-    }
-}
-namespace System
-{
-    namespace Diagnostics
-    {
-        struct ConditionalAttribute;
-    }
-}
-namespace System
-{
-    namespace Diagnostics
-    {
-        namespace CodeAnalysis
-        {
-            struct SuppressMessageAttribute;
-        }
-    }
-}
-namespace System
-{
-    namespace ComponentModel
-    {
-        struct EditorBrowsableAttribute;
-    }
 }
 }
 
@@ -404,16 +219,16 @@ struct gc_obj_ref
     {
     }
 
-    template <class U, class = std::enable_if_t<std::is_base_of_v<T, U>>>
+    template <class U>
     gc_obj_ref(gc_obj_ref<U> &&other) noexcept
-        : ptr_(static_cast<T *>(other.ptr_))
+        : ptr_(reinterpret_cast<T *>(other.ptr_))
     {
         other.ptr_ = nullptr;
     }
 
-    template <class U, class = std::enable_if_t<std::is_base_of_v<T, U>>>
+    template <class U>
     gc_obj_ref(const gc_obj_ref<U> &other) noexcept
-        : ptr_(static_cast<T *>(other.ptr_))
+        : ptr_(reinterpret_cast<T *>(other.ptr_))
     {
     }
 
@@ -442,21 +257,32 @@ struct gc_obj_ref
     template <class U>
     gc_obj_ref<U> as() const noexcept
     {
-        return gc_obj_ref<U>(dynamic_cast<U *>(ptr_));
+        return null; //return gc_obj_ref<U>(dynamic_cast<U *>(ptr_));
     }
 
     template <class U>
     gc_ref<U> unbox()
     {
-        auto value = dynamic_cast<U *>(ptr_);
-        assert(value);
-        return gc_ref_from_ref(*value);
+        return {};
+        //auto value = dynamic_cast<U *>(ptr_);
+        //assert(value);
+        //return gc_ref_from_ref(*value);
     }
+};
+
+struct vtable
+{
 };
 
 struct object_header
 {
+    vtable *vtable__;
     uintptr_t length_;
+};
+
+struct object
+{
+    object_header header_;
 };
 
 struct natsu_exception
@@ -495,27 +321,15 @@ auto make_object(TArgs... args)
     if constexpr (IsValueType)
     {
         T value;
-        value._ctor(std::forward<TArgs>(args)...);
+        value._ctor(value, std::forward<TArgs>(args)...);
         return value;
     }
     else
     {
         auto value = gc_new<T>();
-        value->_ctor(std::forward<TArgs>(args)...);
+        value->_ctor(value, std::forward<TArgs>(args)...);
         return value;
     }
-}
-
-template <class T>
-gc_obj_ref<T> gc_obj_ref_from_this(T *_this)
-{
-    return gc_obj_ref<T>(_this);
-}
-
-template <class T>
-gc_ref<T> gc_ref_from_this(T *_this)
-{
-    return gc_ref<T>(*_this);
 }
 
 template <class T>
@@ -559,6 +373,15 @@ constexpr bool operator==(null_gc_obj_ref, const gc_obj_ref<T> &rhs) noexcept
 {
     return !rhs.ptr_;
 }
+
+template <class T>
+struct static_holder
+{
+    static T value;
+};
+
+template <class T>
+T static_holder<T>::value;
 
 constexpr null_gc_obj_ref null;
 
@@ -633,8 +456,7 @@ std::u16string_view to_string_view(gc_obj_ref<::System_Private_CorLib::System::S
     name(int32_t value) : value__(value) {} \
     operator int32_t() const noexcept { return value__; }
 
-#define NATSU_OBJECT_IMPL \
-    ::natsu::object_header header_;
+#define NATSU_OBJECT_IMPL
 
 #define NATSU_SZARRAY_IMPL                                 \
     T &at(int index)                                       \
