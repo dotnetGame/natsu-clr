@@ -44,7 +44,7 @@ struct gc_obj_ref;
 
 struct null_gc_obj_ref
 {
-    constexpr null_gc_obj_ref()
+    constexpr null_gc_obj_ref(std::nullptr_t = nullptr) noexcept
     {
     }
 
@@ -53,6 +53,8 @@ struct null_gc_obj_ref
         return 0;
     }
 };
+
+constexpr null_gc_obj_ref null;
 
 template <class T>
 struct gc_ref
@@ -248,6 +250,12 @@ struct gc_obj_ref
         return ptr_;
     }
 
+    T &operator*() const noexcept
+    {
+        assert(ptr_);
+        return *ptr_;
+    }
+
     gc_obj_ref &operator=(std::nullptr_t) noexcept
     {
         ptr_ = nullptr;
@@ -267,16 +275,22 @@ struct gc_obj_ref
     template <class U>
     gc_obj_ref<U> as() const noexcept
     {
-        return null; //return gc_obj_ref<U>(dynamic_cast<U *>(ptr_));
+        if (ptr_)
+        {
+            auto vtable = ptr_->header_.vtable_as<typename U::VTable>();
+            if (vtable)
+                return gc_obj_ref<U>(reinterpret_cast<U *>(ptr_));
+        }
+
+        return null;
     }
 
     template <class U>
     gc_ref<U> unbox()
     {
-        return {};
-        //auto value = dynamic_cast<U *>(ptr_);
-        //assert(value);
-        //return gc_ref_from_ref(*value);
+        assert(ptr_);
+        auto ptr = as<U>();
+        return gc_ref<U>(*ptr);
     }
 };
 
@@ -411,8 +425,6 @@ constexpr bool operator==(null_gc_obj_ref, const gc_obj_ref<T> &rhs) noexcept
 {
     return !rhs.ptr_;
 }
-
-constexpr null_gc_obj_ref null;
 
 gc_obj_ref<::System_Private_CorLib::System::String> load_string(std::u16string_view string);
 std::u16string_view to_string_view(gc_obj_ref<::System_Private_CorLib::System::String> string);
