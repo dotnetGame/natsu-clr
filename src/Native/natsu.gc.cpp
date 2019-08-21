@@ -383,10 +383,11 @@ static void prvInsertBlockIntoFreeList(BlockLink_t *pBlockToInsert)
 
 namespace natsu
 {
-uint8_t *gc_alloc(size_t size)
+gc_obj_ref<object> gc_alloc(const vtable_t &vtable, size_t size)
 {
-    auto ptr = (uint8_t *)HeapAlloc(size);
+    gc_obj_ref<object> ptr(reinterpret_cast<object *>(HeapAlloc(size)));
     assert(ptr);
+    ptr->header_.vtable_ = &vtable;
     return ptr;
 }
 } // namespace  natsu

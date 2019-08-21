@@ -19,6 +19,27 @@ namespace System_Private_CorLib
     return _this->header_.length_;
 }
 
+::System_Private_CorLib::System::Int32 System::Array::get_Rank(::natsu::gc_obj_ref<::System_Private_CorLib::System::Array> _this)
+{
+    return 1;
+}
+
+::System_Private_CorLib::System::Int32 System::Array::get_Length(::natsu::gc_obj_ref<::System_Private_CorLib::System::Array> _this)
+{
+    return _this->header_.length_;
+}
+
+::System_Private_CorLib::System::Int64 System::Array::get_LongLength(::natsu::gc_obj_ref<::System_Private_CorLib::System::Array> _this)
+{
+    return _this->header_.length_;
+}
+
+::System_Private_CorLib::System::Char System::String::get_Chars(::natsu::gc_obj_ref<::System_Private_CorLib::System::String> _this, ::System_Private_CorLib::System::Int32 index)
+{
+    assert((uint32_t)index < (uint32_t)_this->_stringLength);
+    return (&_this->_firstChar)[index];
+}
+
 void System::Diagnostics::Debug::_s_WriteCore(::natsu::gc_obj_ref<::System_Private_CorLib::System::String> message)
 {
 #ifdef WIN32
@@ -46,11 +67,10 @@ void System::Buffer::_s_Memmove(::natsu::gc_ptr<::System_Private_CorLib::System:
 
 ::natsu::gc_obj_ref<::System_Private_CorLib::System::String> System::String::_s_FastAllocateString(::System_Private_CorLib::System::Int32 length)
 {
-    auto size = sizeof(::System_Private_CorLib::System::String) + length * sizeof(::System_Private_CorLib::System::Char);
-    auto obj = natsu::gc_alloc(size);
-    auto ptr = reinterpret_cast<::System_Private_CorLib::System::String *>(obj);
-    ptr->_stringLength = length;
-    (&ptr->_firstChar)[length] = 0;
-    return ::natsu::gc_obj_ref<::System_Private_CorLib::System::String>(ptr);
+    auto size = sizeof(System::String) + length * sizeof(System::Char);
+    auto obj = natsu::gc_new<System::String>(size);
+    obj->_stringLength = length;
+    (&obj->_firstChar)[length] = 0;
+    return obj;
 }
 }

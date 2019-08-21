@@ -69,6 +69,11 @@ struct gc_ref
     {
     }
 
+    constexpr operator bool() const noexcept
+    {
+        return true;
+    }
+
     explicit operator uintptr_t() const noexcept
     {
         return reinterpret_cast<uintptr_t>(ptr_);
@@ -121,6 +126,11 @@ struct gc_ptr
     explicit operator uintptr_t() const noexcept
     {
         return reinterpret_cast<uintptr_t>(ptr_);
+    }
+
+    operator bool() const noexcept
+    {
+        return ptr_;
     }
 
     operator T *() const noexcept
@@ -270,14 +280,27 @@ struct gc_obj_ref
     }
 };
 
-struct vtable
+typedef struct _vtable
 {
-};
+    virtual ~_vtable() = default;
+} vtable_t;
 
 struct object_header
 {
-    vtable *vtable__;
+    const vtable_t *vtable_;
     uintptr_t length_;
+
+    template <class TVTable>
+    const TVTable *vtable() const noexcept
+    {
+        return static_cast<const TVTable *>(vtable_);
+    }
+
+    template <class TVTable>
+    const TVTable *vtable_as() const noexcept
+    {
+        return dynamic_cast<const TVTable *>(vtable_);
+    }
 };
 
 struct object
@@ -296,23 +319,38 @@ struct natsu_exception
     gc_obj_ref<::System_Private_CorLib::System::Exception> exception_;
 };
 
-uint8_t *gc_alloc(size_t length);
+template <class T>
+struct static_holder
+{
+    static T value;
+};
+
+template <class T>
+T static_holder<T>::value;
+
+gc_obj_ref<object> gc_alloc(const vtable_t &vtable, size_t size);
+
+template <class T>
+gc_obj_ref<T> gc_new(size_t size)
+{
+    auto ptr = gc_alloc(static_holder<typename T::VTable>::value, size);
+    return gc_obj_ref<T>(ptr);
+}
 
 template <class T>
 gc_obj_ref<T> gc_new()
 {
-    auto ptr = gc_alloc(sizeof(T));
-    return gc_obj_ref<T>(reinterpret_cast<T *>(ptr));
+    return gc_new<T>(sizeof(T));
 }
 
 template <class T>
 gc_obj_ref<::System_Private_CorLib::System::SZArray_1<T>> gc_new_array(int length)
 {
-    auto size = sizeof(::System_Private_CorLib::System::SZArray_1<T>) + (size_t)length * sizeof(T);
-    auto obj = gc_alloc(size);
-    auto ptr = reinterpret_cast<::System_Private_CorLib::System::SZArray_1<T> *>(obj);
-    ptr->header_.length_ = length;
-    return gc_obj_ref<::System_Private_CorLib::System::SZArray_1<T>>(ptr);
+    using obj_t = ::System_Private_CorLib::System::SZArray_1<T>;
+    auto size = sizeof(obj_t) + (size_t)length * sizeof(T);
+    auto obj = gc_new<obj_t>(size);
+    obj->header_.length_ = length;
+    return obj;
 }
 
 template <class T, bool IsValueType, class... TArgs>
@@ -373,15 +411,6 @@ constexpr bool operator==(null_gc_obj_ref, const gc_obj_ref<T> &rhs) noexcept
 {
     return !rhs.ptr_;
 }
-
-template <class T>
-struct static_holder
-{
-    static T value;
-};
-
-template <class T>
-T static_holder<T>::value;
 
 constexpr null_gc_obj_ref null;
 
