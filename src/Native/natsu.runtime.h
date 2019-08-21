@@ -342,6 +342,15 @@ struct static_holder
 template <class T>
 T static_holder<T>::value;
 
+template <class T>
+struct is_value_type
+{
+    static constexpr auto value = !std::is_base_of_v<object, T>;
+};
+
+template <class T>
+constexpr auto is_value_type_v = is_value_type<T>::value;
+
 gc_obj_ref<object> gc_alloc(const vtable_t &vtable, size_t size);
 
 template <class T>
@@ -367,10 +376,10 @@ gc_obj_ref<::System_Private_CorLib::System::SZArray_1<T>> gc_new_array(int lengt
     return obj;
 }
 
-template <class T, bool IsValueType, class... TArgs>
+template <class T, class... TArgs>
 auto make_object(TArgs... args)
 {
-    if constexpr (IsValueType)
+    if constexpr (is_value_type_v<T>)
     {
         T value;
         value._ctor(value, std::forward<TArgs>(args)...);

@@ -306,7 +306,7 @@ namespace Natsu.Compiler
             foreach (var ns in nss)
                 writer.Write($"namespace {ns} {{ ");
 
-            var fowardName = "::" + EscapeModuleName(type.Implementation.Name) + "::" + EscapeTypeName(type.ToTypeRef(), true, false);
+            var fowardName = EscapeTypeName(type.ToTypeRef());
             if (type.Name.Contains("`"))
             {
                 var types = int.Parse(type.Name.Substring(type.Name.IndexOf('`') + 1));
@@ -395,7 +395,7 @@ namespace Natsu.Compiler
             {
                 var baseType = GetBaseType(type.TypeDef);
                 if (baseType != null)
-                    writer.WriteLine(" : public " + EscapeTypeName(baseType, true, true));
+                    writer.WriteLine(" : public " + EscapeTypeName(baseType));
                 else
                     writer.WriteLine(" : public ::natsu::object");
             }
@@ -496,12 +496,12 @@ namespace Natsu.Compiler
             if (baseType == null)
                 writer.Write("virtual natsu::vtable_t");
             else
-                writer.Write($"{EscapeTypeName(baseType, true, true)}::VTable");
+                writer.Write($"{EscapeTypeName(baseType)}::VTable");
 
             foreach (var iface in type.TypeDef.Interfaces)
             {
                 var ifaceType = iface.Interface;
-                writer.Write($", public virtual {EscapeTypeName(ifaceType, true, true)}::VTable");
+                writer.Write($", public virtual {EscapeTypeName(ifaceType)}::VTable");
             }
 
             writer.WriteLine();
@@ -517,22 +517,14 @@ namespace Natsu.Compiler
             writer.Ident(ident).WriteLine("};");
         }
 
-        private string EscapeTypeName(ITypeDefOrRef type, TypeDefOrRefSig sig, bool isBaseType, bool hasModuleName, bool isVTable)
-        {
-            return EscapeTypeNameImpl(type, sig.IsValueType, isBaseType, hasModuleName, isVTable, true);
-        }
-
-        private string EscapeTypeNameImpl(ITypeDefOrRef type, bool isValueType, bool isBaseType, bool hasModuleName, bool isVTable, bool hasGen)
+        private string EscapeTypeNameImpl(ITypeDefOrRef type, bool hasGen, bool hasModuleName)
         {
             if (type is TypeSpec typeSpec)
             {
-                return EscapeTypeName(typeSpec.TypeSig, null, isBaseType, isVTable);
+                return EscapeTypeName(typeSpec.TypeSig, null);
             }
 
             var sb = new StringBuilder();
-            if (!isBaseType && !isValueType)
-                sb.Append("::natsu::gc_obj_ref<");
-
             if (hasModuleName)
                 sb.Append("::" + EscapeModuleName(type.DefinitionAssembly) + "::");
             var nss = type.Namespace.Split('.', StringSplitOptions.RemoveEmptyEntries)
@@ -540,8 +532,6 @@ namespace Natsu.Compiler
             foreach (var ns in nss)
                 sb.Append($"{ns}::");
             sb.Append(EscapeTypeName(type.Name));
-            if (isVTable)
-                sb.Append("_VTable");
             if (hasGen && type is TypeDef typeDef && typeDef.HasGenericParameters && !type.ContainsGenericParameter)
             {
                 sb.Append("<");
@@ -549,15 +539,21 @@ namespace Natsu.Compiler
                 sb.Append(">");
             }
 
-            if (!isBaseType && !isValueType)
-                sb.Append(">");
-
             return sb.ToString();
         }
 
-        private string EscapeTypeName(ITypeDefOrRef type, bool isBaseType, bool hasModuleName, bool isVTable = false)
+        private string EscapeTypeName(ITypeDefOrRef type, bool hasGen = true, bool hasModuleName = true)
         {
-            return EscapeTypeNameImpl(type, type.IsValueType, isBaseType, hasModuleName, isVTable, false);
+            return EscapeTypeNameImpl(type, hasGen, hasModuleName);
+        }
+
+        private string EscapeVariableTypeName(ITypeDefOrRef type, bool hasGen = true, bool hasModuleName = true)
+        {
+            var sig = type.ToTypeSig();
+            if (type.IsValueType || IsValueType(sig))
+                return EscapeTypeNameImpl(type, hasGen, hasModuleName);
+            else
+                return $"::natsu::gc_obj_ref<{EscapeTypeNameImpl(type, hasGen, hasModuleName)}>";
         }
 
         private static string EscapeTypeName(string name)
@@ -571,49 +567,63 @@ namespace Natsu.Compiler
             if (value.IsStatic && !isStatic)
                 prefix = "static ";
 
-            writer.Ident(ident).WriteLine($"{prefix}{EscapeTypeName(value.FieldType, value.DeclaringType)} {EscapeIdentifier(value.Name)};");
-        }
-
-        private void WriteStaticField(StreamWriter writer, int ident, FieldDef value)
-        {
-            writer.Ident(ident).WriteLine($"{EscapeTypeName(value.FieldType, value.DeclaringType)} {EscapeTypeName(value.DeclaringType, true, false)}::{EscapeIdentifier(value.Name)};");
+            writer.Ident(ident).WriteLine($"{prefix}{EscapeVariableTypeName(value.FieldType, value.DeclaringType)} {EscapeIdentifier(value.Name)};");
         }
 
         private void WriteConstantStringField(StreamWriter writer, int ident, FieldDef value)
         {
-            writer.Ident(ident).WriteLine($"{EscapeTypeName(value.FieldType, value.DeclaringType)} {EscapeTypeName(value.DeclaringType, true, false)}::{EscapeIdentifier(value.Name)} = ::natsu::load_string(uR\"NS({value.Constant.Value})NS\");");
+            writer.Ident(ident).WriteLine($"{EscapeVariableTypeName(value.FieldType, value.DeclaringType)} {EscapeTypeName(value.DeclaringType, hasModuleName: false)}::{EscapeIdentifier(value.Name)} = ::natsu::load_string(uR\"NS({value.Constant.Value})NS\");");
         }
 
         private void WriteMethodDeclare(StreamWriter writer, int ident, MethodDef method)
         {
             if (!method.IsStaticConstructor)
-                writer.Ident(ident).Write("static " + EscapeTypeName(method.ReturnType) + " ");
+                writer.Ident(ident).Write("static " + EscapeVariableTypeName(method.ReturnType) + " ");
             else
                 writer.Ident(ident);
             writer.Write(EscapeMethodName(method) + "(");
-
-            var index = 0;
-            var parameters = method.Parameters.ToList();
-            foreach (var param in parameters)
-            {
-                writer.Write(EscapeTypeName(param.Type));
-                var paramName = param.IsHiddenThisParameter ? "_this" : param.Name;
-                writer.Write(" " + EscapeIdentifier(paramName));
-                if (index++ != parameters.Count - 1)
-                    writer.Write(", ");
-            }
-
+            WriteParameterList(writer, method.Parameters);
             writer.WriteLine($");");
         }
 
-        private string EscapeTypeName(TypeSig fieldType, TypeDef declaringType = null, bool isBaseType = false, bool isVTable = false)
+        private void WriteParameterList(StreamWriter writer, ParameterList parameters, bool hasType = true)
+        {
+            var index = 0;
+            var method = parameters.Method;
+            foreach (var param in parameters)
+            {
+                if (hasType)
+                    writer.Write(EscapeVariableTypeName(param.Type, hasGen: 1) + " ");
+
+                var paramName = param.IsHiddenThisParameter ? "_this" : param.Name;
+                writer.Write(EscapeIdentifier(paramName));
+                if (index++ != parameters.Count - 1)
+                    writer.Write(", ");
+            }
+        }
+
+        private string EscapeTypeName(TypeSig fieldType, TypeDef declaringType = null, int hasGen = 0)
         {
             var sb = new StringBuilder();
-            EscapeTypeName(sb, fieldType, declaringType, isBaseType, isVTable);
+            EscapeTypeName(sb, fieldType, declaringType, hasGen);
             return sb.ToString();
         }
 
-        private void EscapeTypeName(StringBuilder sb, TypeSig cntSig, TypeDef declaringType = null, bool isBaseType = false, bool isVTable = false)
+        private string EscapeVariableTypeName(TypeSig fieldType, TypeDef declaringType = null, int hasGen = 0)
+        {
+            if (IsValueType(fieldType))
+                return EscapeTypeName(fieldType, declaringType, hasGen);
+            else
+                return $"::natsu::gc_obj_ref<{EscapeTypeName(fieldType, declaringType, hasGen)}>";
+        }
+
+        private bool IsValueType(TypeSig type)
+        {
+            if (type == null) return false;
+            return type.IsValueType || type.IsByRef || type.IsPointer || (type.IsPinned && IsValueType(type.Next));
+        }
+
+        private void EscapeTypeName(StringBuilder sb, TypeSig cntSig, TypeDef declaringType = null, int hasGen = 0)
         {
             switch (cntSig.ElementType)
             {
@@ -642,7 +652,7 @@ namespace Natsu.Compiler
                                 if (sig.TypeDef == declaringType)
                                     sb.Append(GetConstantTypeName(cntSig.ElementType));
                                 else
-                                    sb.Append(EscapeTypeName(sig.TypeDefOrRef, sig, isBaseType: isBaseType, hasModuleName: true, isVTable: isVTable));
+                                    sb.Append(EscapeTypeName(sig.TypeDefOrRef, hasGen: hasGen-- > 0));
                                 break;
                             default:
                                 throw new NotSupportedException();
@@ -659,7 +669,7 @@ namespace Natsu.Compiler
                                 if (sig.IsValueType && declaringType != null && sig.TypeDef == declaringType)
                                     sb.Append(GetConstantTypeName(cntSig.ElementType));
                                 else
-                                    sb.Append(EscapeTypeName(sig.TypeDefOrRef, sig, isBaseType: isBaseType, hasModuleName: true, isVTable: isVTable));
+                                    sb.Append(EscapeTypeName(sig.TypeDefOrRef, hasGen: hasGen-- > 0));
                                 break;
                             default:
                                 throw new NotSupportedException();
@@ -667,9 +677,9 @@ namespace Natsu.Compiler
                     }
                     break;
                 case ElementType.SZArray:
-                    sb.Append("::natsu::gc_obj_ref<::System_Private_CorLib::System::SZArray_1<");
+                    sb.Append("::System_Private_CorLib::System::SZArray_1<");
                     EscapeTypeName(sb, cntSig.Next, declaringType);
-                    sb.Append(">>");
+                    sb.Append(">");
                     break;
                 case ElementType.Var:
                     sb.Append(cntSig.ToGenericVar().GetName());
@@ -677,7 +687,7 @@ namespace Natsu.Compiler
                 case ElementType.GenericInst:
                     {
                         var sig = cntSig.ToGenericInstSig();
-                        sb.Append(EscapeTypeName(sig.GenericType.TypeDefOrRef, isBaseType: isBaseType, hasModuleName: true, isVTable: isVTable));
+                        sb.Append(EscapeTypeName(sig.GenericType.TypeDefOrRef, hasGen: false));
                         sb.Append("<");
                         for (int i = 0; i < sig.GenericArguments.Count; i++)
                         {
@@ -690,19 +700,19 @@ namespace Natsu.Compiler
                     break;
                 case ElementType.ByRef:
                     sb.Append("::natsu::gc_ref<");
-                    EscapeTypeName(sb, cntSig.Next, declaringType);
+                    EscapeTypeName(sb, cntSig.Next, declaringType, hasGen);
                     sb.Append(">");
                     break;
                 case ElementType.Ptr:
                     sb.Append("::natsu::gc_ptr<");
-                    EscapeTypeName(sb, cntSig.Next, declaringType);
+                    EscapeTypeName(sb, cntSig.Next, declaringType, hasGen);
                     sb.Append(">");
                     break;
                 case ElementType.Pinned:
-                    EscapeTypeName(sb, cntSig.Next, declaringType);
+                    EscapeTypeName(sb, cntSig.Next, declaringType, hasGen);
                     break;
                 case ElementType.CModReqd:
-                    EscapeTypeName(sb, cntSig.Next, declaringType);
+                    EscapeTypeName(sb, cntSig.Next, declaringType, hasGen);
                     break;
                 default:
                     throw new NotSupportedException();
@@ -788,25 +798,12 @@ namespace Natsu.Compiler
                 writer.WriteLine($"template <{string.Join(", ", typeGens.Concat(methodGens).Select(x => "class " + x))}>");
 
             if (!method.IsStaticConstructor)
-                writer.Write(EscapeTypeName(method.ReturnType) + " ");
-            writer.Write(EscapeTypeName(method.DeclaringType, isBaseType: true, hasModuleName: false));
+                writer.Write(EscapeVariableTypeName(method.ReturnType) + " ");
+            writer.Write(EscapeTypeName(method.DeclaringType, hasModuleName: false));
             if (method.IsStaticConstructor)
                 writer.Write("_Static");
-            if (typeGens.Any())
-                writer.Write($"<{string.Join(", ", typeGens)}>");
             writer.Write("::" + EscapeMethodName(method) + "(");
-
-            var index = 0;
-            var parameters = method.Parameters;
-            foreach (var param in parameters)
-            {
-                writer.Write(EscapeTypeName(param.Type));
-                var paramName = param.IsHiddenThisParameter ? "_this" : param.Name;
-                writer.Write(" " + EscapeIdentifier(paramName));
-                if (index++ != parameters.Count - 1)
-                    writer.Write(", ");
-            }
-
+            WriteParameterList(writer, method.Parameters);
             writer.WriteLine(")");
             writer.Ident(ident).WriteLine("{");
             WriteILBody(writer, ident + 1, method);
@@ -823,20 +820,9 @@ namespace Natsu.Compiler
 
             if (method.IsVirtual)
                 writer.Write("virtual ");
-            writer.Write(EscapeTypeName(method.ReturnType) + " ");
+            writer.Write(EscapeVariableTypeName(method.ReturnType) + " ");
             writer.Write(EscapeMethodName(method) + "(");
-
-            var index = 0;
-            var parameters = method.Parameters;
-            foreach (var param in parameters)
-            {
-                writer.Write(EscapeTypeName(param.Type));
-                var paramName = param.IsHiddenThisParameter ? "_this" : param.Name;
-                writer.Write(" " + EscapeIdentifier(paramName));
-                if (index++ != parameters.Count - 1)
-                    writer.Write(", ");
-            }
-
+            WriteParameterList(writer, method.Parameters);
             writer.Write(") const");
             if (method.IsAbstract)
             {
@@ -864,39 +850,19 @@ namespace Natsu.Compiler
             if (typeGens.Any() || methodGens.Any())
                 writer.WriteLine($"template <{string.Join(", ", typeGens.Concat(methodGens).Select(x => "class " + x))}>");
 
-            writer.Write(EscapeTypeName(method.ReturnType) + " ");
-            writer.Write(EscapeTypeName(method.DeclaringType, isBaseType: true, hasModuleName: false));
-            if (typeGens.Any())
-                writer.Write($"<{string.Join(", ", typeGens)}>");
+            writer.Write(EscapeVariableTypeName(method.ReturnType) + " ");
+            writer.Write(EscapeTypeName(method.DeclaringType, hasModuleName: false));
             writer.Write("::VTable::" + EscapeMethodName(method) + "(");
-
-            var index = 0;
-            var parameters = method.Parameters;
-            foreach (var param in parameters)
-            {
-                writer.Write(EscapeTypeName(param.Type));
-                var paramName = param.IsHiddenThisParameter ? "_this" : param.Name;
-                writer.Write(" " + EscapeIdentifier(paramName));
-                if (index++ != parameters.Count - 1)
-                    writer.Write(", ");
-            }
-
+            WriteParameterList(writer, method.Parameters);
             writer.WriteLine(") const");
             writer.Ident(ident).WriteLine("{");
             writer.Ident(ident + 1).WriteLine("assert(_this);");
             writer.Ident(ident + 1).Write("return ");
-            writer.Write(EscapeTypeName(method.DeclaringType, true, true));
+            writer.Write(EscapeTypeName(method.DeclaringType));
             if (typeGens.Any())
                 writer.Write($"<{string.Join(", ", typeGens)}>");
             writer.Write("::" + EscapeMethodName(method) + "(");
-            index = 0;
-            foreach (var param in parameters)
-            {
-                var paramName = param.IsHiddenThisParameter ? "_this" : param.Name;
-                writer.Write(EscapeIdentifier(paramName));
-                if (index++ != parameters.Count - 1)
-                    writer.Write(", ");
-            }
+            WriteParameterList(writer, method.Parameters, hasType: false);
             writer.WriteLine(");");
             writer.Ident(ident).WriteLine("}");
 
@@ -1038,7 +1004,7 @@ namespace Natsu.Compiler
 
         private void WriteLocal(Local local, EvaluationStack stack, StreamWriter writer, int ident, MethodDef method)
         {
-            writer.Ident(ident).WriteLine($"{EscapeTypeName(local.Type)} _l{local.Index};");
+            writer.Ident(ident).WriteLine($"{EscapeVariableTypeName(local.Type)} _l{local.Index};");
         }
 
         private void WriteInstruction(Instruction op, EvaluationStack stack, StreamWriter writer, int ident, MethodDef method, BasicBlock block)
@@ -1097,7 +1063,7 @@ namespace Natsu.Compiler
                 if (src.type == null || dest != src.type)
                 {
                     if (src.type == null || dest.IsValueType)
-                        return $"static_cast<{EscapeTypeName(dest)}>({src.expression})";
+                        return $"static_cast<{EscapeVariableTypeName(dest)}>({src.expression})";
                 }
 
                 return src.expression;
@@ -1120,7 +1086,7 @@ namespace Natsu.Compiler
 
                 string expr = method.IsStaticConstructor && method.DeclaringType == field.DeclaringType
                     ? EscapeIdentifier(field.Name)
-                    : "::natsu::static_holder<" + EscapeTypeName(field.DeclaringType, isBaseType: true, hasModuleName: true) + "_Static>::value." + EscapeIdentifier(field.Name);
+                    : "::natsu::static_holder<" + EscapeTypeName(field.DeclaringType) + "_Static>::value." + EscapeIdentifier(field.Name);
                 var fieldType = field.FieldSig.Type;
 
                 stack.Push(fieldType, $"{expr}");
@@ -1134,7 +1100,7 @@ namespace Natsu.Compiler
                 var value = stack.Pop();
                 string expr = method.IsStaticConstructor && method.DeclaringType == field.DeclaringType
                     ? EscapeIdentifier(field.Name)
-                    : "::natsu::static_holder<" + EscapeTypeName(field.DeclaringType, isBaseType: true, hasModuleName: true) + "_Static>::value." + EscapeIdentifier(field.Name);
+                    : "::natsu::static_holder<" + EscapeTypeName(field.DeclaringType) + "_Static>::value." + EscapeIdentifier(field.Name);
                 var fieldType = field.FieldSig.Type;
 
                 writer.Ident(ident).WriteLine($"{expr} = {value.expression};");
@@ -1278,7 +1244,7 @@ namespace Natsu.Compiler
                     para.Add((member.DeclaringType.ToTypeSig(), stack.Pop()));
 
                 para.Reverse();
-                stack.Push(method.RetType, $"{EscapeTypeName(member.DeclaringType, isBaseType: true, hasModuleName: true)}::{EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src)))})");
+                stack.Push(method.RetType, $"{EscapeTypeName(member.DeclaringType)}::{EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src)))})");
             }
 
             void ConvertCallvirt(IMethodDefOrRef member)
@@ -1293,7 +1259,7 @@ namespace Natsu.Compiler
                     para.Add((member.DeclaringType.ToTypeSig(), stack.Pop()));
 
                 para.Reverse();
-                stack.Push(method.RetType, $"{para[0].src.expression}->header_.vtable_as<{EscapeTypeName(member.DeclaringType, isBaseType: true, hasModuleName: true)}::VTable>()->{EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src)))})");
+                stack.Push(method.RetType, $"{para[0].src.expression}->header_.vtable_as<{EscapeTypeName(member.DeclaringType)}::VTable>()->{EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src)))})");
             }
 
             void ConvertNewobj(IMethodDefOrRef member)
@@ -1307,9 +1273,8 @@ namespace Natsu.Compiler
                 para.Reverse();
 
                 var t = member.DeclaringType;
-                var expr = EscapeTypeName(t, true, true);
-                var isValueType = member.DeclaringType.IsValueType ? "true" : "false";
-                stack.Push(member.DeclaringType.ToTypeSig(), $"::natsu::make_object<{expr}, {isValueType}>({string.Join(", ", para)})");
+                var expr = EscapeTypeName(t);
+                stack.Push(member.DeclaringType.ToTypeSig(), $"::natsu::make_object<{expr}>({string.Join(", ", para)})");
             }
 
             void ConvertNewarr(ITypeDefOrRef type)
@@ -1396,7 +1361,7 @@ namespace Natsu.Compiler
             void ConvertIsinst(ITypeDefOrRef type)
             {
                 var target = stack.Pop();
-                stack.Push(new SZArraySig(type.ToTypeSig()), $"{target.expression}.as<{EscapeTypeName(type, isBaseType: true, hasModuleName: true)}>()");
+                stack.Push(new SZArraySig(type.ToTypeSig()), $"{target.expression}.as<{EscapeTypeName(type)}>()");
             }
 
             void ConvertCgt_Un()
@@ -1423,7 +1388,7 @@ namespace Natsu.Compiler
             void ConvertUnbox_Any(ITypeDefOrRef type)
             {
                 var target = stack.Pop();
-                stack.Push(new ByRefSig(type.ToTypeSig()), $"{target.expression}.unbox<{EscapeTypeName(type, isBaseType: true, hasModuleName: true)}>()");
+                stack.Push(new ByRefSig(type.ToTypeSig()), $"{target.expression}.unbox<{EscapeTypeName(type)}>()");
             }
 
             void ConvertAdd()
