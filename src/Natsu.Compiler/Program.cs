@@ -586,17 +586,25 @@ namespace Natsu.Compiler
             writer.WriteLine($");");
         }
 
-        private void WriteParameterList(StreamWriter writer, ParameterList parameters, bool hasType = true)
+        private void WriteParameterList(StreamWriter writer, ParameterList parameters, bool hasType = true, bool isVTable = false)
         {
             var index = 0;
             var method = parameters.Method;
             foreach (var param in parameters)
             {
                 if (hasType)
-                    writer.Write(EscapeVariableTypeName(param.Type, hasGen: 1) + " ");
+                {
+                    if (isVTable && method.IsVirtual && param.IsHiddenThisParameter)
+                        writer.Write("::natsu::gc_obj_ref<::natsu::object>");
+                    else
+                        writer.Write(EscapeVariableTypeName(param.Type, hasGen: 1) + " ");
+                }
 
                 var paramName = param.IsHiddenThisParameter ? "_this" : param.Name;
                 writer.Write(EscapeIdentifier(paramName));
+                if (!hasType && isVTable && method.IsVirtual && param.IsHiddenThisParameter && method.DeclaringType.IsValueType)
+                    writer.Write($".unbox<{EscapeTypeName(method.DeclaringType)}>()");
+
                 if (index++ != parameters.Count - 1)
                     writer.Write(", ");
             }
@@ -819,10 +827,14 @@ namespace Natsu.Compiler
                 throw new NotSupportedException("Virtual generic methods is not supported");
 
             if (method.IsVirtual)
-                writer.Write("virtual ");
+            {
+                if (method.IsNewSlot)
+                    writer.Write("virtual ");
+            }
+
             writer.Write(EscapeVariableTypeName(method.ReturnType) + " ");
             writer.Write(EscapeMethodName(method) + "(");
-            WriteParameterList(writer, method.Parameters);
+            WriteParameterList(writer, method.Parameters, isVTable: true);
             writer.Write(") const");
             if (method.IsAbstract)
             {
@@ -830,6 +842,12 @@ namespace Natsu.Compiler
             }
             else
             {
+                if (method.IsVirtual)
+                {
+                    if (!method.IsNewSlot)
+                        writer.Write(" override");
+                }
+
                 writer.WriteLine(";");
             }
 
@@ -853,16 +871,14 @@ namespace Natsu.Compiler
             writer.Write(EscapeVariableTypeName(method.ReturnType) + " ");
             writer.Write(EscapeTypeName(method.DeclaringType, hasModuleName: false));
             writer.Write("::VTable::" + EscapeMethodName(method) + "(");
-            WriteParameterList(writer, method.Parameters);
+            WriteParameterList(writer, method.Parameters, isVTable: true);
             writer.WriteLine(") const");
             writer.Ident(ident).WriteLine("{");
             writer.Ident(ident + 1).WriteLine("assert(_this);");
             writer.Ident(ident + 1).Write("return ");
             writer.Write(EscapeTypeName(method.DeclaringType));
-            if (typeGens.Any())
-                writer.Write($"<{string.Join(", ", typeGens)}>");
             writer.Write("::" + EscapeMethodName(method) + "(");
-            WriteParameterList(writer, method.Parameters, hasType: false);
+            WriteParameterList(writer, method.Parameters, hasType: false, isVTable: true);
             writer.WriteLine(");");
             writer.Ident(ident).WriteLine("}");
 
@@ -1241,10 +1257,17 @@ namespace Natsu.Compiler
                     para.Add((method.Params[i], stack.Pop()));
 
                 if (method.HasThis)
-                    para.Add((member.DeclaringType.ToTypeSig(), stack.Pop()));
+                    para.Add((ThisType(member.DeclaringType), stack.Pop()));
 
                 para.Reverse();
                 stack.Push(method.RetType, $"{EscapeTypeName(member.DeclaringType)}::{EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src)))})");
+            }
+
+            TypeSig ThisType(ITypeDefOrRef type)
+            {
+                if (type.IsValueType)
+                    return new ByRefSig(type.ToTypeSig());
+                return type.ToTypeSig();
             }
 
             void ConvertCallvirt(IMethodDefOrRef member)
@@ -1256,10 +1279,10 @@ namespace Natsu.Compiler
                     para.Add((method.Params[i], stack.Pop()));
 
                 if (method.HasThis)
-                    para.Add((member.DeclaringType.ToTypeSig(), stack.Pop()));
+                    para.Add((ThisType(member.DeclaringType), stack.Pop()));
 
                 para.Reverse();
-                stack.Push(method.RetType, $"{para[0].src.expression}->header_.vtable_as<{EscapeTypeName(member.DeclaringType)}::VTable>()->{EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src)))})");
+                stack.Push(method.RetType, $"{para[0].src.expression}->header_.template vtable_as<{EscapeTypeName(member.DeclaringType)}::VTable>()->{EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src)))})");
             }
 
             void ConvertNewobj(IMethodDefOrRef member)

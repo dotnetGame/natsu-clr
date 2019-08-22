@@ -20,6 +20,8 @@ namespace System
 
 namespace natsu
 {
+struct natsu_exception;
+
 inline constexpr float to_float(uint32_t value) noexcept
 {
     return static_cast<const float &>(value);
@@ -38,6 +40,52 @@ inline constexpr int64_t to_int64(uint64_t value) noexcept
 inline constexpr void nop() noexcept
 {
 }
+
+template <class T>
+struct static_holder
+{
+    static T value;
+};
+
+template <class T>
+T static_holder<T>::value;
+
+typedef struct _vtable
+{
+    virtual ~_vtable() = default;
+} vtable_t;
+
+struct object_header
+{
+    const vtable_t *vtable_;
+    uintptr_t length_;
+
+    template <class TVTable>
+    const TVTable *vtable() const noexcept
+    {
+        return static_cast<const TVTable *>(vtable_);
+    }
+
+    template <class TVTable>
+    const TVTable *vtable_as() const noexcept
+    {
+        return dynamic_cast<const TVTable *>(vtable_);
+    }
+};
+
+struct object
+{
+    object_header header_;
+};
+
+template <class T>
+struct is_value_type
+{
+    static constexpr auto value = !std::is_base_of_v<object, T>;
+};
+
+template <class T>
+constexpr auto is_value_type_v = is_value_type<T>::value;
 
 template <class T>
 struct gc_obj_ref;
@@ -277,7 +325,7 @@ struct gc_obj_ref
     {
         if (ptr_)
         {
-            auto vtable = ptr_->header_.vtable_as<typename U::VTable>();
+            auto vtable = ptr_->header_.template vtable_as<typename U::VTable>();
             if (vtable)
                 return gc_obj_ref<U>(reinterpret_cast<U *>(ptr_));
         }
@@ -294,34 +342,6 @@ struct gc_obj_ref
     }
 };
 
-typedef struct _vtable
-{
-    virtual ~_vtable() = default;
-} vtable_t;
-
-struct object_header
-{
-    const vtable_t *vtable_;
-    uintptr_t length_;
-
-    template <class TVTable>
-    const TVTable *vtable() const noexcept
-    {
-        return static_cast<const TVTable *>(vtable_);
-    }
-
-    template <class TVTable>
-    const TVTable *vtable_as() const noexcept
-    {
-        return dynamic_cast<const TVTable *>(vtable_);
-    }
-};
-
-struct object
-{
-    object_header header_;
-};
-
 struct natsu_exception
 {
     template <class T>
@@ -332,24 +352,6 @@ struct natsu_exception
 
     gc_obj_ref<::System_Private_CorLib::System::Exception> exception_;
 };
-
-template <class T>
-struct static_holder
-{
-    static T value;
-};
-
-template <class T>
-T static_holder<T>::value;
-
-template <class T>
-struct is_value_type
-{
-    static constexpr auto value = !std::is_base_of_v<object, T>;
-};
-
-template <class T>
-constexpr auto is_value_type_v = is_value_type<T>::value;
 
 gc_obj_ref<object> gc_alloc(const vtable_t &vtable, size_t size);
 

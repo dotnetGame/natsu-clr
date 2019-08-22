@@ -22,6 +22,7 @@
     <OutputPath>$(SolutionDir)../out/bin/</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <Folder Include="Collections\Generic\" />
     <Folder Include="Resources\" />
     <Folder Include="Runtime\Serialization\" />
   </ItemGroup>

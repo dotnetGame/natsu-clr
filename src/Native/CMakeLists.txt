@@ -17,7 +17,7 @@ endif()
 add_executable(chino ${SRCS} ${ASM_SRCS})
 
 if (NOT WIN32)
-    target_link_libraries(chino -Wl,-gc-sections -nostartfiles -Wl,-static -T ${CMAKE_CURRENT_LIST_DIR}/chino.ld)
+    target_link_libraries(chino -Wl,-gc-sections -Wl,-static -T ${CMAKE_CURRENT_LIST_DIR}/chino.ld)
 endif()
 
 ADD_CUSTOM_COMMAND(OUTPUT chino.bin
