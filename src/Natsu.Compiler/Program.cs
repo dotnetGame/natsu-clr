@@ -588,7 +588,7 @@ namespace Natsu.Compiler
 
         private void WriteConstantStringField(StreamWriter writer, int ident, FieldDef value)
         {
-            writer.Ident(ident).WriteLine($"{EscapeVariableTypeName(value.FieldType, value.DeclaringType)} {EscapeTypeName(value.DeclaringType, hasModuleName: false)}::{EscapeIdentifier(value.Name)} = ::natsu::load_string(uR\"NS({value.Constant.Value})NS\");");
+            writer.Ident(ident).WriteLine($"{EscapeVariableTypeName(value.FieldType, value.DeclaringType)} {EscapeTypeName(value.DeclaringType, hasModuleName: false)}::{EscapeIdentifier(value.Name)} = ::natsu::load_string(uR\"NS({value.Constant.Value})NS\"sv);");
         }
 
         private void WriteMethodDeclare(StreamWriter writer, int ident, MethodDef method)
@@ -624,13 +624,20 @@ namespace Natsu.Compiler
                 }
 
                 var paramName = param.IsHiddenThisParameter ? "_this" : param.ToString();
-                writer.Write(EscapeIdentifier(paramName));
                 if (!hasType && isVTable && method.IsVirtual && param.IsHiddenThisParameter)
                 {
                     if (method.DeclaringType.IsValueType)
-                        writer.Write($".unbox<{EscapeTypeName(method.DeclaringType)}>()");
+                    {
+                        writer.Write($"::natsu::unbox_exact<{EscapeTypeName(method.DeclaringType)}>({EscapeIdentifier(paramName)})");
+                    }
                     else
-                        writer.Write($".as<{EscapeTypeName(method.DeclaringType)}>()");
+                    {
+                        writer.Write($"{EscapeIdentifier(paramName)}.cast<{EscapeTypeName(method.DeclaringType)}>()");
+                    }
+                }
+                else
+                {
+                    writer.Write(EscapeIdentifier(paramName));
                 }
 
                 if (index++ != parameters.Count - 1)
@@ -1374,7 +1381,7 @@ namespace Natsu.Compiler
 
             void ConvertLdstr(string str)
             {
-                stack.Push(_corLibTypes.String, $"::natsu::load_string(uR\"NS({str})NS\")");
+                stack.Push(_corLibTypes.String, $"::natsu::load_string(uR\"NS({str})NS\"sv)");
             }
 
             void ConvertConv_I4()
@@ -1477,13 +1484,13 @@ namespace Natsu.Compiler
             void ConvertUnbox(ITypeDefOrRef type)
             {
                 var target = stack.Pop();
-                stack.Push(new ByRefSig(type.ToTypeSig()), $"{target.expression}.unbox<{EscapeTypeName(type)}>()");
+                stack.Push(new ByRefSig(type.ToTypeSig()), $"::natsu::unbox<{EscapeTypeName(type)}>({target.expression})");
             }
 
             void ConvertUnbox_Any(ITypeDefOrRef type)
             {
                 var target = stack.Pop();
-                stack.Push(type.ToTypeSig(), $"::natsu::unbox<{EscapeTypeName(type)}>({target.expression})");
+                stack.Push(type.ToTypeSig(), $"::natsu::unbox_any<{EscapeTypeName(type)}>({target.expression})");
             }
 
             void ConvertBox(ITypeDefOrRef type)

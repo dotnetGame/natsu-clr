@@ -7,6 +7,8 @@
 #include <type_traits>
 #include <utility>
 
+using namespace std::string_view_literals;
+
 namespace System_Private_CorLib
 {
 namespace System
@@ -365,14 +367,6 @@ struct gc_obj_ref
     {
         return gc_obj_ref<U>(static_cast<U *>(ptr_));
     }
-
-    template <class U>
-    gc_ref<U> unbox()
-    {
-        assert(ptr_);
-        auto ptr = as<U>();
-        return gc_ref<U>(*ptr);
-    }
 };
 
 struct natsu_exception
@@ -451,15 +445,15 @@ namespace details
     };
 
     template <class T, bool IsValueType>
-    struct unbox_impl;
+    struct unbox_any_impl;
 
     template <class T>
-    struct unbox_impl<T, true>
+    struct unbox_any_impl<T, true>
     {
         T operator()(gc_obj_ref<object> value)
         {
-            auto box = value.unbox<T>();
-            return *box;
+            auto box = value.as<::System_Private_CorLib::System::Box_1<T>>();
+            return box->value__;
         }
     };
 }
@@ -471,9 +465,24 @@ auto box(T &value)
 }
 
 template <class T, class TArg>
-auto unbox(TArg &value)
+auto unbox_any(TArg &value)
 {
-    return details::unbox_impl<T, is_value_type_v<T>>()(value);
+    return details::unbox_any_impl<T, is_value_type_v<T>>()(value);
+}
+
+template <class T>
+gc_ref<T> unbox(gc_obj_ref<object> value)
+{
+    auto box = value.as<::System_Private_CorLib::System::Box_1<T>>();
+    assert(box);
+    return gc_ref_from_ref(box->value__);
+}
+
+template <class T>
+gc_ref<T> unbox_exact(gc_obj_ref<object> value)
+{
+    auto box = value.cast<::System_Private_CorLib::System::Box_1<T>>();
+    return gc_ref_from_ref(box->value__);
 }
 
 template <class T>

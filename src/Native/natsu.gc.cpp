@@ -395,6 +395,8 @@ gc_obj_ref<object> gc_alloc(const vtable_t &vtable, size_t size)
 #ifndef _WIN32
 extern "C"
 {
+    void *__dso_handle = 0;
+
     void *malloc(size_t n)
     {
         auto p = HeapAlloc(n);
