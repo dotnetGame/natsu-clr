@@ -2,6 +2,7 @@
 #pragma once
 #include <cassert>
 #include <cstdint>
+#include <cstring>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -15,12 +16,18 @@ namespace System
 
     template <class T>
     struct SZArray_1;
+
+    template <class T>
+    struct Box_1;
 }
 }
 
 namespace natsu
 {
 struct natsu_exception;
+
+template <class T>
+struct gc_obj_ref;
 
 inline constexpr float to_float(uint32_t value) noexcept
 {
@@ -81,14 +88,29 @@ struct object
 template <class T>
 struct is_value_type
 {
-    static constexpr auto value = !std::is_base_of_v<object, T>;
+    static constexpr auto value = T::TypeInfo::IsValueType;
 };
 
 template <class T>
 constexpr auto is_value_type_v = is_value_type<T>::value;
 
+template <class T, bool IsValueType>
+struct variable_type;
+
 template <class T>
-struct gc_obj_ref;
+struct variable_type<T, true>
+{
+    using type = T;
+};
+
+template <class T>
+struct variable_type<T, false>
+{
+    using type = gc_obj_ref<T>;
+};
+
+template <class T>
+using variable_type_t = typename variable_type<T, is_value_type_v<T>>::type;
 
 struct null_gc_obj_ref
 {
@@ -99,6 +121,11 @@ struct null_gc_obj_ref
     explicit operator uintptr_t() const noexcept
     {
         return 0;
+    }
+
+    explicit operator bool() const noexcept
+    {
+        return false;
     }
 };
 
@@ -119,7 +146,7 @@ struct gc_ref
     {
     }
 
-    constexpr operator bool() const noexcept
+    explicit constexpr operator bool() const noexcept
     {
         return true;
     }
@@ -129,14 +156,14 @@ struct gc_ref
         return reinterpret_cast<uintptr_t>(ptr_);
     }
 
-    explicit operator T() const noexcept
-    {
-        return *ptr_;
-    }
-
     T *operator->() const noexcept
     {
         return ptr_;
+    }
+
+    T &operator*() const noexcept
+    {
+        return *ptr_;
     }
 
     gc_ref &operator=(uintptr_t ptr) noexcept
@@ -178,7 +205,7 @@ struct gc_ptr
         return reinterpret_cast<uintptr_t>(ptr_);
     }
 
-    operator bool() const noexcept
+    explicit operator bool() const noexcept
     {
         return ptr_;
     }
@@ -279,16 +306,16 @@ struct gc_obj_ref
     {
     }
 
-    template <class U>
+    template <class U, class = std::enable_if_t<std::is_convertible_v<U *, T *>>>
     gc_obj_ref(gc_obj_ref<U> &&other) noexcept
-        : ptr_(reinterpret_cast<T *>(other.ptr_))
+        : ptr_(static_cast<T *>(other.ptr_))
     {
         other.ptr_ = nullptr;
     }
 
-    template <class U>
+    template <class U, class = std::enable_if_t<std::is_convertible_v<U *, T *>>>
     gc_obj_ref(const gc_obj_ref<U> &other) noexcept
-        : ptr_(reinterpret_cast<T *>(other.ptr_))
+        : ptr_(static_cast<T *>(other.ptr_))
     {
     }
 
@@ -334,6 +361,12 @@ struct gc_obj_ref
     }
 
     template <class U>
+    gc_obj_ref<U> cast() const noexcept
+    {
+        return gc_obj_ref<U>(static_cast<U *>(ptr_));
+    }
+
+    template <class U>
     gc_ref<U> unbox()
     {
         assert(ptr_);
@@ -358,8 +391,8 @@ gc_obj_ref<object> gc_alloc(const vtable_t &vtable, size_t size);
 template <class T>
 gc_obj_ref<T> gc_new(size_t size)
 {
-    auto ptr = gc_alloc(static_holder<typename T::VTable>::value, size);
-    return gc_obj_ref<T>(ptr);
+    auto obj = gc_alloc(static_holder<typename T::VTable>::value, size);
+    return obj.template cast<T>();
 }
 
 template <class T>
@@ -399,6 +432,54 @@ template <class T>
 natsu_exception make_exception(gc_obj_ref<T> exception)
 {
     return { std::move(exception) };
+}
+
+namespace details
+{
+    template <class T, bool IsValueType>
+    struct box_impl;
+
+    template <class T>
+    struct box_impl<T, true>
+    {
+        gc_obj_ref<::System_Private_CorLib::System::Box_1<T>> operator()(const T &value)
+        {
+            auto box = gc_new<::System_Private_CorLib::System::Box_1<T>>();
+            box->value__ = value;
+            return box;
+        }
+    };
+
+    template <class T, bool IsValueType>
+    struct unbox_impl;
+
+    template <class T>
+    struct unbox_impl<T, true>
+    {
+        T operator()(gc_obj_ref<object> value)
+        {
+            auto box = value.unbox<T>();
+            return *box;
+        }
+    };
+}
+
+template <class T>
+auto box(T &value)
+{
+    return details::box_impl<T, is_value_type_v<T>>()(value);
+}
+
+template <class T, class TArg>
+auto unbox(TArg &value)
+{
+    return details::unbox_impl<T, is_value_type_v<T>>()(value);
+}
+
+template <class T>
+void init_obj(T &value)
+{
+    std::memset(&value, 0, sizeof(value));
 }
 
 template <class T, class U>

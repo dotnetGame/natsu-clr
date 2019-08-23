@@ -3,4 +3,9 @@
   <PropertyGroup>
     <ShowAllFiles>false</ShowAllFiles>
   </PropertyGroup>
+  <ItemGroup>
+    <None Update="Resources\Strings.resx">
+      <SubType>Designer</SubType>
+    </None>
+  </ItemGroup>
 </Project>

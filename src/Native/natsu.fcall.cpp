@@ -50,6 +50,16 @@ void System::Diagnostics::Debug::_s_WriteCore(::natsu::gc_obj_ref<::System_Priva
 #endif
 }
 
+void System::Diagnostics::Debug::_s_FailCore(::natsu::gc_obj_ref<::System_Private_CorLib::System::String> message, ::natsu::gc_obj_ref<::System_Private_CorLib::System::String> detailMessage)
+{
+#ifdef WIN32
+    assert(message);
+    WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE), &message->_firstChar, message->_stringLength, nullptr, nullptr);
+#else
+    Chino_Kernel::Chino::Kernel::KernelDebug::_s_Write(message);
+#endif
+}
+
 void System::Buffer::_s_Memcpy(::natsu::gc_ptr<::System_Private_CorLib::System::Byte> dest, ::natsu::gc_ptr<::System_Private_CorLib::System::Byte> src, ::System_Private_CorLib::System::Int32 len)
 {
     std::memcpy(dest, src, len);

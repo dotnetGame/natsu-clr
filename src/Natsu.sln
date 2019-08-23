@@ -16,7 +16,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Chino.Kernel", "Chino.Kerne
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "System.Runtime", "System.Runtime\System.Runtime.csproj", "{A4CE4A60-2E56-4712-901B-8E5FA1354FD6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "System.Diagnostics.Debug", "System.Diagnostics.Debug\System.Diagnostics.Debug.csproj", "{2C03C9E9-3EE6-4F74-8BF7-C9040E9E4A14}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "System.Diagnostics.Debug", "System.Diagnostics.Debug\System.Diagnostics.Debug.csproj", "{2C03C9E9-3EE6-4F74-8BF7-C9040E9E4A14}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ResX2CS", "ResX2CS\ResX2CS.csproj", "{946AE4FB-641C-4EB0-B2FE-C0E86E776AA9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -44,6 +46,10 @@ Global
 		{2C03C9E9-3EE6-4F74-8BF7-C9040E9E4A14}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2C03C9E9-3EE6-4F74-8BF7-C9040E9E4A14}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2C03C9E9-3EE6-4F74-8BF7-C9040E9E4A14}.Release|Any CPU.Build.0 = Release|Any CPU
+		{946AE4FB-641C-4EB0-B2FE-C0E86E776AA9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{946AE4FB-641C-4EB0-B2FE-C0E86E776AA9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{946AE4FB-641C-4EB0-B2FE-C0E86E776AA9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{946AE4FB-641C-4EB0-B2FE-C0E86E776AA9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

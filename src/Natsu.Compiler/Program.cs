@@ -406,6 +406,9 @@ namespace Natsu.Compiler
 
             writer.Ident(ident).WriteLine("{");
 
+            // TypeInfo
+            WriteTypeInfo(writer, ident + 1, type);
+            writer.WriteLine();
             // VTable
             WriteVTableDeclare(writer, ident + 1, type);
             writer.WriteLine();
@@ -489,6 +492,17 @@ namespace Natsu.Compiler
             writer.WriteLine();
         }
 
+        private void WriteTypeInfo(StreamWriter writer, int ident, TypeDesc type)
+        {
+            writer.Ident(ident).WriteLine($"struct TypeInfo");
+            writer.Ident(ident).WriteLine("{");
+
+            // IsValueType
+            writer.Ident(ident + 1).WriteLine($"static constexpr bool IsValueType = {type.TypeDef.IsValueType.ToString().ToLower()};");
+
+            writer.Ident(ident).WriteLine("};");
+        }
+
         private void WriteVTableDeclare(StreamWriter writer, int ident, TypeDesc type)
         {
             writer.Ident(ident).Write($"struct VTable : public ");
@@ -552,6 +566,8 @@ namespace Natsu.Compiler
             var sig = type.ToTypeSig();
             if (type.IsValueType || IsValueType(sig))
                 return EscapeTypeNameImpl(type, hasGen, hasModuleName);
+            else if (type.IsGenericParam)
+                return $"::natsu::variable_type_t<{EscapeTypeNameImpl(type, hasGen, hasModuleName)}>";
             else
                 return $"::natsu::gc_obj_ref<{EscapeTypeNameImpl(type, hasGen, hasModuleName)}>";
         }
@@ -577,6 +593,13 @@ namespace Natsu.Compiler
 
         private void WriteMethodDeclare(StreamWriter writer, int ident, MethodDef method)
         {
+            var methodGens = new List<string>();
+
+            if (method.HasGenericParameters)
+                methodGens.AddRange(method.GenericParameters.Select(x => x.Name.String));
+
+            if (methodGens.Any())
+                writer.WriteLine($"template <{string.Join(", ", methodGens.Select(x => "class " + x))}>");
             if (!method.IsStaticConstructor)
                 writer.Ident(ident).Write("static " + EscapeVariableTypeName(method.ReturnType) + " ");
             else
@@ -600,10 +623,15 @@ namespace Natsu.Compiler
                         writer.Write(EscapeVariableTypeName(param.Type, hasGen: 1) + " ");
                 }
 
-                var paramName = param.IsHiddenThisParameter ? "_this" : param.Name;
+                var paramName = param.IsHiddenThisParameter ? "_this" : param.ToString();
                 writer.Write(EscapeIdentifier(paramName));
-                if (!hasType && isVTable && method.IsVirtual && param.IsHiddenThisParameter && method.DeclaringType.IsValueType)
-                    writer.Write($".unbox<{EscapeTypeName(method.DeclaringType)}>()");
+                if (!hasType && isVTable && method.IsVirtual && param.IsHiddenThisParameter)
+                {
+                    if (method.DeclaringType.IsValueType)
+                        writer.Write($".unbox<{EscapeTypeName(method.DeclaringType)}>()");
+                    else
+                        writer.Write($".as<{EscapeTypeName(method.DeclaringType)}>()");
+                }
 
                 if (index++ != parameters.Count - 1)
                     writer.Write(", ");
@@ -621,6 +649,8 @@ namespace Natsu.Compiler
         {
             if (IsValueType(fieldType))
                 return EscapeTypeName(fieldType, declaringType, hasGen);
+            else if (fieldType.IsGenericParameter)
+                return $"::natsu::variable_type_t<{EscapeTypeName(fieldType, declaringType, hasGen)}>";
             else
                 return $"::natsu::gc_obj_ref<{EscapeTypeName(fieldType, declaringType, hasGen)}>";
         }
@@ -691,6 +721,9 @@ namespace Natsu.Compiler
                     break;
                 case ElementType.Var:
                     sb.Append(cntSig.ToGenericVar().GetName());
+                    break;
+                case ElementType.MVar:
+                    sb.Append(cntSig.ToGenericMVar().GetName());
                     break;
                 case ElementType.GenericInst:
                     {
@@ -946,6 +979,7 @@ namespace Natsu.Compiler
                 {
                     switch (inst.OpCode.Code)
                     {
+                        case Code.Br:
                         case Code.Br_S:
                             block.Instructions.Add(inst);
                             AddNext((Instruction)inst.Operand);
@@ -967,8 +1001,15 @@ namespace Natsu.Compiler
                             block.Instructions.Add(inst);
                             conti = false;
                             break;
+                        case Code.Switch:
+                            block.Instructions.Add(inst);
+                            foreach (var c in (IEnumerable<Instruction>)inst.Operand)
+                                AddNext(c);
+                            AddNext(NextInst(inst));
+                            conti = false;
+                            break;
                         default:
-                            if (inst.OpCode.Code.ToString().StartsWith('B'))
+                            if (inst.OpCode.Code != Code.Box && inst.OpCode.Code.ToString().StartsWith('B'))
                                 throw new NotImplementedException();
 
                             block.Instructions.Add(inst);
@@ -1032,19 +1073,19 @@ namespace Natsu.Compiler
 
             void ConvertLdarg(dnlib.DotNet.Parameter param)
             {
-                var paramName = param.IsHiddenThisParameter ? "_this" : param.Name;
+                var paramName = param.IsHiddenThisParameter ? "_this" : param.ToString();
                 stack.Push(param.Type, paramName);
             }
 
             void ConvertLdarga(dnlib.DotNet.Parameter param)
             {
-                var paramName = param.IsHiddenThisParameter ? "_this" : param.Name;
+                var paramName = param.IsHiddenThisParameter ? "_this" : param.ToString();
                 stack.Push(new ByRefSig(param.Type), $"::natsu::gc_ref_from_ref({paramName})");
             }
 
             void ConvertStarg(dnlib.DotNet.Parameter param)
             {
-                var paramName = param.IsHiddenThisParameter ? "_this" : param.Name;
+                var paramName = param.IsHiddenThisParameter ? "_this" : param.ToString();
 
                 var value = stack.Pop();
                 writer.Ident(ident).WriteLine($"{paramName} = {CastExpression(param.Type, value)};");
@@ -1248,6 +1289,21 @@ namespace Natsu.Compiler
                 writer.Ident(ident + 1).WriteLine($"goto {GetFallthroughLabel(method, op, block)};");
             }
 
+            void ConvertSwitch(Instruction[] instructions)
+            {
+                var v1 = stack.Pop();
+                writer.Ident(ident).WriteLine($"switch ({v1.expression})");
+                writer.Ident(ident).WriteLine("{");
+                for (int i = 0; i < instructions.Length; i++)
+                {
+                    writer.Ident(ident + 1).WriteLine($"case {i}:");
+                    writer.Ident(ident + 2).WriteLine($"goto {GetLabel(method, instructions[i], block)};");
+                }
+                writer.Ident(ident + 1).WriteLine("default:");
+                writer.Ident(ident + 2).WriteLine($"goto {GetFallthroughLabel(method, op, block)};");
+                writer.Ident(ident).WriteLine("}");
+            }
+
             void ConvertCall(IMethodDefOrRef member)
             {
                 var method = member.MethodSig;
@@ -1282,7 +1338,17 @@ namespace Natsu.Compiler
                     para.Add((ThisType(member.DeclaringType), stack.Pop()));
 
                 para.Reverse();
-                stack.Push(method.RetType, $"{para[0].src.expression}->header_.template vtable_as<{EscapeTypeName(member.DeclaringType)}::VTable>()->{EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src)))})");
+                if (stack.Constraint != null)
+                {
+                    stack.Push(_corLibTypes.Object, $"::natsu::box(*{para[0].src.expression})");
+                    var thisV = stack.Pop();
+
+                    stack.Push(method.RetType, $"{thisV.expression}->header_.template vtable_as<{EscapeTypeName(member.DeclaringType)}::VTable>()->{EscapeMethodName(member)}({string.Join(", ", new[] { thisV.expression }.Concat(para.Skip(1).Select(x => CastExpression(x.destType, x.src))))})");
+                }
+                else
+                {
+                    stack.Push(method.RetType, $"{para[0].src.expression}->header_.template vtable_as<{EscapeTypeName(member.DeclaringType)}::VTable>()->{EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src)))})");
+                }
             }
 
             void ConvertNewobj(IMethodDefOrRef member)
@@ -1408,10 +1474,22 @@ namespace Natsu.Compiler
                 stack.Push(_corLibTypes.Int32, $"{v1.expression} < {v2.expression}");
             }
 
-            void ConvertUnbox_Any(ITypeDefOrRef type)
+            void ConvertUnbox(ITypeDefOrRef type)
             {
                 var target = stack.Pop();
                 stack.Push(new ByRefSig(type.ToTypeSig()), $"{target.expression}.unbox<{EscapeTypeName(type)}>()");
+            }
+
+            void ConvertUnbox_Any(ITypeDefOrRef type)
+            {
+                var target = stack.Pop();
+                stack.Push(type.ToTypeSig(), $"::natsu::unbox<{EscapeTypeName(type)}>({target.expression})");
+            }
+
+            void ConvertBox(ITypeDefOrRef type)
+            {
+                var target = stack.Pop();
+                stack.Push(_corLibTypes.Object, $"::natsu::box({target.expression})");
             }
 
             void ConvertAdd()
@@ -1494,6 +1572,12 @@ namespace Natsu.Compiler
             {
                 var v1 = stack.Pop();
                 writer.Ident(ident).WriteLine($"throw ::natsu::make_exception({v1.expression});");
+            }
+
+            void ConvertInitobj()
+            {
+                var target = stack.Pop();
+                writer.Ident(ident).WriteLine($"::natsu::init_obj({target.expression});");
             }
 
             switch (op.OpCode.Code)
@@ -1621,6 +1705,7 @@ namespace Natsu.Compiler
                 case Code.Nop:
                     ConvertNop();
                     break;
+                case Code.Br:
                 case Code.Br_S:
                     ConvertBr((Instruction)op.Operand);
                     break;
@@ -1641,6 +1726,9 @@ namespace Natsu.Compiler
                     break;
                 case Code.Brtrue_S:
                     ConvertBrtrue((Instruction)op.Operand);
+                    break;
+                case Code.Switch:
+                    ConvertSwitch((Instruction[])op.Operand);
                     break;
                 case Code.Ldnull:
                     ConvertLdnull();
@@ -1678,12 +1766,16 @@ namespace Natsu.Compiler
                 case Code.Newarr:
                     ConvertNewarr((ITypeDefOrRef)op.Operand);
                     break;
+                case Code.Initobj:
+                    ConvertInitobj();
+                    break;
                 case Code.Dup:
                     ConvertDup();
                     break;
                 case Code.Ldelem_I4:
                     ConvertLdelem_I4();
                     break;
+                case Code.Stelem_I1:
                 case Code.Stelem_I4:
                     ConvertStelem_I4();
                     break;
@@ -1699,11 +1791,14 @@ namespace Natsu.Compiler
                 case Code.Clt:
                     ConvertClt();
                     break;
+                case Code.Box:
+                    ConvertBox((ITypeDefOrRef)op.Operand);
+                    break;
                 case Code.Unbox_Any:
                     ConvertUnbox_Any((ITypeDefOrRef)op.Operand);
                     break;
                 case Code.Unbox:
-                    ConvertUnbox_Any((ITypeDefOrRef)op.Operand);
+                    ConvertUnbox((ITypeDefOrRef)op.Operand);
                     break;
                 case Code.Add:
                     ConvertAdd();
@@ -1741,9 +1836,13 @@ namespace Natsu.Compiler
                 case Code.Throw:
                     ConvertThrow();
                     break;
+                case Code.Pop:
+                    stack.Pop();
+                    break;
                 case Code.Volatile:
                     break;
                 case Code.Constrained:
+                    stack.Constraint = (ITypeDefOrRef)op.Operand;
                     break;
                 default:
                     throw new NotSupportedException(op.ToString());
@@ -1758,6 +1857,8 @@ namespace Natsu.Compiler
             private int _paramIndex = 0;
             private StreamWriter _writer;
             public int Ident { get; }
+
+            public ITypeDefOrRef Constraint { get; set; }
 
             public EvaluationStack(StreamWriter writer, int ident)
             {
@@ -1792,7 +1893,7 @@ namespace Natsu.Compiler
             public EvaluationStack Clone(int identInc = 0)
             {
                 var stack = new EvaluationStack(_writer, Ident + identInc);
-                foreach (var value in _stackValues)
+                foreach (var value in _stackValues.Reverse())
                     stack._stackValues.Push(value);
                 stack._paramIndex = _paramIndex;
                 return stack;
@@ -1853,7 +1954,7 @@ namespace Natsu.Compiler
                 case ElementType.R8:
                     return "double";
                 case ElementType.String:
-                    return "::natsu::gc_obj_ref<::System_Private_CorLib::System::String>";
+                    return "::System_Private_CorLib::System::String";
                 case ElementType.I:
                     return "intptr_t";
                 case ElementType.U:

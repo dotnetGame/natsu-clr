@@ -6,7 +6,8 @@
 **
 **
 **
-** Purpose: Exception class for invalid array indices.
+** Purpose: For methods that are passed arrays with the wrong number of
+**          dimensions.
 **
 **
 =============================================================================*/
@@ -16,24 +17,25 @@ using System.Runtime.Serialization;
 namespace System
 {
     [Serializable]
-    public sealed class IndexOutOfRangeException : SystemException
+    [System.Runtime.CompilerServices.TypeForwardedFrom("mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089")]
+    public class RankException : SystemException
     {
-        public IndexOutOfRangeException()
-            : base(SR.Arg_IndexOutOfRangeException)
+        public RankException()
+            : base(SR.Arg_RankException)
         {
-            HResult = HResults.COR_E_INDEXOUTOFRANGE;
+            HResult = HResults.COR_E_RANK;
         }
 
-        public IndexOutOfRangeException(string message)
+        public RankException(string? message)
             : base(message)
         {
-            HResult = HResults.COR_E_INDEXOUTOFRANGE;
+            HResult = HResults.COR_E_RANK;
         }
 
-        public IndexOutOfRangeException(string message, Exception innerException)
+        public RankException(string? message, Exception? innerException)
             : base(message, innerException)
         {
-            HResult = HResults.COR_E_INDEXOUTOFRANGE;
+            HResult = HResults.COR_E_RANK;
         }
     }
 }

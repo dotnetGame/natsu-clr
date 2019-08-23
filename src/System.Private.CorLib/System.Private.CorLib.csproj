@@ -11,6 +11,7 @@
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>$(SolutionDir)../tools/Open.snk</AssemblyOriginatorKeyFile>
     <AssemblyVersion>4.2.1.0</AssemblyVersion>
+    <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <NoWarn>1701;1702;0169</NoWarn>
@@ -22,8 +23,14 @@
     <OutputPath>$(SolutionDir)../out/bin/</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Folder Include="Collections\Generic\" />
-    <Folder Include="Resources\" />
-    <Folder Include="Runtime\Serialization\" />
+    <None Include="Resources\Strings.resx">
+      <GenerateSource>true</GenerateSource>
+      <ClassName>System.SR</ClassName>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Buffers\" />
+    <Folder Include="Security\" />
+    <Folder Include="Text\" />
   </ItemGroup>
 </Project>
