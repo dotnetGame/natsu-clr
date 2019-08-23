@@ -31,6 +31,24 @@ struct natsu_exception;
 template <class T>
 struct gc_obj_ref;
 
+template <class T>
+struct gc_ref;
+
+[[noreturn]] void throw_null_ref_exception();
+[[noreturn]] void throw_index_out_of_range_exception();
+
+template <class T>
+void check_null_obj_ref(gc_obj_ref<T> obj)
+{
+    if (!obj)
+        throw_null_ref_exception();
+}
+
+template <class T>
+void check_null_obj_ref(gc_ref<T> obj)
+{
+}
+
 inline constexpr float to_float(uint32_t value) noexcept
 {
     return static_cast<const float &>(value);
@@ -148,6 +166,11 @@ struct gc_ref
     {
     }
 
+    explicit constexpr gc_ref(uintptr_t ptr) noexcept
+        : ptr_(reinterpret_cast<T *>(ptr))
+    {
+    }
+
     explicit constexpr operator bool() const noexcept
     {
         return true;
@@ -193,6 +216,11 @@ struct gc_ptr
 
     constexpr gc_ptr(T *ptr) noexcept
         : ptr_(ptr)
+    {
+    }
+
+    explicit constexpr gc_ptr(uintptr_t ptr) noexcept
+        : ptr_(reinterpret_cast<T *>(ptr))
     {
     }
 
@@ -254,6 +282,11 @@ struct gc_ptr<void>
 
     constexpr gc_ptr(void *ptr) noexcept
         : ptr_(ptr)
+    {
+    }
+
+    explicit gc_ptr(uintptr_t ptr) noexcept
+        : ptr_(reinterpret_cast<void *>(ptr))
     {
     }
 
@@ -323,13 +356,13 @@ struct gc_obj_ref
 
     T *operator->() const
     {
-        assert(ptr_);
+        check_null_obj_ref(*this);
         return ptr_;
     }
 
     T &operator*() const noexcept
     {
-        assert(ptr_);
+        check_null_obj_ref(*this);
         return *ptr_;
     }
 
@@ -365,7 +398,7 @@ struct gc_obj_ref
     template <class U>
     gc_obj_ref<U> cast() const noexcept
     {
-        return gc_obj_ref<U>(static_cast<U *>(ptr_));
+        return gc_obj_ref<U>(reinterpret_cast<U *>(ptr_));
     }
 };
 
@@ -474,7 +507,7 @@ template <class T>
 gc_ref<T> unbox(gc_obj_ref<object> value)
 {
     auto box = value.as<::System_Private_CorLib::System::Box_1<T>>();
-    assert(box);
+    check_null_obj_ref(box);
     return gc_ref_from_ref(box->value__);
 }
 
@@ -531,84 +564,86 @@ gc_obj_ref<::System_Private_CorLib::System::String> load_string(std::u16string_v
 std::u16string_view to_string_view(gc_obj_ref<::System_Private_CorLib::System::String> string);
 }
 
-#define NATSU_PRIMITIVE_IMPL_BYTE           \
-    Byte() = default;                       \
-    Byte(uint8_t value) : m_value(value) {} \
-    operator uint8_t() const noexcept { return m_value; }
+#define NATSU_PRIMITIVE_IMPL_BYTE                     \
+    Byte() = default;                                 \
+    constexpr Byte(uint8_t value) : m_value(value) {} \
+    constexpr operator uint8_t() const noexcept { return m_value; }
 
-#define NATSU_PRIMITIVE_IMPL_SBYTE          \
-    SByte() = default;                      \
-    SByte(int8_t value) : m_value(value) {} \
-    operator int8_t() const noexcept { return m_value; }
+#define NATSU_PRIMITIVE_IMPL_SBYTE                    \
+    SByte() = default;                                \
+    constexpr SByte(int8_t value) : m_value(value) {} \
+    constexpr operator int8_t() const noexcept { return m_value; }
 
-#define NATSU_PRIMITIVE_IMPL_BOOLEAN                   \
-    Boolean() = default;                               \
-    Boolean(bool value) : m_value(value) {}            \
-    operator bool() const noexcept { return m_value; } \
-    Boolean operator!() const noexcept { return !m_value; }
+#define NATSU_PRIMITIVE_IMPL_BOOLEAN                             \
+    Boolean() = default;                                         \
+    constexpr Boolean(bool value) : m_value(value) {}            \
+    constexpr operator bool() const noexcept { return m_value; } \
+    constexpr Boolean operator!() const noexcept { return !m_value; }
 
 #define NATSU_PRIMITIVE_IMPL_CHAR \
     Char() = default;             \
-    Char(char16_t value) : m_value(value) {}
+    constexpr Char(char16_t value) : m_value(value) {}
 
-#define NATSU_PRIMITIVE_IMPL_UINT16            \
-    UInt16() = default;                        \
-    UInt16(uint16_t value) : m_value(value) {} \
-    operator uint16_t() const noexcept { return m_value; }
+#define NATSU_PRIMITIVE_IMPL_UINT16                      \
+    UInt16() = default;                                  \
+    constexpr UInt16(uint16_t value) : m_value(value) {} \
+    constexpr operator uint16_t() const noexcept { return m_value; }
 
-#define NATSU_PRIMITIVE_IMPL_INT16           \
-    Int16() = default;                       \
-    Int16(int16_t value) : m_value(value) {} \
-    operator int16_t() const noexcept { return m_value; }
+#define NATSU_PRIMITIVE_IMPL_INT16                     \
+    Int16() = default;                                 \
+    constexpr Int16(int16_t value) : m_value(value) {} \
+    constexpr operator int16_t() const noexcept { return m_value; }
 
-#define NATSU_PRIMITIVE_IMPL_UINT32            \
-    UInt32() = default;                        \
-    UInt32(uint32_t value) : m_value(value) {} \
-    operator uint32_t() const noexcept { return m_value; }
+#define NATSU_PRIMITIVE_IMPL_UINT32                      \
+    UInt32() = default;                                  \
+    constexpr UInt32(uint32_t value) : m_value(value) {} \
+    constexpr operator uint32_t() const noexcept { return m_value; }
 
-#define NATSU_PRIMITIVE_IMPL_INT32           \
-    Int32() = default;                       \
-    Int32(int32_t value) : m_value(value) {} \
-    operator int32_t() const noexcept { return m_value; }
+#define NATSU_PRIMITIVE_IMPL_INT32                     \
+    Int32() = default;                                 \
+    constexpr Int32(int32_t value) : m_value(value) {} \
+    constexpr operator int32_t() const noexcept { return m_value; }
 
-#define NATSU_PRIMITIVE_IMPL_UINT64            \
-    UInt64() = default;                        \
-    UInt64(uint64_t value) : m_value(value) {} \
-    operator uint64_t() const noexcept { return m_value; }
+#define NATSU_PRIMITIVE_IMPL_UINT64                      \
+    UInt64() = default;                                  \
+    constexpr UInt64(uint64_t value) : m_value(value) {} \
+    constexpr operator uint64_t() const noexcept { return m_value; }
 
-#define NATSU_PRIMITIVE_IMPL_INT64           \
-    Int64() = default;                       \
-    Int64(int64_t value) : m_value(value) {} \
-    operator int64_t() const noexcept { return m_value; }
+#define NATSU_PRIMITIVE_IMPL_INT64                     \
+    Int64() = default;                                 \
+    constexpr Int64(int64_t value) : m_value(value) {} \
+    constexpr operator int64_t() const noexcept { return m_value; }
 
 #define NATSU_PRIMITIVE_IMPL_SINGLE \
     Single() = default;             \
-    Single(float value) : m_value(value) {}
+    constexpr Single(float value) : m_value(value) {}
 
 #define NATSU_PRIMITIVE_IMPL_DOUBLE \
     Double() = default;             \
-    Double(double value) : m_value(value) {}
+    constexpr Double(double value) : m_value(value) {}
 
 #define NATSU_PRIMITIVE_IMPL_INTPTR
 
 #define NATSU_PRIMITIVE_IMPL_UINTPTR
 
-#define NATSU_ENUM_IMPL_INT32(name)         \
-    name() = default;                       \
-    name(int32_t value) : value__(value) {} \
-    operator int32_t() const noexcept { return value__; }
+#define NATSU_ENUM_IMPL_INT32(name)                   \
+    name() = default;                                 \
+    constexpr name(int32_t value) : value__(value) {} \
+    constexpr operator int32_t() const noexcept { return value__; }
 
 #define NATSU_OBJECT_IMPL
 
 #define NATSU_SZARRAY_IMPL                                 \
     T &at(int index)                                       \
     {                                                      \
-        assert(index < header_.length_);                   \
+        if ((uint32_t)index >= header_.length_)            \
+            ::natsu::throw_index_out_of_range_exception(); \
         return elements_[index];                           \
     }                                                      \
     ::natsu::gc_ref<T> ref_at(int index)                   \
     {                                                      \
-        assert(index < header_.length_);                   \
+        if ((uint32_t)index >= header_.length_)            \
+            ::natsu::throw_index_out_of_range_exception(); \
         return ::natsu::gc_ref_from_ref(elements_[index]); \
     }                                                      \
     T get(int index)                                       \

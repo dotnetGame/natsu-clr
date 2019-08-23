@@ -82,12 +82,17 @@ extern "C"
 }
 #endif
 
+#define kassert(exp) \
+    if (!(exp))      \
+    {                \
+        while (1)    \
+            ;        \
+    }
+
 void InitializeHeap() noexcept
 {
-#ifdef WIN32
     if (pHeapEnd_)
         return;
-#endif
 
     BlockLink_t *pFirstFreeBlockInRegion = nullptr, *pPreviousFreeBlock;
     uintptr_t alignedHeap;
@@ -95,8 +100,6 @@ void InitializeHeap() noexcept
     size_t definedRegions = 0;
     uintptr_t address;
 
-    /* Can only call once! */
-    assert(pHeapEnd_ == nullptr);
     HeapRegionDesc regionDesc;
 #ifdef WIN32
     regionDesc.StartAddress = uintptr_t(&_sram[0]);
@@ -133,10 +136,10 @@ void InitializeHeap() noexcept
         {
             /* Should only get here if one region has already been added to the
 			heap. */
-            assert(pHeapEnd_);
+            kassert(pHeapEnd_);
 
             /* Check blocks are passed in with increasing start addresses. */
-            assert(address > uintptr_t(pHeapEnd_));
+            kassert(address > uintptr_t(pHeapEnd_));
         }
 
         /* Remember the location of the end marker in the previous region, if
@@ -174,7 +177,7 @@ void InitializeHeap() noexcept
     freeBytesRemaining_ = totalHeapSize;
 
     /* Check something was actually defined before it is accessed. */
-    assert(totalHeapSize);
+    kassert(totalHeapSize);
 
     /* Work out the position of the top bit in a size_t variable. */
     blockAllocatedBit_ = ((size_t)1) << ((sizeof(size_t) * heapBITS_PER_BYTE) - 1);
@@ -188,7 +191,7 @@ void *HeapAlloc(size_t wantedSize) noexcept
 
     /* The heap must be initialised before the first call to
 	prvPortMalloc(). */
-    assert(pHeapEnd_);
+    kassert(pHeapEnd_);
 
     //vTaskSuspendAll();
     {
@@ -305,8 +308,8 @@ void HeapFree(void *ptr) noexcept
         pLink = reinterpret_cast<BlockLink_t *>(puc);
 
         /* Check the block is actually allocated. */
-        assert(pLink->BlockSize & blockAllocatedBit_);
-        assert(pLink->pNextFreeBlock == nullptr);
+        kassert(pLink->BlockSize & blockAllocatedBit_);
+        kassert(pLink->pNextFreeBlock == nullptr);
 
         if (pLink->BlockSize & blockAllocatedBit_)
         {
@@ -386,7 +389,7 @@ namespace natsu
 gc_obj_ref<object> gc_alloc(const vtable_t &vtable, size_t size)
 {
     gc_obj_ref<object> ptr(reinterpret_cast<object *>(HeapAlloc(size)));
-    assert(ptr);
+    kassert(ptr);
     ptr->header_.vtable_ = &vtable;
     return ptr;
 }
@@ -400,7 +403,7 @@ extern "C"
     void *malloc(size_t n)
     {
         auto p = HeapAlloc(n);
-        assert(p);
+        kassert(p);
         return p;
     }
 
@@ -475,7 +478,7 @@ extern "C"
 
     void _exit(int)
     {
-        assert(!"Kernel exit");
+        kassert(!"Kernel exit");
         while (1)
             ;
     }

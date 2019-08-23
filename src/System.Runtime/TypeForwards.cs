@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 [assembly: TypeForwardedTo(typeof(Object))]
 [assembly: TypeForwardedTo(typeof(ValueType))]
 [assembly: TypeForwardedTo(typeof(Enum))]
+[assembly: TypeForwardedTo(typeof(Boolean))]
 [assembly: TypeForwardedTo(typeof(SByte))]
 [assembly: TypeForwardedTo(typeof(Byte))]
 [assembly: TypeForwardedTo(typeof(Char))]
@@ -18,3 +19,4 @@ using System.Runtime.CompilerServices;
 [assembly: TypeForwardedTo(typeof(String))]
 [assembly: TypeForwardedTo(typeof(Nullable))]
 [assembly: TypeForwardedTo(typeof(Nullable<>))]
+[assembly: TypeForwardedTo(typeof(IComparable))]

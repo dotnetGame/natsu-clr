@@ -694,7 +694,7 @@ namespace Natsu.Compiler
                         switch (cntSig)
                         {
                             case TypeDefOrRefSig sig:
-                                if (sig.TypeDef == declaringType)
+                                if (declaringType != null && sig.TypeDef == declaringType)
                                     sb.Append(GetConstantTypeName(cntSig.ElementType));
                                 else
                                     sb.Append(EscapeTypeName(sig.TypeDefOrRef, hasGen: hasGen-- > 0));
@@ -914,7 +914,7 @@ namespace Natsu.Compiler
             WriteParameterList(writer, method.Parameters, isVTable: true);
             writer.WriteLine(") const");
             writer.Ident(ident).WriteLine("{");
-            writer.Ident(ident + 1).WriteLine("assert(_this);");
+            writer.Ident(ident + 1).WriteLine("check_null_obj_ref(_this);");
             writer.Ident(ident + 1).Write("return ");
             writer.Write(EscapeTypeName(method.DeclaringType));
             writer.Write("::" + EscapeMethodName(method) + "(");
@@ -1126,8 +1126,10 @@ namespace Natsu.Compiler
             {
                 if (src.type == null || dest != src.type)
                 {
-                    if (src.type == null || dest.IsValueType)
+                    if (src.type == null || IsValueType(dest))
                         return $"static_cast<{EscapeVariableTypeName(dest)}>({src.expression})";
+                    else if (!IsValueType(dest))
+                        return $"{src.expression}.template cast<{EscapeTypeName(dest, hasGen: 1)}>()";
                 }
 
                 return src.expression;

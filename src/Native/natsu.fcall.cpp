@@ -15,7 +15,8 @@ namespace System_Private_CorLib
 
 ::System_Private_CorLib::System::Int32 System::Array::GetLength(::natsu::gc_obj_ref<::System_Private_CorLib::System::Array> _this, ::System_Private_CorLib::System::Int32 dimension)
 {
-    assert(dimension == 0);
+    if (dimension != 0)
+        ::natsu::throw_index_out_of_range_exception();
     return _this->header_.length_;
 }
 
@@ -36,7 +37,8 @@ namespace System_Private_CorLib
 
 ::System_Private_CorLib::System::Char System::String::get_Chars(::natsu::gc_obj_ref<::System_Private_CorLib::System::String> _this, ::System_Private_CorLib::System::Int32 index)
 {
-    assert((uint32_t)index < (uint32_t)_this->_stringLength);
+    if ((uint32_t)index >= (uint32_t)_this->_stringLength)
+        ::natsu::throw_index_out_of_range_exception();
     return (&_this->_firstChar)[index];
 }
 
