@@ -914,7 +914,6 @@ namespace Natsu.Compiler
             WriteParameterList(writer, method.Parameters, isVTable: true);
             writer.WriteLine(") const");
             writer.Ident(ident).WriteLine("{");
-            writer.Ident(ident + 1).WriteLine("check_null_obj_ref(_this);");
             writer.Ident(ident + 1).Write("return ");
             writer.Write(EscapeTypeName(method.DeclaringType));
             writer.Write("::" + EscapeMethodName(method) + "(");
@@ -1356,6 +1355,7 @@ namespace Natsu.Compiler
                 }
                 else
                 {
+                    writer.Ident(ident).WriteLine($"check_null_obj_ref({para[0].src.expression});");
                     stack.Push(method.RetType, $"{para[0].src.expression}->header_.template vtable_as<{EscapeTypeName(member.DeclaringType)}::VTable>()->{EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src)))})");
                 }
             }

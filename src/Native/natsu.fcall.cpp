@@ -52,6 +52,19 @@ void System::Diagnostics::Debug::_s_WriteCore(::natsu::gc_obj_ref<::System_Priva
 #endif
 }
 
+void System::Diagnostics::Debug::_s_WriteLineCore(::natsu::gc_obj_ref<::System_Private_CorLib::System::String> message)
+{
+#ifdef WIN32
+    static const char16_t new_line[] = u"\n";
+    assert(message);
+    WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE), &message->_firstChar, message->_stringLength, nullptr, nullptr);
+    WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE), new_line, 1, nullptr, nullptr);
+#else
+    Chino_Kernel::Chino::Kernel::KernelDebug::_s_Write(message);
+    Chino_Kernel::Chino::Kernel::KernelDebug::_s_Write(::System_Private_CorLib::System::Environment::_s_get_NewLine());
+#endif
+}
+
 void System::Diagnostics::Debug::_s_FailCore(::natsu::gc_obj_ref<::System_Private_CorLib::System::String> message, ::natsu::gc_obj_ref<::System_Private_CorLib::System::String> detailMessage)
 {
 #ifdef WIN32

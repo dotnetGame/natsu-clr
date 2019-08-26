@@ -36,7 +36,7 @@ namespace System.Diagnostics
         [System.Diagnostics.Conditional("DEBUG")]
         public static void WriteLine(string? message)
         {
-            Write(message + Environment.NewLine);
+            WriteLineCore(message);
         }
 
         private static bool s_needIndent;
@@ -254,6 +254,9 @@ namespace System.Diagnostics
 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         private static extern void WriteCore(string message);
+
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        private static extern void WriteLineCore(string message);
 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         private static extern void FailCore(string message, string detailMessage);
