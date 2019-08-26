@@ -9,6 +9,7 @@ using System.Diagnostics;
 
 using nint = System.Int64;
 using nuint = System.UInt64;
+using Internal.Runtime.CompilerServices;
 
 namespace System
 {
@@ -75,6 +76,16 @@ namespace System
             }
         }
 
+        // This method has different signature for x64 and other platforms and is done for performance reasons.
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void Memmove<T>(ref T destination, ref T source, nuint elementCount)
+        {
+            Memmove(
+                ref Unsafe.As<T, byte>(ref destination),
+                ref Unsafe.As<T, byte>(ref source),
+                elementCount * (nuint)Unsafe.SizeOf<T>());
+        }
+
         internal static unsafe void Memcpy(byte* pDest, int destIndex, byte[] src, int srcIndex, int len)
         {
             //Debug.Assert((srcIndex >= 0) && (destIndex >= 0) && (len >= 0), "Index and length must be non-negative!");
@@ -87,6 +98,16 @@ namespace System
             {
                 Memcpy(pDest + destIndex, pSrc + srcIndex, len);
             }
+        }
+
+        // Non-inlinable wrapper around the QCall that avoids polluting the fast path
+        // with P/Invoke prolog/epilog.
+        [MethodImplAttribute(MethodImplOptions.NoInlining)]
+        private static unsafe void Memmove(ref byte dest, ref byte src, nuint len)
+        {
+            fixed (byte* pDest = &dest)
+            fixed (byte* pSrc = &src)
+                Memmove(pDest, pSrc, len);
         }
 
         [MethodImpl(MethodImplOptions.InternalCall)]

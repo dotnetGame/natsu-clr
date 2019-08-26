@@ -2,8 +2,8 @@
 
 namespace System
 {
-    public class SZArray<T> : Array
+    internal class SZArray<T> : Array
     {
-
+        public UIntPtr Length;
     }
 }

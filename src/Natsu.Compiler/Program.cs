@@ -313,11 +313,11 @@ namespace Natsu.Compiler
                 var genDecl = $"<{string.Join(", ", Enumerable.Range(0, types).Select(x => "class T" + x))}>";
                 var genImpl = $"<{string.Join(", ", Enumerable.Range(0, types).Select(x => "T" + x))}>";
                 writer.Ident(ident).Write($"template {genDecl} ");
-                writer.Ident(ident).Write($"using {EscapeTypeName(type.Name)} = {fowardName}{genImpl};");
+                writer.Ident(ident).Write($"using {EscapeTypeName(type.FullName)} = {fowardName}{genImpl};");
             }
             else
             {
-                writer.Ident(ident).Write($"using {EscapeTypeName(type.Name)} = {fowardName}; ");
+                writer.Ident(ident).Write($"using {EscapeTypeName(type.FullName)} = {fowardName}; ");
             }
 
             foreach (var ns in nss)
@@ -446,7 +446,7 @@ namespace Natsu.Compiler
             if (type.TypeDef.IsEnum)
             {
                 writer.WriteLine();
-                writer.Ident(ident + 1).WriteLine($"NATSU_ENUM_IMPL_{type.TypeDef.GetEnumUnderlyingType().TypeName.ToUpperInvariant()}({type.TypeDef.Name})");
+                writer.Ident(ident + 1).WriteLine($"NATSU_ENUM_IMPL_{type.TypeDef.GetEnumUnderlyingType().TypeName.ToUpperInvariant()}({type.Name})");
             }
 
             if (type.TypeDef.ToTypeSig().ElementType == ElementType.Object)
@@ -545,7 +545,7 @@ namespace Natsu.Compiler
                 .Select(EscapeNamespaceName).ToList();
             foreach (var ns in nss)
                 sb.Append($"{ns}::");
-            sb.Append(EscapeTypeName(type.Name));
+            sb.Append(EscapeTypeName(type.FullName));
             if (hasGen && type is TypeDef typeDef && typeDef.HasGenericParameters && !type.ContainsGenericParameter)
             {
                 sb.Append("<");
@@ -574,7 +574,7 @@ namespace Natsu.Compiler
 
         private static string EscapeTypeName(string name)
         {
-            return name.Replace('<', '_').Replace('>', '_').Replace('`', '_');
+            return EscapeIdentifier(name.Split('.').Last());
         }
 
         private void WriteField(StreamWriter writer, int ident, FieldDef value, bool isStatic = false)
@@ -599,7 +599,7 @@ namespace Natsu.Compiler
                 methodGens.AddRange(method.GenericParameters.Select(x => x.Name.String));
 
             if (methodGens.Any())
-                writer.WriteLine($"template <{string.Join(", ", methodGens.Select(x => "class " + x))}>");
+                writer.Ident(ident).WriteLine($"template <{string.Join(", ", methodGens.Select(x => "class " + x))}>");
             if (!method.IsStaticConstructor)
                 writer.Ident(ident).Write("static " + EscapeVariableTypeName(method.ReturnType) + " ");
             else
@@ -993,9 +993,11 @@ namespace Natsu.Compiler
                             break;
                         case Code.Brfalse:
                         case Code.Brfalse_S:
+                        case Code.Brtrue:
                         case Code.Brtrue_S:
                         case Code.Bne_Un_S:
                         case Code.Bge_Un_S:
+                        case Code.Bgt_Un_S:
                         case Code.Blt_S:
                             block.Instructions.Add(inst);
                             AddNext((Instruction)inst.Operand);
@@ -1123,13 +1125,8 @@ namespace Natsu.Compiler
 
             string CastExpression(TypeSig dest, (TypeSig type, string expression) src)
             {
-                if (src.type == null || dest != src.type)
-                {
-                    if (src.type == null || IsValueType(dest))
-                        return $"static_cast<{EscapeVariableTypeName(dest)}>({src.expression})";
-                    else if (!IsValueType(dest))
-                        return $"{src.expression}.template cast<{EscapeTypeName(dest, hasGen: 1)}>()";
-                }
+                if (src.type == null || src.type != dest && !dest.ContainsGenericParameter && IsValueType(src.type))
+                    return $"static_cast<{EscapeVariableTypeName(dest)}>({src.expression})";
 
                 return src.expression;
             }
@@ -1273,6 +1270,16 @@ namespace Natsu.Compiler
             {
                 var v2 = stack.Pop();
                 var v1 = stack.Pop();
+                writer.Ident(ident).WriteLine($"if (static_cast<uintptr_t>({v1.expression}) >= static_cast<uintptr_t>({v2.expression}))");
+                writer.Ident(ident + 1).WriteLine($"goto {GetLabel(method, instruction, block)};");
+                writer.Ident(ident).WriteLine("else");
+                writer.Ident(ident + 1).WriteLine($"goto {GetFallthroughLabel(method, op, block)};");
+            }
+
+            void ConvertBgt_Un(Instruction instruction)
+            {
+                var v2 = stack.Pop();
+                var v1 = stack.Pop();
                 writer.Ident(ident).WriteLine($"if (static_cast<uintptr_t>({v1.expression}) > static_cast<uintptr_t>({v2.expression}))");
                 writer.Ident(ident + 1).WriteLine($"goto {GetLabel(method, instruction, block)};");
                 writer.Ident(ident).WriteLine("else");
@@ -1312,7 +1319,7 @@ namespace Natsu.Compiler
                 writer.Ident(ident).WriteLine("}");
             }
 
-            void ConvertCall(IMethodDefOrRef member)
+            void ConvertCall(IMethod member)
             {
                 var method = member.MethodSig;
                 var para = new List<(TypeSig destType, (TypeSig type, string expression) src)>();
@@ -1323,8 +1330,16 @@ namespace Natsu.Compiler
                 if (method.HasThis)
                     para.Add((ThisType(member.DeclaringType), stack.Pop()));
 
+                var gen = (member as MethodSpec)?.GenericInstMethodSig;
                 para.Reverse();
-                stack.Push(method.RetType, $"{EscapeTypeName(member.DeclaringType)}::{EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src)))})");
+                if (gen != null)
+                {
+                    stack.Push(method.RetType, $"{EscapeTypeName(member.DeclaringType)}::{EscapeMethodName(member)}<{string.Join(", ", gen.GenericArguments.Select(x => EscapeTypeName(x)))}>({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src)))})");
+                }
+                else
+                {
+                    stack.Push(method.RetType, $"{EscapeTypeName(member.DeclaringType)}::{EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src)))})");
+                }
             }
 
             TypeSig ThisType(ITypeDefOrRef type)
@@ -1334,7 +1349,7 @@ namespace Natsu.Compiler
                 return type.ToTypeSig();
             }
 
-            void ConvertCallvirt(IMethodDefOrRef member)
+            void ConvertCallvirt(IMethod member)
             {
                 var method = member.MethodSig;
                 var para = new List<(TypeSig destType, (TypeSig type, string expression) src)>();
@@ -1483,6 +1498,13 @@ namespace Natsu.Compiler
                 stack.Push(_corLibTypes.Int32, $"{v1.expression} < {v2.expression}");
             }
 
+            void ConvertClt_Un()
+            {
+                var v2 = stack.Pop();
+                var v1 = stack.Pop();
+                stack.Push(_corLibTypes.Int32, $"static_cast<uintptr_t>({v1.expression}) < static_cast<uintptr_t>({v2.expression})");
+            }
+
             void ConvertUnbox(ITypeDefOrRef type)
             {
                 var target = stack.Pop();
@@ -1589,6 +1611,19 @@ namespace Natsu.Compiler
                 writer.Ident(ident).WriteLine($"::natsu::init_obj({target.expression});");
             }
 
+            void ConvertLdobj(ITypeDefOrRef type)
+            {
+                var addr = stack.Pop();
+                stack.Push(type.ToTypeSig(), $"*{addr.expression}");
+            }
+
+            void ConvertStobj(ITypeDefOrRef type)
+            {
+                var v1 = stack.Pop();
+                var addr = stack.Pop();
+                writer.Ident(ident).WriteLine($"*{addr.expression} = {v1.expression};");
+            }
+
             switch (op.OpCode.Code)
             {
                 case Code.Ldarg_0:
@@ -1633,6 +1668,9 @@ namespace Natsu.Compiler
                 case Code.Ret:
                     ConvertRet();
                     break;
+                case Code.Ldc_I4_M1:
+                    ConvertLdc_I4(-1);
+                    break;
                 case Code.Ldc_I4_0:
                     ConvertLdc_I4(0);
                     break;
@@ -1673,10 +1711,10 @@ namespace Natsu.Compiler
                     ConvertLdlen();
                     break;
                 case Code.Call:
-                    ConvertCall((IMethodDefOrRef)op.Operand);
+                    ConvertCall((IMethod)op.Operand);
                     break;
                 case Code.Callvirt:
-                    ConvertCallvirt((IMethodDefOrRef)op.Operand);
+                    ConvertCallvirt((IMethod)op.Operand);
                     break;
                 case Code.Ldloc_0:
                     ConvertLdloc_I(0);
@@ -1727,12 +1765,17 @@ namespace Natsu.Compiler
                 case Code.Bge_Un_S:
                     ConvertBge_Un((Instruction)op.Operand);
                     break;
+                case Code.Bgt_Un_S:
+                    ConvertBgt_Un((Instruction)op.Operand);
+                    break;
                 case Code.Ceq:
                     ConvertCeq();
                     break;
+                case Code.Brfalse:
                 case Code.Brfalse_S:
                     ConvertBrfalse((Instruction)op.Operand);
                     break;
+                case Code.Brtrue:
                 case Code.Brtrue_S:
                     ConvertBrtrue((Instruction)op.Operand);
                     break;
@@ -1800,6 +1843,9 @@ namespace Natsu.Compiler
                 case Code.Clt:
                     ConvertClt();
                     break;
+                case Code.Clt_Un:
+                    ConvertClt_Un();
+                    break;
                 case Code.Box:
                     ConvertBox((ITypeDefOrRef)op.Operand);
                     break;
@@ -1849,6 +1895,12 @@ namespace Natsu.Compiler
                     stack.Pop();
                     break;
                 case Code.Volatile:
+                    break;
+                case Code.Ldobj:
+                    ConvertLdobj((ITypeDefOrRef)op.Operand);
+                    break;
+                case Code.Stobj:
+                    ConvertStobj((ITypeDefOrRef)op.Operand);
                     break;
                 case Code.Constrained:
                     stack.Constraint = (ITypeDefOrRef)op.Operand;
@@ -1988,14 +2040,14 @@ namespace Natsu.Compiler
             return name.Replace('.', '_');
         }
 
-        private static string EscapeMethodName(IMethodDefOrRef method)
+        private static string EscapeMethodName(IMethod method)
         {
             if (method.MethodSig.HasThis)
                 return EscapeIdentifier(method.Name);
             else if (method.Name.EndsWith("op_Explicit"))
-                return "_s_" + EscapeIdentifier(method.Name) + "_" + EscapeIdentifier(method.MethodSig.RetType.FullName);
+                return "_s_" + EscapeIdentifier(method.Name) + "_" + EscapeIdentifier(method.MethodSig.Params[0].FullName) + "_" + EscapeIdentifier(method.MethodSig.RetType.FullName);
             else if (method.Name == ".cctor")
-                return EscapeTypeName(method.DeclaringType.Name) + "_Static";
+                return EscapeTypeName(method.DeclaringType.FullName) + "_Static";
             else
                 return "_s_" + EscapeIdentifier(method.Name);
         }
@@ -2022,18 +2074,13 @@ namespace Natsu.Compiler
             public TypeDesc(TypeDef typeDef)
             {
                 TypeDef = typeDef;
-                Name = EscapeName(typeDef.Name);
+                Name = EscapeTypeName(typeDef.FullName);
                 QualifiedName = Name;
             }
 
             public override string ToString()
             {
                 return QualifiedName;
-            }
-
-            public static string EscapeName(string name)
-            {
-                return EscapeIdentifier(name);
             }
         }
 
@@ -2042,7 +2089,7 @@ namespace Natsu.Compiler
             if (string.IsNullOrEmpty(name))
                 throw new ArgumentException("Invalid identifier");
 
-            return name.Replace('<', '_').Replace('>', '_').Replace('`', '_').Replace('.', '_').Replace('*', '_');
+            return name.Replace('<', '_').Replace('>', '_').Replace('`', '_').Replace('.', '_').Replace('*', '_').Replace('/', '_');
         }
     }
 

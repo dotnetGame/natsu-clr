@@ -20,3 +20,4 @@ using System.Runtime.CompilerServices;
 [assembly: TypeForwardedTo(typeof(Nullable))]
 [assembly: TypeForwardedTo(typeof(Nullable<>))]
 [assembly: TypeForwardedTo(typeof(IComparable))]
+[assembly: TypeForwardedTo(typeof(IEquatable<>))]

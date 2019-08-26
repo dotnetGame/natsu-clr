@@ -17,7 +17,7 @@ namespace System_Private_CorLib
 {
     if (dimension != 0)
         ::natsu::throw_index_out_of_range_exception();
-    return _this->header_.length_;
+    return (intptr_t)_this.cast<System::Runtime::CompilerServices::RawSzArrayData>()->Count;
 }
 
 ::System_Private_CorLib::System::Int32 System::Array::get_Rank(::natsu::gc_obj_ref<::System_Private_CorLib::System::Array> _this)
@@ -27,12 +27,12 @@ namespace System_Private_CorLib
 
 ::System_Private_CorLib::System::Int32 System::Array::get_Length(::natsu::gc_obj_ref<::System_Private_CorLib::System::Array> _this)
 {
-    return _this->header_.length_;
+    return (intptr_t)_this.cast<System::Runtime::CompilerServices::RawSzArrayData>()->Count;
 }
 
 ::System_Private_CorLib::System::Int64 System::Array::get_LongLength(::natsu::gc_obj_ref<::System_Private_CorLib::System::Array> _this)
 {
-    return _this->header_.length_;
+    return (intptr_t)_this.cast<System::Runtime::CompilerServices::RawSzArrayData>()->Count;
 }
 
 ::System_Private_CorLib::System::Char System::String::get_Chars(::natsu::gc_obj_ref<::System_Private_CorLib::System::String> _this, ::System_Private_CorLib::System::Int32 index)

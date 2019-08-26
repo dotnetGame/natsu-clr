@@ -82,10 +82,15 @@ typedef struct _vtable
     virtual ~_vtable() = default;
 } vtable_t;
 
+enum object_attributes
+{
+    OBJ_ATTR_NONE
+};
+
 struct object_header
 {
     const vtable_t *vtable_;
-    uintptr_t length_;
+    object_attributes attributes_;
 
     template <class TVTable>
     const TVTable *vtable() const noexcept
@@ -108,11 +113,11 @@ struct object
 template <class T>
 struct is_value_type
 {
-    static constexpr auto value = T::TypeInfo::IsValueType;
+    static constexpr bool value = T::TypeInfo::IsValueType;
 };
 
 template <class T>
-constexpr auto is_value_type_v = is_value_type<T>::value;
+constexpr bool is_value_type_v = is_value_type<T>::value;
 
 template <class T, bool IsValueType>
 struct variable_type;
@@ -253,12 +258,6 @@ struct gc_ptr
     T &operator*() const noexcept
     {
         return *ptr_;
-    }
-
-    gc_ptr &operator=(uintptr_t ptr) noexcept
-    {
-        ptr_ = reinterpret_cast<T *>(ptr);
-        return *this;
     }
 
     template <class TOffset>
@@ -434,7 +433,7 @@ gc_obj_ref<::System_Private_CorLib::System::SZArray_1<T>> gc_new_array(int lengt
     using obj_t = ::System_Private_CorLib::System::SZArray_1<T>;
     auto size = sizeof(obj_t) + (size_t)length * sizeof(T);
     auto obj = gc_new<obj_t>(size);
-    obj->header_.length_ = length;
+    obj->Length = length;
     return obj;
 }
 
@@ -622,9 +621,15 @@ std::u16string_view to_string_view(gc_obj_ref<::System_Private_CorLib::System::S
     Double() = default;             \
     constexpr Double(double value) : m_value(value) {}
 
-#define NATSU_PRIMITIVE_IMPL_INTPTR
+#define NATSU_PRIMITIVE_IMPL_INTPTR                      \
+    IntPtr() = default;                                  \
+    IntPtr(intptr_t value) : _value((uintptr_t)value) {} \
+    operator intptr_t() const noexcept { return (uintptr_t)_value; }
 
-#define NATSU_PRIMITIVE_IMPL_UINTPTR
+#define NATSU_PRIMITIVE_IMPL_UINTPTR                       \
+    UIntPtr() = default;                                   \
+    UIntPtr(uintptr_t value) : _value((uintptr_t)value) {} \
+    operator uintptr_t() const noexcept { return (uintptr_t)_value; }
 
 #define NATSU_ENUM_IMPL_INT32(name)                   \
     name() = default;                                 \
@@ -636,13 +641,13 @@ std::u16string_view to_string_view(gc_obj_ref<::System_Private_CorLib::System::S
 #define NATSU_SZARRAY_IMPL                                 \
     T &at(int index)                                       \
     {                                                      \
-        if ((uint32_t)index >= header_.length_)            \
+        if ((uint32_t)index >= Length)                     \
             ::natsu::throw_index_out_of_range_exception(); \
         return elements_[index];                           \
     }                                                      \
     ::natsu::gc_ref<T> ref_at(int index)                   \
     {                                                      \
-        if ((uint32_t)index >= header_.length_)            \
+        if ((uint32_t)index >= Length)                     \
             ::natsu::throw_index_out_of_range_exception(); \
         return ::natsu::gc_ref_from_ref(elements_[index]); \
     }                                                      \
@@ -656,6 +661,6 @@ std::u16string_view to_string_view(gc_obj_ref<::System_Private_CorLib::System::S
     }                                                      \
     uintptr_t length() const noexcept                      \
     {                                                      \
-        return header_.length_;                            \
+        return Length;                                     \
     }                                                      \
     T elements_[0];
