@@ -29,8 +29,7 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="Buffers\" />
-    <Folder Include="Security\" />
-    <Folder Include="Text\" />
+    <Folder Include="System\Security\" />
+    <Folder Include="System\Text\" />
   </ItemGroup>
 </Project>

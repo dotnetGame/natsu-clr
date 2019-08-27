@@ -461,31 +461,14 @@ namespace Natsu.Compiler
                 writer.Ident(ident + 1).WriteLine($"NATSU_SZARRAY_IMPL");
             }
 
-            writer.Ident(ident).WriteLine("};");
-
             // Static
             if (hasStaticMember)
             {
                 writer.WriteLine();
-                writer.Ident(ident).WriteLine($"struct {type.Name}_Static");
-                writer.Ident(ident).WriteLine("{");
-
-                foreach (var field in type.TypeDef.Fields)
-                {
-                    if (field.IsStatic && !field.HasConstant)
-                        WriteField(writer, ident + 1, field, true);
-                }
-
-                writer.WriteLine();
-
-                foreach (var method in type.TypeDef.Methods)
-                {
-                    if (method.IsStaticConstructor)
-                        WriteMethodDeclare(writer, ident + 1, method);
-                }
-
-                writer.Ident(ident).WriteLine("};");
+                WriteStatic(writer, ident + 1, type);
             }
+
+            writer.Ident(ident).WriteLine("};");
 
             foreach (var ns in nss)
                 writer.Write("} ");
@@ -526,6 +509,28 @@ namespace Natsu.Compiler
             {
                 if (!method.IsInstanceConstructor && !method.IsStatic)
                     WriteVTableMethodDeclare(writer, ident + 1, method);
+            }
+
+            writer.Ident(ident).WriteLine("};");
+        }
+
+        private void WriteStatic(StreamWriter writer, int ident, TypeDesc type)
+        {
+            writer.Ident(ident).WriteLine("struct Static");
+            writer.Ident(ident).WriteLine("{");
+
+            foreach (var field in type.TypeDef.Fields)
+            {
+                if (field.IsStatic && !field.HasConstant)
+                    WriteField(writer, ident + 1, field, true);
+            }
+
+            writer.WriteLine();
+
+            foreach (var method in type.TypeDef.Methods)
+            {
+                if (method.IsStaticConstructor)
+                    WriteMethodDeclare(writer, ident + 1, method);
             }
 
             writer.Ident(ident).WriteLine("};");
@@ -748,12 +753,12 @@ namespace Natsu.Compiler
                     break;
                 case ElementType.ByRef:
                     sb.Append("::natsu::gc_ref<");
-                    EscapeTypeName(sb, cntSig.Next, declaringType, hasGen);
+                    sb.Append(EscapeVariableTypeName(cntSig.Next, declaringType, hasGen));
                     sb.Append(">");
                     break;
                 case ElementType.Ptr:
                     sb.Append("::natsu::gc_ptr<");
-                    EscapeTypeName(sb, cntSig.Next, declaringType, hasGen);
+                    sb.Append(EscapeVariableTypeName(cntSig.Next, declaringType, hasGen));
                     sb.Append(">");
                     break;
                 case ElementType.Pinned:
@@ -849,7 +854,7 @@ namespace Natsu.Compiler
                 writer.Write(EscapeVariableTypeName(method.ReturnType) + " ");
             writer.Write(EscapeTypeName(method.DeclaringType, hasModuleName: false));
             if (method.IsStaticConstructor)
-                writer.Write("_Static");
+                writer.Write("::Static");
             writer.Write("::" + EscapeMethodName(method) + "(");
             WriteParameterList(writer, method.Parameters);
             writer.WriteLine(")");
@@ -863,11 +868,19 @@ namespace Natsu.Compiler
         {
             writer.Ident(ident);
 
+            var methodGens = new List<string>();
+
             if (method.HasGenericParameters)
-                throw new NotSupportedException("Virtual generic methods is not supported");
+                methodGens.AddRange(method.GenericParameters.Select(x => x.Name.String));
+
+            if (methodGens.Any())
+                writer.Ident(ident).WriteLine($"template <{string.Join(", ", methodGens.Select(x => "class " + x))}>");
 
             if (method.IsVirtual)
             {
+                if (method.HasGenericParameters)
+                    throw new NotSupportedException("Virtual generic methods is not supported");
+
                 if (method.IsNewSlot)
                     writer.Write("virtual ");
             }
@@ -902,8 +915,10 @@ namespace Natsu.Compiler
 
             if (method.DeclaringType.HasGenericParameters)
                 typeGens.AddRange(method.DeclaringType.GenericParameters.Select(x => x.Name.String));
-            if (method.HasGenericParameters)
+            if (method.IsVirtual && method.HasGenericParameters)
                 throw new NotSupportedException("Virtual generic methods is not supported");
+            if (method.HasGenericParameters)
+                methodGens.AddRange(method.GenericParameters.Select(x => x.Name.String));
 
             if (typeGens.Any() || methodGens.Any())
                 writer.WriteLine($"template <{string.Join(", ", typeGens.Concat(methodGens).Select(x => "class " + x))}>");
@@ -998,7 +1013,9 @@ namespace Natsu.Compiler
                         case Code.Bne_Un_S:
                         case Code.Bge_Un_S:
                         case Code.Bgt_Un_S:
+                        case Code.Bgt_S:
                         case Code.Blt_S:
+                        case Code.Blt_Un_S:
                             block.Instructions.Add(inst);
                             AddNext((Instruction)inst.Operand);
                             AddNext(NextInst(inst));
@@ -1143,26 +1160,30 @@ namespace Natsu.Compiler
 
             void ConvertLdsfld(IField field)
             {
-                if (field.DeclaringType.ContainsGenericParameter)
-                    throw new NotSupportedException();
-
                 string expr = method.IsStaticConstructor && method.DeclaringType == field.DeclaringType
                     ? EscapeIdentifier(field.Name)
-                    : "::natsu::static_holder<" + EscapeTypeName(field.DeclaringType) + "_Static>::value." + EscapeIdentifier(field.Name);
+                    : "::natsu::static_holder<typename" + EscapeTypeName(field.DeclaringType) + "::Static>::value." + EscapeIdentifier(field.Name);
                 var fieldType = field.FieldSig.Type;
 
                 stack.Push(fieldType, $"{expr}");
             }
 
+            void ConvertLdsflda(IField field)
+            {
+                string expr = method.IsStaticConstructor && method.DeclaringType == field.DeclaringType
+                    ? EscapeIdentifier(field.Name)
+                    : "::natsu::static_holder<typename" + EscapeTypeName(field.DeclaringType) + "::Static>::value." + EscapeIdentifier(field.Name);
+                var fieldType = field.FieldSig.Type;
+
+                stack.Push(new ByRefSig(fieldType), $"::natsu::gc_ref_from_ref({expr})");
+            }
+
             void ConvertStsfld(IField field)
             {
-                if (field.DeclaringType.ContainsGenericParameter)
-                    throw new NotSupportedException();
-
                 var value = stack.Pop();
                 string expr = method.IsStaticConstructor && method.DeclaringType == field.DeclaringType
                     ? EscapeIdentifier(field.Name)
-                    : "::natsu::static_holder<" + EscapeTypeName(field.DeclaringType) + "_Static>::value." + EscapeIdentifier(field.Name);
+                    : "::natsu::static_holder<typename" + EscapeTypeName(field.DeclaringType) + "::Static>::value." + EscapeIdentifier(field.Name);
                 var fieldType = field.FieldSig.Type;
 
                 writer.Ident(ident).WriteLine($"{expr} = {value.expression};");
@@ -1213,6 +1234,11 @@ namespace Natsu.Compiler
                 stack.Push(_corLibTypes.Int32, LiteralConstant(value));
             }
 
+            void ConvertLdc_I8(long value)
+            {
+                stack.Push(_corLibTypes.Int64, LiteralConstant(value));
+            }
+
             void ConvertLdc_R8(double value)
             {
                 stack.Push(_corLibTypes.Double, LiteralConstant(value));
@@ -1250,7 +1276,17 @@ namespace Natsu.Compiler
             {
                 var v2 = stack.Pop();
                 var v1 = stack.Pop();
-                writer.Ident(ident).WriteLine($"if ({v1.expression} < {v2.expression})");
+                writer.Ident(ident).WriteLine($"if ({PointerToU(v1)} < {PointerToU(v2)})");
+                writer.Ident(ident + 1).WriteLine($"goto {GetLabel(method, instruction, block)};");
+                writer.Ident(ident).WriteLine("else");
+                writer.Ident(ident + 1).WriteLine($"goto {GetFallthroughLabel(method, op, block)};");
+            }
+
+            void ConvertBlt_Un(Instruction instruction)
+            {
+                var v2 = stack.Pop();
+                var v1 = stack.Pop();
+                writer.Ident(ident).WriteLine($"if ({PointerToU(v1)} < {PointerToU(v2)})");
                 writer.Ident(ident + 1).WriteLine($"goto {GetLabel(method, instruction, block)};");
                 writer.Ident(ident).WriteLine("else");
                 writer.Ident(ident + 1).WriteLine($"goto {GetFallthroughLabel(method, op, block)};");
@@ -1260,7 +1296,7 @@ namespace Natsu.Compiler
             {
                 var v2 = stack.Pop();
                 var v1 = stack.Pop();
-                writer.Ident(ident).WriteLine($"if (static_cast<uintptr_t>({v1.expression}) != static_cast<uintptr_t>({v2.expression}))");
+                writer.Ident(ident).WriteLine($"if ({PointerToU(v1)} != {PointerToU(v2)})");
                 writer.Ident(ident + 1).WriteLine($"goto {GetLabel(method, instruction, block)};");
                 writer.Ident(ident).WriteLine("else");
                 writer.Ident(ident + 1).WriteLine($"goto {GetFallthroughLabel(method, op, block)};");
@@ -1270,7 +1306,7 @@ namespace Natsu.Compiler
             {
                 var v2 = stack.Pop();
                 var v1 = stack.Pop();
-                writer.Ident(ident).WriteLine($"if (static_cast<uintptr_t>({v1.expression}) >= static_cast<uintptr_t>({v2.expression}))");
+                writer.Ident(ident).WriteLine($"if ({PointerToU(v1)} >= {PointerToU(v2)})");
                 writer.Ident(ident + 1).WriteLine($"goto {GetLabel(method, instruction, block)};");
                 writer.Ident(ident).WriteLine("else");
                 writer.Ident(ident + 1).WriteLine($"goto {GetFallthroughLabel(method, op, block)};");
@@ -1280,7 +1316,17 @@ namespace Natsu.Compiler
             {
                 var v2 = stack.Pop();
                 var v1 = stack.Pop();
-                writer.Ident(ident).WriteLine($"if (static_cast<uintptr_t>({v1.expression}) > static_cast<uintptr_t>({v2.expression}))");
+                writer.Ident(ident).WriteLine($"if ({PointerToU(v1)} > {PointerToU(v2)})");
+                writer.Ident(ident + 1).WriteLine($"goto {GetLabel(method, instruction, block)};");
+                writer.Ident(ident).WriteLine("else");
+                writer.Ident(ident + 1).WriteLine($"goto {GetFallthroughLabel(method, op, block)};");
+            }
+
+            void ConvertBgt(Instruction instruction)
+            {
+                var v2 = stack.Pop();
+                var v1 = stack.Pop();
+                writer.Ident(ident).WriteLine($"if ({PointerToU(v1)} > {PointerToU(v2)})");
                 writer.Ident(ident + 1).WriteLine($"goto {GetLabel(method, instruction, block)};");
                 writer.Ident(ident).WriteLine("else");
                 writer.Ident(ident + 1).WriteLine($"goto {GetFallthroughLabel(method, op, block)};");
@@ -1289,7 +1335,7 @@ namespace Natsu.Compiler
             void ConvertBrfalse(Instruction instruction)
             {
                 var v1 = stack.Pop();
-                writer.Ident(ident).WriteLine($"if (!{v1.expression})");
+                writer.Ident(ident).WriteLine($"if (!{PointerToU(v1)})");
                 writer.Ident(ident + 1).WriteLine($"goto {GetLabel(method, instruction, block)};");
                 writer.Ident(ident).WriteLine("else");
                 writer.Ident(ident + 1).WriteLine($"goto {GetFallthroughLabel(method, op, block)};");
@@ -1298,7 +1344,7 @@ namespace Natsu.Compiler
             void ConvertBrtrue(Instruction instruction)
             {
                 var v1 = stack.Pop();
-                writer.Ident(ident).WriteLine($"if ({v1.expression})");
+                writer.Ident(ident).WriteLine($"if ({PointerToU(v1)})");
                 writer.Ident(ident + 1).WriteLine($"goto {GetLabel(method, instruction, block)};");
                 writer.Ident(ident).WriteLine("else");
                 writer.Ident(ident + 1).WriteLine($"goto {GetFallthroughLabel(method, op, block)};");
@@ -1307,7 +1353,7 @@ namespace Natsu.Compiler
             void ConvertSwitch(Instruction[] instructions)
             {
                 var v1 = stack.Pop();
-                writer.Ident(ident).WriteLine($"switch ({v1.expression})");
+                writer.Ident(ident).WriteLine($"switch ({PointerToU(v1)})");
                 writer.Ident(ident).WriteLine("{");
                 for (int i = 0; i < instructions.Length; i++)
                 {
@@ -1404,50 +1450,50 @@ namespace Natsu.Compiler
             void ConvertConv_I4()
             {
                 var v1 = stack.Pop();
-                stack.Push(_corLibTypes.Int32, $"static_cast<int32_t>({PointerToU(v1)})");
+                stack.Push(_corLibTypes.Int32, $"static_cast<::System_Private_CorLib::System::Int32>({PointerToU(v1)})");
             }
 
             void ConvertConv_U4()
             {
                 var v1 = stack.Pop();
-                stack.Push(_corLibTypes.UInt32, $"static_cast<uint32_t>({PointerToU(v1)})");
+                stack.Push(_corLibTypes.UInt32, $"static_cast<::System_Private_CorLib::System::UInt32>({PointerToU(v1)})");
             }
 
             void ConvertConv_I8()
             {
                 var v1 = stack.Pop();
-                stack.Push(_corLibTypes.Int64, $"static_cast<int64_t>({PointerToU(v1)})");
+                stack.Push(_corLibTypes.Int64, $"static_cast<::System_Private_CorLib::System::Int64>({PointerToU(v1)})");
             }
 
             void ConvertConv_I()
             {
                 var v1 = stack.Pop();
-                stack.Push(_corLibTypes.IntPtr, $"static_cast<intptr_t>({PointerToU(v1)})");
+                stack.Push(_corLibTypes.IntPtr, $"static_cast<::System_Private_CorLib::System::UIntPtr>({PointerToU(v1)})");
             }
 
             void ConvertConv_U()
             {
                 var v1 = stack.Pop();
-                stack.Push(_corLibTypes.UIntPtr, $"static_cast<uintptr_t>({PointerToU(v1)})");
+                stack.Push(_corLibTypes.UIntPtr, $"static_cast<::System_Private_CorLib::System::UIntPtr>({PointerToU(v1)})");
             }
 
             void ConvertConv_U1()
             {
                 var v1 = stack.Pop();
-                stack.Push(_corLibTypes.Byte, $"static_cast<uint8_t>({PointerToU(v1)})");
+                stack.Push(_corLibTypes.Byte, $"static_cast<::System_Private_CorLib::System::UInt8>({PointerToU(v1)})");
             }
 
             void ConvertConv_U8()
             {
                 var v1 = stack.Pop();
-                stack.Push(_corLibTypes.UInt64, $"static_cast<uint64_t>({PointerToU(v1)})");
+                stack.Push(_corLibTypes.UInt64, $"static_cast<::System_Private_CorLib::System::UInt64>({PointerToU(v1)})");
             }
 
-            string PointerToU((TypeSig type, string expression) src)
+            string PointerToU((TypeSig type, string expression) src, string surfix = "")
             {
-                if (src.type != null && (src.type.IsPointer || src.type.IsByRef))
+                if (src.type == null || src.type.IsPointer || src.type.IsByRef || !src.type.IsValueType)
                     return $"static_cast<uintptr_t>({src.expression})";
-                return src.expression;
+                return src.expression + ".m;
             }
 
             void ConvertDup()
@@ -1481,28 +1527,28 @@ namespace Natsu.Compiler
             {
                 var v2 = stack.Pop();
                 var v1 = stack.Pop();
-                stack.Push(_corLibTypes.Int32, $"(static_cast<uintptr_t>({v1.expression}) > static_cast<uintptr_t>({v2.expression}) ? 1 : 0)");
+                stack.Push(_corLibTypes.Int32, $"{PointerToU(v1)} > {PointerToU(v2)} ? 1 : 0");
             }
 
             void ConvertCgt()
             {
                 var v2 = stack.Pop();
                 var v1 = stack.Pop();
-                stack.Push(_corLibTypes.Int32, $"{v1.expression} > {v2.expression}");
+                stack.Push(_corLibTypes.Int32, $"{PointerToU(v1)} > {PointerToU(v2)}");
             }
 
             void ConvertClt()
             {
                 var v2 = stack.Pop();
                 var v1 = stack.Pop();
-                stack.Push(_corLibTypes.Int32, $"{v1.expression} < {v2.expression}");
+                stack.Push(_corLibTypes.Int32, $"{PointerToU(v1)} < {PointerToU(v2)}");
             }
 
             void ConvertClt_Un()
             {
                 var v2 = stack.Pop();
                 var v1 = stack.Pop();
-                stack.Push(_corLibTypes.Int32, $"static_cast<uintptr_t>({v1.expression}) < static_cast<uintptr_t>({v2.expression})");
+                stack.Push(_corLibTypes.Int32, $"{PointerToU(v1)} < {PointerToU(v2)}");
             }
 
             void ConvertUnbox(ITypeDefOrRef type)
@@ -1543,7 +1589,33 @@ namespace Natsu.Compiler
                 stack.Push(_corLibTypes.Byte, $"*reinterpret_cast<uint8_t *>({PointerToU(address)});");
             }
 
+            void ConvertLdind_I4()
+            {
+                var address = stack.Pop();
+                stack.Push(_corLibTypes.Int32, $"*reinterpret_cast<int32_t *>({PointerToU(address)});");
+            }
+
+            void ConvertLdind_I()
+            {
+                var address = stack.Pop();
+                stack.Push(_corLibTypes.IntPtr, $"*reinterpret_cast<intptr_t *>({PointerToU(address)});");
+            }
+
             void ConvertStind_I1()
+            {
+                var value = stack.Pop();
+                var address = stack.Pop();
+                writer.Ident(ident).WriteLine($"*{address.expression} = {value.expression};");
+            }
+
+            void ConvertStind_I4()
+            {
+                var value = stack.Pop();
+                var address = stack.Pop();
+                writer.Ident(ident).WriteLine($"*{address.expression} = {value.expression};");
+            }
+
+            void ConvertStind_Ref()
             {
                 var value = stack.Pop();
                 var address = stack.Pop();
@@ -1599,6 +1671,33 @@ namespace Natsu.Compiler
                 stack.Push(v1.type, $"{v1.expression} * {v2.expression}");
             }
 
+            void ConvertNeg()
+            {
+                var v1 = stack.Pop();
+                stack.Push(v1.type, $"-{v1.expression}");
+            }
+
+            void ConvertShl()
+            {
+                var v2 = stack.Pop();
+                var v1 = stack.Pop();
+                stack.Push(v1.type, $"{v1.expression} << {v2.expression}");
+            }
+
+            void ConvertDiv_Un()
+            {
+                var v2 = stack.Pop();
+                var v1 = stack.Pop();
+                stack.Push(v1.type, $"{v1.expression} / {v2.expression}");
+            }
+
+            void ConvertRem_Un()
+            {
+                var v2 = stack.Pop();
+                var v1 = stack.Pop();
+                stack.Push(v1.type, $"{v1.expression} % {v2.expression}");
+            }
+
             void ConvertThrow()
             {
                 var v1 = stack.Pop();
@@ -1622,6 +1721,11 @@ namespace Natsu.Compiler
                 var v1 = stack.Pop();
                 var addr = stack.Pop();
                 writer.Ident(ident).WriteLine($"*{addr.expression} = {v1.expression};");
+            }
+
+            void ConvertLdtoken(ITypeDefOrRef type)
+            {
+                stack.Push(_corLibTypes.IntPtr, $"::natsu::load_type<typename {EscapeTypeName(type)}::RuntimeType>()");
             }
 
             switch (op.OpCode.Code)
@@ -1661,6 +1765,9 @@ namespace Natsu.Compiler
                     break;
                 case Code.Ldsfld:
                     ConvertLdsfld((IField)op.Operand);
+                    break;
+                case Code.Ldsflda:
+                    ConvertLdsflda((IField)op.Operand);
                     break;
                 case Code.Stsfld:
                     ConvertStsfld((IField)op.Operand);
@@ -1703,6 +1810,9 @@ namespace Natsu.Compiler
                     break;
                 case Code.Ldc_I4_S:
                     ConvertLdc_I4((sbyte)op.Operand);
+                    break;
+                case Code.Ldc_I8:
+                    ConvertLdc_I8((long)op.Operand);
                     break;
                 case Code.Ldc_R8:
                     ConvertLdc_R8((double)op.Operand);
@@ -1759,6 +1869,9 @@ namespace Natsu.Compiler
                 case Code.Blt_S:
                     ConvertBlt((Instruction)op.Operand);
                     break;
+                case Code.Blt_Un_S:
+                    ConvertBlt_Un((Instruction)op.Operand);
+                    break;
                 case Code.Bne_Un_S:
                     ConvertBne_Un((Instruction)op.Operand);
                     break;
@@ -1767,6 +1880,9 @@ namespace Natsu.Compiler
                     break;
                 case Code.Bgt_Un_S:
                     ConvertBgt_Un((Instruction)op.Operand);
+                    break;
+                case Code.Bgt_S:
+                    ConvertBgt((Instruction)op.Operand);
                     break;
                 case Code.Ceq:
                     ConvertCeq();
@@ -1790,6 +1906,7 @@ namespace Natsu.Compiler
                     break;
                 case Code.Conv_I4:
                 case Code.Conv_Ovf_I4:
+                case Code.Conv_Ovf_I4_Un:
                     ConvertConv_I4();
                     break;
                 case Code.Conv_U4:
@@ -1864,8 +1981,20 @@ namespace Natsu.Compiler
                 case Code.Ldind_U1:
                     ConvertLdind_U1();
                     break;
+                case Code.Ldind_I4:
+                    ConvertLdind_I4();
+                    break;
+                case Code.Ldind_I:
+                    ConvertLdind_I();
+                    break;
                 case Code.Stind_I1:
                     ConvertStind_I1();
+                    break;
+                case Code.Stind_I4:
+                    ConvertStind_I4();
+                    break;
+                case Code.Stind_Ref:
+                    ConvertStind_Ref();
                     break;
                 case Code.Ldelema:
                     ConvertLdelema((ITypeDefOrRef)op.Operand);
@@ -1888,6 +2017,18 @@ namespace Natsu.Compiler
                 case Code.Mul:
                     ConvertMul();
                     break;
+                case Code.Neg:
+                    ConvertNeg();
+                    break;
+                case Code.Shl:
+                    ConvertShl();
+                    break;
+                case Code.Div_Un:
+                    ConvertDiv_Un();
+                    break;
+                case Code.Rem_Un:
+                    ConvertRem_Un();
+                    break;
                 case Code.Throw:
                     ConvertThrow();
                     break;
@@ -1901,6 +2042,9 @@ namespace Natsu.Compiler
                     break;
                 case Code.Stobj:
                     ConvertStobj((ITypeDefOrRef)op.Operand);
+                    break;
+                case Code.Ldtoken:
+                    ConvertLdtoken((ITypeDefOrRef)op.Operand);
                     break;
                 case Code.Constrained:
                     stack.Constraint = (ITypeDefOrRef)op.Operand;
@@ -2047,7 +2191,7 @@ namespace Natsu.Compiler
             else if (method.Name.EndsWith("op_Explicit"))
                 return "_s_" + EscapeIdentifier(method.Name) + "_" + EscapeIdentifier(method.MethodSig.Params[0].FullName) + "_" + EscapeIdentifier(method.MethodSig.RetType.FullName);
             else if (method.Name == ".cctor")
-                return EscapeTypeName(method.DeclaringType.FullName) + "_Static";
+                return "Static";
             else
                 return "_s_" + EscapeIdentifier(method.Name);
         }
@@ -2089,7 +2233,16 @@ namespace Natsu.Compiler
             if (string.IsNullOrEmpty(name))
                 throw new ArgumentException("Invalid identifier");
 
-            return name.Replace('<', '_').Replace('>', '_').Replace('`', '_').Replace('.', '_').Replace('*', '_').Replace('/', '_');
+            var sb = new StringBuilder();
+            foreach (var c in name)
+            {
+                if (char.IsLetterOrDigit(c) || c == '_')
+                    sb.Append(c);
+                else
+                    sb.Append('_');
+            }
+
+            return sb.ToString();
         }
     }
 

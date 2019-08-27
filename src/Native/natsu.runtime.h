@@ -35,7 +35,6 @@ template <class T>
 struct gc_ref;
 
 [[noreturn]] void throw_null_ref_exception();
-[[noreturn]] void throw_index_out_of_range_exception();
 
 template <class T>
 void check_null_obj_ref(gc_obj_ref<T> obj)
@@ -89,8 +88,8 @@ enum object_attributes
 
 struct object_header
 {
-    const vtable_t *vtable_;
     object_attributes attributes_;
+    const vtable_t *vtable_;
 
     template <class TVTable>
     const TVTable *vtable() const noexcept
@@ -460,6 +459,12 @@ natsu_exception make_exception(gc_obj_ref<T> exception)
     return { std::move(exception) };
 }
 
+template <class T, class... TArgs>
+[[noreturn]] void throw_exception(TArgs &&... args)
+{
+    throw make_exception(make_object<T>(std::forward<TArgs>(args)...));
+}
+
 namespace details
 {
     template <class T, bool IsValueType>
@@ -563,6 +568,22 @@ gc_obj_ref<::System_Private_CorLib::System::String> load_string(std::u16string_v
 std::u16string_view to_string_view(gc_obj_ref<::System_Private_CorLib::System::String> string);
 }
 
+#define DEFINE_ARITHMETIC(type)                                                 \
+    type operator+(type rhs) const noexcept { return m_value + rhs.m_value; }   \
+    type operator-(type rhs) const noexcept { return m_value - rhs.m_value; }   \
+    type operator*(type rhs) const noexcept { return m_value * rhs.m_value; }   \
+    type operator/(type rhs) const noexcept { return m_value / rhs.m_value; }   \
+    type operator%(type rhs) const noexcept { return m_value % rhs.m_value; }   \
+    type operator<<(type rhs) const noexcept { return m_value << rhs.m_value; } \
+    type operator>>(type rhs) const noexcept { return m_value >> rhs.m_value; } \
+    type operator|(type rhs) const noexcept { return m_value | rhs.m_value; }   \
+    type operator&(type rhs) const noexcept { return m_value & rhs.m_value; }   \
+    type operator^(type rhs) const noexcept { return m_value ^ rhs.m_value; }   \
+    bool operator<(type rhs) const noexcept { return m_value < rhs.m_value; }   \
+    bool operator>(type rhs) const noexcept { return m_value > rhs.m_value; }   \
+    bool operator==(type rhs) const noexcept { return m_value == rhs.m_value; } \
+    bool operator!=(type rhs) const noexcept { return m_value != rhs.m_value; }
+
 #define NATSU_PRIMITIVE_IMPL_BYTE                     \
     Byte() = default;                                 \
     constexpr Byte(uint8_t value) : m_value(value) {} \
@@ -596,7 +617,7 @@ std::u16string_view to_string_view(gc_obj_ref<::System_Private_CorLib::System::S
 #define NATSU_PRIMITIVE_IMPL_UINT32                      \
     UInt32() = default;                                  \
     constexpr UInt32(uint32_t value) : m_value(value) {} \
-    constexpr operator uint32_t() const noexcept { return m_value; }
+    DEFINE_ARITHMETIC(UInt32)
 
 #define NATSU_PRIMITIVE_IMPL_INT32                     \
     Int32() = default;                                 \
@@ -638,29 +659,29 @@ std::u16string_view to_string_view(gc_obj_ref<::System_Private_CorLib::System::S
 
 #define NATSU_OBJECT_IMPL
 
-#define NATSU_SZARRAY_IMPL                                 \
-    T &at(int index)                                       \
-    {                                                      \
-        if ((uint32_t)index >= Length)                     \
-            ::natsu::throw_index_out_of_range_exception(); \
-        return elements_[index];                           \
-    }                                                      \
-    ::natsu::gc_ref<T> ref_at(int index)                   \
-    {                                                      \
-        if ((uint32_t)index >= Length)                     \
-            ::natsu::throw_index_out_of_range_exception(); \
-        return ::natsu::gc_ref_from_ref(elements_[index]); \
-    }                                                      \
-    T get(int index)                                       \
-    {                                                      \
-        return at(index);                                  \
-    }                                                      \
-    void set(int index, T value)                           \
-    {                                                      \
-        at(index) = value;                                 \
-    }                                                      \
-    uintptr_t length() const noexcept                      \
-    {                                                      \
-        return Length;                                     \
-    }                                                      \
+#define NATSU_SZARRAY_IMPL                                                                         \
+    T &at(int index)                                                                               \
+    {                                                                                              \
+        if ((uint32_t)index >= Length)                                                             \
+            ::natsu::throw_exception<::System_Private_CorLib::System::IndexOutOfRangeException>(); \
+        return elements_[index];                                                                   \
+    }                                                                                              \
+    ::natsu::gc_ref<T> ref_at(int index)                                                           \
+    {                                                                                              \
+        if ((uint32_t)index >= Length)                                                             \
+            ::natsu::throw_exception<::System_Private_CorLib::System::IndexOutOfRangeException>(); \
+        return ::natsu::gc_ref_from_ref(elements_[index]);                                         \
+    }                                                                                              \
+    T get(int index)                                                                               \
+    {                                                                                              \
+        return at(index);                                                                          \
+    }                                                                                              \
+    void set(int index, T value)                                                                   \
+    {                                                                                              \
+        at(index) = value;                                                                         \
+    }                                                                                              \
+    uintptr_t length() const noexcept                                                              \
+    {                                                                                              \
+        return Length;                                                                             \
+    }                                                                                              \
     T elements_[0];

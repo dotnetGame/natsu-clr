@@ -7,8 +7,16 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 using System.Runtime.Versioning;
+using Internal.Runtime.CompilerServices;
 
 #pragma warning disable 0809  //warning CS0809: Obsolete member 'Span<T>.Equals(object)' overrides non-obsolete member 'object.Equals(object)'
+
+#pragma warning disable SA1121 // explicitly using type aliases instead of built-in types
+#if BIT64
+using nuint = System.UInt64;
+#else
+using nuint = System.UInt32;
+#endif
 
 namespace System
 {
@@ -131,6 +139,22 @@ namespace System
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
                 get => ref _span[_index];
             }
+        }
+
+        /// <summary>
+        /// Copies the contents of this span into a new array.  This heap
+        /// allocates, so should generally be avoided, however it is sometimes
+        /// necessary to bridge the gap with APIs written in terms of arrays.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public T[] ToArray()
+        {
+            if (_length == 0)
+                return Array.Empty<T>();
+
+            var destination = new T[_length];
+            Buffer.Memmove(ref Unsafe.As<byte, T>(ref destination.GetRawSzArrayData()), ref _pointer.Value, (nuint)_length);
+            return destination;
         }
     }
 }

@@ -6,6 +6,9 @@
 #include <Windows.h>
 #endif
 
+using namespace natsu;
+using namespace System_Private_CorLib::System;
+
 namespace System_Private_CorLib
 {
 ::natsu::gc_obj_ref<::System_Private_CorLib::System::Type> System::Object::GetType(::natsu::gc_obj_ref<::System_Private_CorLib::System::Object> _this)
@@ -16,7 +19,7 @@ namespace System_Private_CorLib
 ::System_Private_CorLib::System::Int32 System::Array::GetLength(::natsu::gc_obj_ref<::System_Private_CorLib::System::Array> _this, ::System_Private_CorLib::System::Int32 dimension)
 {
     if (dimension != 0)
-        ::natsu::throw_index_out_of_range_exception();
+        throw_exception<IndexOutOfRangeException>();
     return (intptr_t)_this.cast<System::Runtime::CompilerServices::RawSzArrayData>()->Count;
 }
 
@@ -35,10 +38,27 @@ namespace System_Private_CorLib
     return (intptr_t)_this.cast<System::Runtime::CompilerServices::RawSzArrayData>()->Count;
 }
 
+::System_Private_CorLib::System::Int32 System::Array::GetUpperBound(::natsu::gc_obj_ref<::System_Private_CorLib::System::Array> _this, ::System_Private_CorLib::System::Int32 dimension)
+{
+    return GetLength(_this, dimension);
+}
+
+::System_Private_CorLib::System::Int32 System::Array::GetLowerBound(::natsu::gc_obj_ref<::System_Private_CorLib::System::Array> _this, ::System_Private_CorLib::System::Int32 dimension)
+{
+    if (dimension != 0)
+        throw_exception<IndexOutOfRangeException>();
+    return 0;
+}
+
+void System::Array::_s_Copy(::natsu::gc_obj_ref<::System_Private_CorLib::System::Array> sourceArray, ::System_Private_CorLib::System::Int32 sourceIndex, ::natsu::gc_obj_ref<::System_Private_CorLib::System::Array> destinationArray, ::System_Private_CorLib::System::Int32 destinationIndex, ::System_Private_CorLib::System::Int32 length, ::System_Private_CorLib::System::Boolean reliable)
+{
+    throw_exception<InvalidOperationException>();
+}
+
 ::System_Private_CorLib::System::Char System::String::get_Chars(::natsu::gc_obj_ref<::System_Private_CorLib::System::String> _this, ::System_Private_CorLib::System::Int32 index)
 {
     if ((uint32_t)index >= (uint32_t)_this->_stringLength)
-        ::natsu::throw_index_out_of_range_exception();
+        throw_exception<IndexOutOfRangeException>();
     return (&_this->_firstChar)[index];
 }
 

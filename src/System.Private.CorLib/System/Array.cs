@@ -46,9 +46,6 @@ namespace System
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         public extern int GetLowerBound(int dimension);
 
-        [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        internal extern int GetDataPtrOffsetInternal();
-
         private static class EmptyArray<T>
         {
             internal static readonly T[] Value = new T[0];

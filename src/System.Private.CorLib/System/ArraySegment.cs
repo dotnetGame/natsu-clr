@@ -10,6 +10,12 @@ namespace System
     [Serializable]
     public readonly struct ArraySegment<T>
     {
+        // Do not replace the array allocation with Array.Empty. We don't want to have the overhead of
+        // instantiating another generic type in addition to ArraySegment<T> for new type parameters.
+#pragma warning disable CA1825
+        public static ArraySegment<T> Empty { get; } = new ArraySegment<T>(new T[0]);
+#pragma warning restore CA1825
+
         public T[] Array { get; }
 
         public int Offset { get; }
