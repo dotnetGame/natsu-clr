@@ -2,11 +2,16 @@
 #include "System.Private.CorLib.h"
 #include <algorithm>
 
+using namespace natsu;
+using namespace natsu::stack;
+using namespace natsu::ops;
+using namespace System_Private_CorLib;
+using namespace System_Private_CorLib::System;
+using namespace System_Private_CorLib::System::Runtime::CompilerServices;
+
 void InitializeHeap() noexcept;
 
-namespace natsu
-{
-gc_obj_ref<::System_Private_CorLib::System::String> load_string(std::u16string_view string)
+gc_obj_ref<::System_Private_CorLib::System::String> natsu::load_string(std::u16string_view string)
 {
 #ifdef WIN32
     InitializeHeap();
@@ -17,20 +22,26 @@ gc_obj_ref<::System_Private_CorLib::System::String> load_string(std::u16string_v
     return dest;
 }
 
-std::u16string_view to_string_view(gc_obj_ref<::System_Private_CorLib::System::String> string)
+std::u16string_view natsu::to_string_view(gc_obj_ref<::System_Private_CorLib::System::String> string)
 {
     if (!string)
         return {};
     return { reinterpret_cast<const char16_t *>(&string->_firstChar), (size_t)string->_stringLength };
 }
 
-void throw_null_ref_exception()
+void natsu::throw_null_ref_exception()
 {
     throw make_exception(make_object<System_Private_CorLib::System::NullReferenceException>());
 }
 
-void throw_index_out_of_range_exception()
+native_int ops::ldlen(const O &obj)
 {
-    throw make_exception(make_object<System_Private_CorLib::System::IndexOutOfRangeException>());
+    check_null_obj_ref(obj);
+    return (intptr_t)stack_to<RawSzArrayData>(obj)->Count;
 }
-} // namespace natsu
+
+void throw_(const stack::O &obj)
+{
+    check_null_obj_ref(obj);
+    throw make_exception(stack_to<Exception>(obj));
+}

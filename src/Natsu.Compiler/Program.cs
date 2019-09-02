@@ -84,7 +84,7 @@ namespace Natsu.Compiler
                 writer.WriteLine("#pragma once");
                 if (_module.Assembly.Name == "System.Private.CorLib")
                 {
-                    writer.WriteLine("#include <natsu.runtime.h>");
+                    writer.WriteLine("#include <natsu.typedef.h>");
                 }
                 else
                 {
@@ -94,7 +94,7 @@ namespace Natsu.Compiler
 
                 writer.WriteLine();
 
-                writer.WriteLine($"namespace {EscapeModuleName(_module)}");
+                writer.WriteLine($"namespace {TypeUtils.EscapeModuleName(_module)}");
                 writer.WriteLine("{");
                 WriteTypeForwards(writer);
                 writer.WriteLine();
@@ -104,7 +104,13 @@ namespace Natsu.Compiler
                 writer.WriteLine("}");
                 writer.WriteLine();
 
-                writer.WriteLine($"namespace {EscapeModuleName(_module)}");
+                if (_module.Assembly.Name == "System.Private.CorLib")
+                {
+                    writer.WriteLine("#include <natsu.runtime.h>");
+                    writer.WriteLine();
+                }
+
+                writer.WriteLine($"namespace {TypeUtils.EscapeModuleName(_module)}");
                 writer.WriteLine("{");
                 WriteTypeMethodsBody(writer, true);
                 writer.WriteLine("}");
@@ -116,7 +122,7 @@ namespace Natsu.Compiler
                 writer.WriteLine($"#include \"{_module.Assembly.Name}.h\"");
                 writer.WriteLine();
 
-                writer.WriteLine($"namespace {EscapeModuleName(_module)}");
+                writer.WriteLine($"namespace {TypeUtils.EscapeModuleName(_module)}");
                 writer.WriteLine("{");
                 WriteTypeMethodsBody(writer, false);
                 WriteConstantStringFields(writer);
@@ -300,24 +306,24 @@ namespace Natsu.Compiler
         private void WriteTypeForward(StreamWriter writer, int ident, dnlib.DotNet.ExportedType type)
         {
             var nss = type.Namespace.Split('.', StringSplitOptions.RemoveEmptyEntries)
-                .Select(EscapeNamespaceName).ToList();
+                .Select(TypeUtils.EscapeNamespaceName).ToList();
 
             writer.Ident(ident);
             foreach (var ns in nss)
                 writer.Write($"namespace {ns} {{ ");
 
-            var fowardName = EscapeTypeName(type.ToTypeRef());
+            var fowardName = TypeUtils.EscapeTypeName(type.ToTypeRef());
             if (type.Name.Contains("`"))
             {
                 var types = int.Parse(type.Name.Substring(type.Name.IndexOf('`') + 1));
                 var genDecl = $"<{string.Join(", ", Enumerable.Range(0, types).Select(x => "class T" + x))}>";
                 var genImpl = $"<{string.Join(", ", Enumerable.Range(0, types).Select(x => "T" + x))}>";
                 writer.Ident(ident).Write($"template {genDecl} ");
-                writer.Ident(ident).Write($"using {EscapeTypeName(type.FullName)} = {fowardName}{genImpl};");
+                writer.Ident(ident).Write($"using {TypeUtils.EscapeTypeName(type.FullName)} = {fowardName}{genImpl};");
             }
             else
             {
-                writer.Ident(ident).Write($"using {EscapeTypeName(type.FullName)} = {fowardName}; ");
+                writer.Ident(ident).Write($"using {TypeUtils.EscapeTypeName(type.FullName)} = {fowardName}; ");
             }
 
             foreach (var ns in nss)
@@ -340,7 +346,7 @@ namespace Natsu.Compiler
         private void WriteTypeForwardDeclare(StreamWriter writer, int ident, TypeDesc type)
         {
             var nss = type.TypeDef.Namespace.String.Split('.', StringSplitOptions.RemoveEmptyEntries)
-                .Select(EscapeNamespaceName).ToList();
+                .Select(TypeUtils.EscapeNamespaceName).ToList();
 
             writer.Ident(ident);
             foreach (var ns in nss)
@@ -377,7 +383,7 @@ namespace Natsu.Compiler
             bool hasStaticMember = false;
 
             var nss = type.TypeDef.Namespace.String.Split('.', StringSplitOptions.RemoveEmptyEntries)
-                .Select(EscapeNamespaceName).ToList();
+                .Select(TypeUtils.EscapeNamespaceName).ToList();
 
             writer.Ident(ident);
             foreach (var ns in nss)
@@ -395,7 +401,7 @@ namespace Natsu.Compiler
             {
                 var baseType = GetBaseType(type.TypeDef);
                 if (baseType != null)
-                    writer.WriteLine(" : public " + EscapeTypeName(baseType));
+                    writer.WriteLine(" : public " + TypeUtils.EscapeTypeName(baseType));
                 else
                     writer.WriteLine(" : public ::natsu::object");
             }
@@ -493,12 +499,12 @@ namespace Natsu.Compiler
             if (baseType == null)
                 writer.Write("virtual natsu::vtable_t");
             else
-                writer.Write($"{EscapeTypeName(baseType)}::VTable");
+                writer.Write($"{TypeUtils.EscapeTypeName(baseType)}::VTable");
 
             foreach (var iface in type.TypeDef.Interfaces)
             {
                 var ifaceType = iface.Interface;
-                writer.Write($", public virtual {EscapeTypeName(ifaceType)}::VTable");
+                writer.Write($", public virtual {TypeUtils.EscapeTypeName(ifaceType)}::VTable");
             }
 
             writer.WriteLine();
@@ -536,64 +542,18 @@ namespace Natsu.Compiler
             writer.Ident(ident).WriteLine("};");
         }
 
-        private string EscapeTypeNameImpl(ITypeDefOrRef type, bool hasGen, bool hasModuleName)
-        {
-            if (type is TypeSpec typeSpec)
-            {
-                return EscapeTypeName(typeSpec.TypeSig, null);
-            }
-
-            var sb = new StringBuilder();
-            if (hasModuleName)
-                sb.Append("::" + EscapeModuleName(type.DefinitionAssembly) + "::");
-            var nss = type.Namespace.Split('.', StringSplitOptions.RemoveEmptyEntries)
-                .Select(EscapeNamespaceName).ToList();
-            foreach (var ns in nss)
-                sb.Append($"{ns}::");
-            sb.Append(EscapeTypeName(type.FullName));
-            if (hasGen && type is TypeDef typeDef && typeDef.HasGenericParameters && !type.ContainsGenericParameter)
-            {
-                sb.Append("<");
-                sb.Append(string.Join(", ", typeDef.GenericParameters.Select(x => x.Name)));
-                sb.Append(">");
-            }
-
-            return sb.ToString();
-        }
-
-        private string EscapeTypeName(ITypeDefOrRef type, bool hasGen = true, bool hasModuleName = true)
-        {
-            return EscapeTypeNameImpl(type, hasGen, hasModuleName);
-        }
-
-        private string EscapeVariableTypeName(ITypeDefOrRef type, bool hasGen = true, bool hasModuleName = true)
-        {
-            var sig = type.ToTypeSig();
-            if (type.IsValueType || IsValueType(sig))
-                return EscapeTypeNameImpl(type, hasGen, hasModuleName);
-            else if (type.IsGenericParam)
-                return $"::natsu::variable_type_t<{EscapeTypeNameImpl(type, hasGen, hasModuleName)}>";
-            else
-                return $"::natsu::gc_obj_ref<{EscapeTypeNameImpl(type, hasGen, hasModuleName)}>";
-        }
-
-        private static string EscapeTypeName(string name)
-        {
-            return EscapeIdentifier(name.Split('.').Last());
-        }
-
         private void WriteField(StreamWriter writer, int ident, FieldDef value, bool isStatic = false)
         {
             string prefix = string.Empty;
             if (value.IsStatic && !isStatic)
                 prefix = "static ";
 
-            writer.Ident(ident).WriteLine($"{prefix}{EscapeVariableTypeName(value.FieldType, value.DeclaringType)} {EscapeIdentifier(value.Name)};");
+            writer.Ident(ident).WriteLine($"{prefix}{TypeUtils.EscapeVariableTypeName(value.FieldType, value.DeclaringType)} {TypeUtils.EscapeIdentifier(value.Name)};");
         }
 
         private void WriteConstantStringField(StreamWriter writer, int ident, FieldDef value)
         {
-            writer.Ident(ident).WriteLine($"{EscapeVariableTypeName(value.FieldType, value.DeclaringType)} {EscapeTypeName(value.DeclaringType, hasModuleName: false)}::{EscapeIdentifier(value.Name)} = ::natsu::load_string(uR\"NS({value.Constant.Value})NS\"sv);");
+            writer.Ident(ident).WriteLine($"{TypeUtils.EscapeVariableTypeName(value.FieldType, value.DeclaringType)} {TypeUtils.EscapeTypeName(value.DeclaringType, hasModuleName: false)}::{TypeUtils.EscapeIdentifier(value.Name)} = ::natsu::load_string(uR\"NS({value.Constant.Value})NS\"sv);");
         }
 
         private void WriteMethodDeclare(StreamWriter writer, int ident, MethodDef method)
@@ -606,10 +566,10 @@ namespace Natsu.Compiler
             if (methodGens.Any())
                 writer.Ident(ident).WriteLine($"template <{string.Join(", ", methodGens.Select(x => "class " + x))}>");
             if (!method.IsStaticConstructor)
-                writer.Ident(ident).Write("static " + EscapeVariableTypeName(method.ReturnType) + " ");
+                writer.Ident(ident).Write("static " + TypeUtils.EscapeVariableTypeName(method.ReturnType) + " ");
             else
                 writer.Ident(ident);
-            writer.Write(EscapeMethodName(method) + "(");
+            writer.Write(TypeUtils.EscapeMethodName(method) + "(");
             WriteParameterList(writer, method.Parameters);
             writer.WriteLine($");");
         }
@@ -625,7 +585,7 @@ namespace Natsu.Compiler
                     if (isVTable && method.IsVirtual && param.IsHiddenThisParameter)
                         writer.Write("::natsu::gc_obj_ref<::natsu::object>");
                     else
-                        writer.Write(EscapeVariableTypeName(param.Type, hasGen: 1) + " ");
+                        writer.Write(TypeUtils.EscapeVariableTypeName(param.Type, hasGen: 1) + " ");
                 }
 
                 var paramName = param.IsHiddenThisParameter ? "_this" : param.ToString();
@@ -633,142 +593,20 @@ namespace Natsu.Compiler
                 {
                     if (method.DeclaringType.IsValueType)
                     {
-                        writer.Write($"::natsu::unbox_exact<{EscapeTypeName(method.DeclaringType)}>({EscapeIdentifier(paramName)})");
+                        writer.Write($"::natsu::unbox_exact<{TypeUtils.EscapeTypeName(method.DeclaringType)}>({TypeUtils.EscapeIdentifier(paramName)})");
                     }
                     else
                     {
-                        writer.Write($"{EscapeIdentifier(paramName)}.cast<{EscapeTypeName(method.DeclaringType)}>()");
+                        writer.Write($"{TypeUtils.EscapeIdentifier(paramName)}.cast<{TypeUtils.EscapeTypeName(method.DeclaringType)}>()");
                     }
                 }
                 else
                 {
-                    writer.Write(EscapeIdentifier(paramName));
+                    writer.Write(TypeUtils.EscapeIdentifier(paramName));
                 }
 
                 if (index++ != parameters.Count - 1)
                     writer.Write(", ");
-            }
-        }
-
-        private string EscapeTypeName(TypeSig fieldType, TypeDef declaringType = null, int hasGen = 0)
-        {
-            var sb = new StringBuilder();
-            EscapeTypeName(sb, fieldType, declaringType, hasGen);
-            return sb.ToString();
-        }
-
-        private string EscapeVariableTypeName(TypeSig fieldType, TypeDef declaringType = null, int hasGen = 0)
-        {
-            if (IsValueType(fieldType))
-                return EscapeTypeName(fieldType, declaringType, hasGen);
-            else if (fieldType.IsGenericParameter)
-                return $"::natsu::variable_type_t<{EscapeTypeName(fieldType, declaringType, hasGen)}>";
-            else
-                return $"::natsu::gc_obj_ref<{EscapeTypeName(fieldType, declaringType, hasGen)}>";
-        }
-
-        private bool IsValueType(TypeSig type)
-        {
-            if (type == null) return false;
-            return type.IsValueType || type.IsByRef || type.IsPointer || (type.IsPinned && IsValueType(type.Next));
-        }
-
-        private void EscapeTypeName(StringBuilder sb, TypeSig cntSig, TypeDef declaringType = null, int hasGen = 0)
-        {
-            switch (cntSig.ElementType)
-            {
-                case ElementType.Void:
-                    sb.Append("void");
-                    break;
-                case ElementType.Boolean:
-                case ElementType.Char:
-                case ElementType.I1:
-                case ElementType.U1:
-                case ElementType.I2:
-                case ElementType.U2:
-                case ElementType.I4:
-                case ElementType.U4:
-                case ElementType.I8:
-                case ElementType.U8:
-                case ElementType.R4:
-                case ElementType.R8:
-                case ElementType.String:
-                case ElementType.I:
-                case ElementType.U:
-                    {
-                        switch (cntSig)
-                        {
-                            case TypeDefOrRefSig sig:
-                                if (declaringType != null && sig.TypeDef == declaringType)
-                                    sb.Append(GetConstantTypeName(cntSig.ElementType));
-                                else
-                                    sb.Append(EscapeTypeName(sig.TypeDefOrRef, hasGen: hasGen-- > 0));
-                                break;
-                            default:
-                                throw new NotSupportedException();
-                        }
-                    }
-                    break;
-                case ElementType.ValueType:
-                case ElementType.Class:
-                case ElementType.Object:
-                    {
-                        switch (cntSig)
-                        {
-                            case TypeDefOrRefSig sig:
-                                if (sig.IsValueType && declaringType != null && sig.TypeDef == declaringType)
-                                    sb.Append(GetConstantTypeName(cntSig.ElementType));
-                                else
-                                    sb.Append(EscapeTypeName(sig.TypeDefOrRef, hasGen: hasGen-- > 0));
-                                break;
-                            default:
-                                throw new NotSupportedException();
-                        }
-                    }
-                    break;
-                case ElementType.SZArray:
-                    sb.Append("::System_Private_CorLib::System::SZArray_1<");
-                    EscapeTypeName(sb, cntSig.Next, declaringType);
-                    sb.Append(">");
-                    break;
-                case ElementType.Var:
-                    sb.Append(cntSig.ToGenericVar().GetName());
-                    break;
-                case ElementType.MVar:
-                    sb.Append(cntSig.ToGenericMVar().GetName());
-                    break;
-                case ElementType.GenericInst:
-                    {
-                        var sig = cntSig.ToGenericInstSig();
-                        sb.Append(EscapeTypeName(sig.GenericType.TypeDefOrRef, hasGen: false));
-                        sb.Append("<");
-                        for (int i = 0; i < sig.GenericArguments.Count; i++)
-                        {
-                            EscapeTypeName(sb, sig.GenericArguments[i], null);
-                            if (i != sig.GenericArguments.Count - 1)
-                                sb.Append(", ");
-                        }
-                        sb.Append(">");
-                    }
-                    break;
-                case ElementType.ByRef:
-                    sb.Append("::natsu::gc_ref<");
-                    sb.Append(EscapeVariableTypeName(cntSig.Next, declaringType, hasGen));
-                    sb.Append(">");
-                    break;
-                case ElementType.Ptr:
-                    sb.Append("::natsu::gc_ptr<");
-                    sb.Append(EscapeVariableTypeName(cntSig.Next, declaringType, hasGen));
-                    sb.Append(">");
-                    break;
-                case ElementType.Pinned:
-                    EscapeTypeName(sb, cntSig.Next, declaringType, hasGen);
-                    break;
-                case ElementType.CModReqd:
-                    EscapeTypeName(sb, cntSig.Next, declaringType, hasGen);
-                    break;
-                default:
-                    throw new NotSupportedException();
             }
         }
 
@@ -778,29 +616,7 @@ namespace Natsu.Compiler
             if (value.IsStatic)
                 prefix = "static ";
 
-            writer.Ident(ident).WriteLine($"{prefix}constexpr {GetConstantTypeName(value.ElementType)} {EscapeIdentifier(value.Name)} = {LiteralConstant(value.Constant.Value)};");
-        }
-
-        private string LiteralConstant(object value)
-        {
-            var text = value switch
-            {
-                char i => ((ushort)i).ToString(),
-                byte i => i.ToString(),
-                sbyte i => i.ToString(),
-                ushort i => i.ToString(),
-                short i => i.ToString(),
-                uint i => i.ToString(),
-                int i => i.ToString(),
-                ulong i => i.ToString() + "ULL",
-                long i => "::natsu::to_int64(0x" + Unsafe.As<long, ulong>(ref i).ToString("X") + ") /* " + i.ToString() + "*/",
-                float i => "::natsu::to_float(0x" + Unsafe.As<float, uint>(ref i).ToString("X") + ") /* " + i.ToString() + "*/",
-                double i => "::natsu::to_double(0x" + Unsafe.As<double, ulong>(ref i).ToString("X") + ") /* " + i.ToString() + "*/",
-
-                _ => throw new NotSupportedException("Unsupported constant")
-            };
-
-            return text;
+            writer.Ident(ident).WriteLine($"{prefix}constexpr {TypeUtils.GetConstantTypeName(value.ElementType)} {TypeUtils.EscapeIdentifier(value.Name)} = {TypeUtils.LiteralConstant(value.Constant.Value)};");
         }
         #endregion
 
@@ -851,11 +667,11 @@ namespace Natsu.Compiler
                 writer.WriteLine($"template <{string.Join(", ", typeGens.Concat(methodGens).Select(x => "class " + x))}>");
 
             if (!method.IsStaticConstructor)
-                writer.Write(EscapeVariableTypeName(method.ReturnType) + " ");
-            writer.Write(EscapeTypeName(method.DeclaringType, hasModuleName: false));
+                writer.Write(TypeUtils.EscapeVariableTypeName(method.ReturnType) + " ");
+            writer.Write(TypeUtils.EscapeTypeName(method.DeclaringType, hasModuleName: false));
             if (method.IsStaticConstructor)
                 writer.Write("::Static");
-            writer.Write("::" + EscapeMethodName(method) + "(");
+            writer.Write("::" + TypeUtils.EscapeMethodName(method) + "(");
             WriteParameterList(writer, method.Parameters);
             writer.WriteLine(")");
             writer.Ident(ident).WriteLine("{");
@@ -885,8 +701,8 @@ namespace Natsu.Compiler
                     writer.Write("virtual ");
             }
 
-            writer.Write(EscapeVariableTypeName(method.ReturnType) + " ");
-            writer.Write(EscapeMethodName(method) + "(");
+            writer.Write(TypeUtils.EscapeVariableTypeName(method.ReturnType) + " ");
+            writer.Write(TypeUtils.EscapeMethodName(method) + "(");
             WriteParameterList(writer, method.Parameters, isVTable: true);
             writer.Write(") const");
             if (method.IsAbstract)
@@ -923,15 +739,15 @@ namespace Natsu.Compiler
             if (typeGens.Any() || methodGens.Any())
                 writer.WriteLine($"template <{string.Join(", ", typeGens.Concat(methodGens).Select(x => "class " + x))}>");
 
-            writer.Write(EscapeVariableTypeName(method.ReturnType) + " ");
-            writer.Write(EscapeTypeName(method.DeclaringType, hasModuleName: false));
-            writer.Write("::VTable::" + EscapeMethodName(method) + "(");
+            writer.Write(TypeUtils.EscapeVariableTypeName(method.ReturnType) + " ");
+            writer.Write(TypeUtils.EscapeTypeName(method.DeclaringType, hasModuleName: false));
+            writer.Write("::VTable::" + TypeUtils.EscapeMethodName(method) + "(");
             WriteParameterList(writer, method.Parameters, isVTable: true);
             writer.WriteLine(") const");
             writer.Ident(ident).WriteLine("{");
             writer.Ident(ident + 1).Write("return ");
-            writer.Write(EscapeTypeName(method.DeclaringType));
-            writer.Write("::" + EscapeMethodName(method) + "(");
+            writer.Write(TypeUtils.EscapeTypeName(method.DeclaringType));
+            writer.Write("::" + TypeUtils.EscapeMethodName(method) + "(");
             WriteParameterList(writer, method.Parameters, hasType: false, isVTable: true);
             writer.WriteLine(");");
             writer.Ident(ident).WriteLine("}");
@@ -942,1263 +758,43 @@ namespace Natsu.Compiler
         private void WriteILBody(StreamWriter writer, int ident, MethodDef method)
         {
             var body = method.Body;
-            var stack = new EvaluationStack(writer, ident);
 
             foreach (var local in body.Variables)
             {
-                WriteLocal(local, stack, writer, ident, method);
+                WriteLocal(local, writer, ident, method);
             }
 
-            Console.WriteLine(method);
-            var head = ImportBlocks(body.Instructions);
-
-            void VisitBlock(int ident, BasicBlock block, EvaluationStack evaluationStack)
-            {
-                writer.WriteLine(GetLabel(method, block.Id) + ":");
-
-                foreach (var op in block.Instructions)
-                {
-                    WriteInstruction(op, evaluationStack, writer, ident, method, block);
-                }
-
-                foreach (var next in block.Next)
-                {
-                    writer.Ident(ident).WriteLine("{");
-                    VisitBlock(ident + 1, next, evaluationStack.Clone(1));
-                    writer.Ident(ident).WriteLine("}");
-                }
-            }
-
-            VisitBlock(ident, head, stack);
+            //Console.WriteLine(method);
+            var importer = new ILImporter(method, writer, ident);
+            importer.ImportBlocks(body.Instructions);
+            importer.Gencode();
         }
 
-        private BasicBlock ImportBlocks(IList<Instruction> instructions)
+        private void WriteLocal(Local local, StreamWriter writer, int ident, MethodDef method)
         {
-            int id = 0;
-            Instruction NextInst(Instruction inst)
-            {
-                var index = instructions.IndexOf(inst);
-                if (index < instructions.Count - 1)
-                    return instructions[index + 1];
-                return null;
-            }
-
-            BasicBlock ImportBlock(Instruction inst)
-            {
-                if (inst == null) return null;
-
-                var block = new BasicBlock { Id = id++ };
-                bool conti = true;
-
-                void AddNext(Instruction next)
-                {
-                    if (block.Instructions[0] != next)
-                        block.Next.Add(ImportBlock(next));
-                }
-
-                while (conti)
-                {
-                    switch (inst.OpCode.Code)
-                    {
-                        case Code.Br:
-                        case Code.Br_S:
-                            block.Instructions.Add(inst);
-                            AddNext((Instruction)inst.Operand);
-                            conti = false;
-                            break;
-                        case Code.Brfalse:
-                        case Code.Brfalse_S:
-                        case Code.Brtrue:
-                        case Code.Brtrue_S:
-                        case Code.Bne_Un_S:
-                        case Code.Bge_Un_S:
-                        case Code.Bgt_Un_S:
-                        case Code.Bgt_S:
-                        case Code.Blt_S:
-                        case Code.Blt_Un_S:
-                            block.Instructions.Add(inst);
-                            AddNext((Instruction)inst.Operand);
-                            AddNext(NextInst(inst));
-                            conti = false;
-                            break;
-                        case Code.Ret:
-                        case Code.Throw:
-                            block.Instructions.Add(inst);
-                            conti = false;
-                            break;
-                        case Code.Switch:
-                            block.Instructions.Add(inst);
-                            foreach (var c in (IEnumerable<Instruction>)inst.Operand)
-                                AddNext(c);
-                            AddNext(NextInst(inst));
-                            conti = false;
-                            break;
-                        default:
-                            if (inst.OpCode.Code != Code.Box && inst.OpCode.Code.ToString().StartsWith('B'))
-                                throw new NotImplementedException();
-
-                            block.Instructions.Add(inst);
-                            inst = NextInst(inst);
-                            break;
-                    }
-                }
-
-                return block;
-            }
-
-            BasicBlock head;
-            if (instructions.Count != 0)
-                head = ImportBlock(instructions[0]);
-            else
-                head = new BasicBlock { Id = 0 };
-
-            return head;
+            writer.Ident(ident).WriteLine($"{TypeUtils.EscapeVariableTypeName(local.Type)} _l{local.Index};");
         }
 
-        class BasicBlock
+        private string ArithmeticExpression((TypeSig type, string expression) v1, (TypeSig type, string expression) v2, string op)
         {
-            public int Id { get; set; }
-
-            public List<Instruction> Instructions { get; } = new List<Instruction>();
-
-            public List<BasicBlock> Next { get; set; } = new List<BasicBlock>();
+            var e1 = v1.type.ElementType;uint i = 99; var s = i - 100;
+            var e2 = v2.type.ElementType;
+            if (e1 == ElementType.U4 && e2 == ElementType.I4)
+                return $"::natsu::integral_cast<::System_Private_CorLib::System::Int32>({v1.expression}) {op} {v2.expression}";
+            if (e1 == ElementType.U8 && e2 == ElementType.I8)
+                return $"::natsu::integral_cast<::System_Private_CorLib::System::Int64>({v1.expression}) {op} {v2.expression}";
+            return $"{v1.expression} {op} {v2.expression}";
         }
 
-        private string GetLabel(MethodDef method, int id)
+        private TypeSig GetIndirectType(TypeSig type)
         {
-            return $"M{method.Rid:X4}_{id}";
-        }
-
-        private string GetLabel(MethodDef method, Instruction instruction, BasicBlock block)
-        {
-            var id = instruction == block.Instructions[0]
-                ? block.Id
-                : block.Next.First(x => x.Instructions[0] == instruction).Id;
-            return GetLabel(method, id);
-        }
-
-        private string GetFallthroughLabel(MethodDef method, Instruction instruction, BasicBlock block)
-        {
-            var nextInst = method.Body.Instructions[method.Body.Instructions.IndexOf(instruction) + 1];
-            var id = block.Next.First(x => x.Instructions[0] == nextInst).Id;
-            return GetLabel(method, id);
-        }
-
-        private void WriteLocal(Local local, EvaluationStack stack, StreamWriter writer, int ident, MethodDef method)
-        {
-            writer.Ident(ident).WriteLine($"{EscapeVariableTypeName(local.Type)} _l{local.Index};");
-        }
-
-        private void WriteInstruction(Instruction op, EvaluationStack stack, StreamWriter writer, int ident, MethodDef method, BasicBlock block)
-        {
-            void ConvertLdarg_I(int index)
-            {
-                ConvertLdarg(method.Parameters[index]);
-            }
-
-            void ConvertLdarg(dnlib.DotNet.Parameter param)
-            {
-                var paramName = param.IsHiddenThisParameter ? "_this" : param.ToString();
-                stack.Push(param.Type, paramName);
-            }
-
-            void ConvertLdarga(dnlib.DotNet.Parameter param)
-            {
-                var paramName = param.IsHiddenThisParameter ? "_this" : param.ToString();
-                stack.Push(new ByRefSig(param.Type), $"::natsu::gc_ref_from_ref({paramName})");
-            }
-
-            void ConvertStarg(dnlib.DotNet.Parameter param)
-            {
-                var paramName = param.IsHiddenThisParameter ? "_this" : param.ToString();
-
-                var value = stack.Pop();
-                writer.Ident(ident).WriteLine($"{paramName} = {CastExpression(param.Type, value)};");
-            }
-
-            void ConvertLdfld(IField field)
-            {
-                var target = stack.Pop();
-                string expr = target.expression + (IsTargetValueType(target.type) ? "." : "->") + EscapeIdentifier(field.Name);
-                stack.Push(field.FieldSig.Type, expr);
-            }
-
-            void ConvertLdflda(IField field)
-            {
-                var target = stack.Pop();
-                string expr = target.expression + (IsTargetValueType(target.type) ? "." : "->") + EscapeIdentifier(field.Name);
-                stack.Push(new ByRefSig(field.FieldSig.Type), $"::natsu::gc_ref_from_ref({expr})");
-            }
-
-            void ConvertStfld(IField field)
-            {
-                var value = stack.Pop();
-                var target = stack.Pop();
-                string expr = target.expression + (IsTargetValueType(target.type) ? "." : "->") + EscapeIdentifier(field.Name);
-                var fieldType = field.FieldSig.Type;
-
-                writer.Ident(ident).WriteLine($"{expr} = {CastExpression(fieldType, value)};");
-            }
-
-            string CastExpression(TypeSig dest, (TypeSig type, string expression) src)
-            {
-                if (src.type == null || src.type != dest && !dest.ContainsGenericParameter && IsValueType(src.type))
-                    return $"static_cast<{EscapeVariableTypeName(dest)}>({src.expression})";
-
-                return src.expression;
-            }
-
-            bool IsTargetValueType(TypeSig type)
-            {
-                return type.IsValueType;
-            }
-
-            string Access(TypeSig type)
-            {
-                return IsTargetValueType(type) ? "." : "->";
-            }
-
-            void ConvertLdsfld(IField field)
-            {
-                string expr = method.IsStaticConstructor && method.DeclaringType == field.DeclaringType
-                    ? EscapeIdentifier(field.Name)
-                    : "::natsu::static_holder<typename" + EscapeTypeName(field.DeclaringType) + "::Static>::value." + EscapeIdentifier(field.Name);
-                var fieldType = field.FieldSig.Type;
-
-                stack.Push(fieldType, $"{expr}");
-            }
-
-            void ConvertLdsflda(IField field)
-            {
-                string expr = method.IsStaticConstructor && method.DeclaringType == field.DeclaringType
-                    ? EscapeIdentifier(field.Name)
-                    : "::natsu::static_holder<typename" + EscapeTypeName(field.DeclaringType) + "::Static>::value." + EscapeIdentifier(field.Name);
-                var fieldType = field.FieldSig.Type;
-
-                stack.Push(new ByRefSig(fieldType), $"::natsu::gc_ref_from_ref({expr})");
-            }
-
-            void ConvertStsfld(IField field)
-            {
-                var value = stack.Pop();
-                string expr = method.IsStaticConstructor && method.DeclaringType == field.DeclaringType
-                    ? EscapeIdentifier(field.Name)
-                    : "::natsu::static_holder<typename" + EscapeTypeName(field.DeclaringType) + "::Static>::value." + EscapeIdentifier(field.Name);
-                var fieldType = field.FieldSig.Type;
-
-                writer.Ident(ident).WriteLine($"{expr} = {value.expression};");
-            }
-
-            void ConvertLdloc_I(int index)
-            {
-                var local = method.Body.Variables[index];
-                stack.Push(local.Type, $"_l{index}");
-            }
-
-            void ConvertLdloc(Local local)
-            {
-                stack.Push(local.Type, $"_l{local.Index}");
-            }
-
-            void ConvertLdloc_a(Local local)
-            {
-                stack.Push(new ByRefSig(local.Type), $"::natsu::gc_ref_from_ref(_l{local.Index})");
-            }
-
-            void ConvertStloc_I(int index)
-            {
-                ConvertStloc(method.Body.Variables[index]);
-            }
-
-            void ConvertStloc(Local local)
-            {
-                var value = stack.Pop();
-                writer.Ident(ident).WriteLine($"_l{local.Index} = {CastExpression(local.Type, value)};");
-            }
-
-            void ConvertRet()
-            {
-                if (method.HasReturnType)
-                {
-                    var value = stack.Pop();
-                    writer.Ident(ident).WriteLine($"return {CastExpression(method.ReturnType, value)};");
-                }
-                else
-                {
-                    writer.Ident(ident).WriteLine("return;");
-                }
-            }
-
-            void ConvertLdc_I4(int value)
-            {
-                stack.Push(_corLibTypes.Int32, LiteralConstant(value));
-            }
-
-            void ConvertLdc_I8(long value)
-            {
-                stack.Push(_corLibTypes.Int64, LiteralConstant(value));
-            }
-
-            void ConvertLdc_R8(double value)
-            {
-                stack.Push(_corLibTypes.Double, LiteralConstant(value));
-            }
-
-            void ConvertLdnull()
-            {
-                stack.Push(null, "::natsu::null");
-            }
-
-            void ConvertLdlen()
-            {
-                var target = stack.Pop();
-                stack.Push(_corLibTypes.UInt32, $"{target.expression}->length()");
-            }
-
-            void ConvertNop()
-            {
-                writer.Ident(ident).WriteLine("::natsu::nop();");
-            }
-
-            void ConvertBr(Instruction instruction)
-            {
-                writer.Ident(ident).WriteLine($"goto {GetLabel(method, instruction, block)};");
-            }
-
-            void ConvertCeq()
-            {
-                var v2 = stack.Pop();
-                var v1 = stack.Pop();
-                stack.Push(_corLibTypes.Int32, $"({v1.expression} == {v2.expression} ? 1 : 0)");
-            }
-
-            void ConvertBlt(Instruction instruction)
-            {
-                var v2 = stack.Pop();
-                var v1 = stack.Pop();
-                writer.Ident(ident).WriteLine($"if ({PointerToU(v1)} < {PointerToU(v2)})");
-                writer.Ident(ident + 1).WriteLine($"goto {GetLabel(method, instruction, block)};");
-                writer.Ident(ident).WriteLine("else");
-                writer.Ident(ident + 1).WriteLine($"goto {GetFallthroughLabel(method, op, block)};");
-            }
-
-            void ConvertBlt_Un(Instruction instruction)
-            {
-                var v2 = stack.Pop();
-                var v1 = stack.Pop();
-                writer.Ident(ident).WriteLine($"if ({PointerToU(v1)} < {PointerToU(v2)})");
-                writer.Ident(ident + 1).WriteLine($"goto {GetLabel(method, instruction, block)};");
-                writer.Ident(ident).WriteLine("else");
-                writer.Ident(ident + 1).WriteLine($"goto {GetFallthroughLabel(method, op, block)};");
-            }
-
-            void ConvertBne_Un(Instruction instruction)
-            {
-                var v2 = stack.Pop();
-                var v1 = stack.Pop();
-                writer.Ident(ident).WriteLine($"if ({PointerToU(v1)} != {PointerToU(v2)})");
-                writer.Ident(ident + 1).WriteLine($"goto {GetLabel(method, instruction, block)};");
-                writer.Ident(ident).WriteLine("else");
-                writer.Ident(ident + 1).WriteLine($"goto {GetFallthroughLabel(method, op, block)};");
-            }
-
-            void ConvertBge_Un(Instruction instruction)
-            {
-                var v2 = stack.Pop();
-                var v1 = stack.Pop();
-                writer.Ident(ident).WriteLine($"if ({PointerToU(v1)} >= {PointerToU(v2)})");
-                writer.Ident(ident + 1).WriteLine($"goto {GetLabel(method, instruction, block)};");
-                writer.Ident(ident).WriteLine("else");
-                writer.Ident(ident + 1).WriteLine($"goto {GetFallthroughLabel(method, op, block)};");
-            }
-
-            void ConvertBgt_Un(Instruction instruction)
-            {
-                var v2 = stack.Pop();
-                var v1 = stack.Pop();
-                writer.Ident(ident).WriteLine($"if ({PointerToU(v1)} > {PointerToU(v2)})");
-                writer.Ident(ident + 1).WriteLine($"goto {GetLabel(method, instruction, block)};");
-                writer.Ident(ident).WriteLine("else");
-                writer.Ident(ident + 1).WriteLine($"goto {GetFallthroughLabel(method, op, block)};");
-            }
-
-            void ConvertBgt(Instruction instruction)
-            {
-                var v2 = stack.Pop();
-                var v1 = stack.Pop();
-                writer.Ident(ident).WriteLine($"if ({PointerToU(v1)} > {PointerToU(v2)})");
-                writer.Ident(ident + 1).WriteLine($"goto {GetLabel(method, instruction, block)};");
-                writer.Ident(ident).WriteLine("else");
-                writer.Ident(ident + 1).WriteLine($"goto {GetFallthroughLabel(method, op, block)};");
-            }
-
-            void ConvertBrfalse(Instruction instruction)
-            {
-                var v1 = stack.Pop();
-                writer.Ident(ident).WriteLine($"if (!{PointerToU(v1)})");
-                writer.Ident(ident + 1).WriteLine($"goto {GetLabel(method, instruction, block)};");
-                writer.Ident(ident).WriteLine("else");
-                writer.Ident(ident + 1).WriteLine($"goto {GetFallthroughLabel(method, op, block)};");
-            }
-
-            void ConvertBrtrue(Instruction instruction)
-            {
-                var v1 = stack.Pop();
-                writer.Ident(ident).WriteLine($"if ({PointerToU(v1)})");
-                writer.Ident(ident + 1).WriteLine($"goto {GetLabel(method, instruction, block)};");
-                writer.Ident(ident).WriteLine("else");
-                writer.Ident(ident + 1).WriteLine($"goto {GetFallthroughLabel(method, op, block)};");
-            }
-
-            void ConvertSwitch(Instruction[] instructions)
-            {
-                var v1 = stack.Pop();
-                writer.Ident(ident).WriteLine($"switch ({PointerToU(v1)})");
-                writer.Ident(ident).WriteLine("{");
-                for (int i = 0; i < instructions.Length; i++)
-                {
-                    writer.Ident(ident + 1).WriteLine($"case {i}:");
-                    writer.Ident(ident + 2).WriteLine($"goto {GetLabel(method, instructions[i], block)};");
-                }
-                writer.Ident(ident + 1).WriteLine("default:");
-                writer.Ident(ident + 2).WriteLine($"goto {GetFallthroughLabel(method, op, block)};");
-                writer.Ident(ident).WriteLine("}");
-            }
-
-            void ConvertCall(IMethod member)
-            {
-                var method = member.MethodSig;
-                var para = new List<(TypeSig destType, (TypeSig type, string expression) src)>();
-                var parasCount = method.Params.Count;
-                for (int i = parasCount - 1; i >= 0; i--)
-                    para.Add((method.Params[i], stack.Pop()));
-
-                if (method.HasThis)
-                    para.Add((ThisType(member.DeclaringType), stack.Pop()));
-
-                var gen = (member as MethodSpec)?.GenericInstMethodSig;
-                para.Reverse();
-                if (gen != null)
-                {
-                    stack.Push(method.RetType, $"{EscapeTypeName(member.DeclaringType)}::{EscapeMethodName(member)}<{string.Join(", ", gen.GenericArguments.Select(x => EscapeTypeName(x)))}>({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src)))})");
-                }
-                else
-                {
-                    stack.Push(method.RetType, $"{EscapeTypeName(member.DeclaringType)}::{EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src)))})");
-                }
-            }
-
-            TypeSig ThisType(ITypeDefOrRef type)
-            {
-                if (type.IsValueType)
-                    return new ByRefSig(type.ToTypeSig());
-                return type.ToTypeSig();
-            }
-
-            void ConvertCallvirt(IMethod member)
-            {
-                var method = member.MethodSig;
-                var para = new List<(TypeSig destType, (TypeSig type, string expression) src)>();
-                var parasCount = method.Params.Count;
-                for (int i = parasCount - 1; i >= 0; i--)
-                    para.Add((method.Params[i], stack.Pop()));
-
-                if (method.HasThis)
-                    para.Add((ThisType(member.DeclaringType), stack.Pop()));
-
-                para.Reverse();
-                if (stack.Constraint != null)
-                {
-                    stack.Push(_corLibTypes.Object, $"::natsu::box(*{para[0].src.expression})");
-                    var thisV = stack.Pop();
-
-                    stack.Push(method.RetType, $"{thisV.expression}->header_.template vtable_as<{EscapeTypeName(member.DeclaringType)}::VTable>()->{EscapeMethodName(member)}({string.Join(", ", new[] { thisV.expression }.Concat(para.Skip(1).Select(x => CastExpression(x.destType, x.src))))})");
-                }
-                else
-                {
-                    writer.Ident(ident).WriteLine($"check_null_obj_ref({para[0].src.expression});");
-                    stack.Push(method.RetType, $"{para[0].src.expression}->header_.template vtable_as<{EscapeTypeName(member.DeclaringType)}::VTable>()->{EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src)))})");
-                }
-            }
-
-            void ConvertNewobj(IMethodDefOrRef member)
-            {
-                var method = member.MethodSig;
-                var para = new List<string>();
-                var parasCount = method.Params.Count;
-                for (int i = parasCount - 1; i >= 0; i--)
-                    para.Add(stack.Pop().expression);
-
-                para.Reverse();
-
-                var t = member.DeclaringType;
-                var expr = EscapeTypeName(t);
-                stack.Push(member.DeclaringType.ToTypeSig(), $"::natsu::make_object<{expr}>({string.Join(", ", para)})");
-            }
-
-            void ConvertNewarr(ITypeDefOrRef type)
-            {
-                var len = stack.Pop();
-                stack.Push(new SZArraySig(type.ToTypeSig()), $"::natsu::gc_new_array<{EscapeTypeName(type.ToTypeSig())}>({len.expression})");
-            }
-
-            void ConvertLdstr(string str)
-            {
-                stack.Push(_corLibTypes.String, $"::natsu::load_string(uR\"NS({str})NS\"sv)");
-            }
-
-            void ConvertConv_I4()
-            {
-                var v1 = stack.Pop();
-                stack.Push(_corLibTypes.Int32, $"static_cast<::System_Private_CorLib::System::Int32>({PointerToU(v1)})");
-            }
-
-            void ConvertConv_U4()
-            {
-                var v1 = stack.Pop();
-                stack.Push(_corLibTypes.UInt32, $"static_cast<::System_Private_CorLib::System::UInt32>({PointerToU(v1)})");
-            }
-
-            void ConvertConv_I8()
-            {
-                var v1 = stack.Pop();
-                stack.Push(_corLibTypes.Int64, $"static_cast<::System_Private_CorLib::System::Int64>({PointerToU(v1)})");
-            }
-
-            void ConvertConv_I()
-            {
-                var v1 = stack.Pop();
-                stack.Push(_corLibTypes.IntPtr, $"static_cast<::System_Private_CorLib::System::UIntPtr>({PointerToU(v1)})");
-            }
-
-            void ConvertConv_U()
-            {
-                var v1 = stack.Pop();
-                stack.Push(_corLibTypes.UIntPtr, $"static_cast<::System_Private_CorLib::System::UIntPtr>({PointerToU(v1)})");
-            }
-
-            void ConvertConv_U1()
-            {
-                var v1 = stack.Pop();
-                stack.Push(_corLibTypes.Byte, $"static_cast<::System_Private_CorLib::System::UInt8>({PointerToU(v1)})");
-            }
-
-            void ConvertConv_U8()
-            {
-                var v1 = stack.Pop();
-                stack.Push(_corLibTypes.UInt64, $"static_cast<::System_Private_CorLib::System::UInt64>({PointerToU(v1)})");
-            }
-
-            string PointerToU((TypeSig type, string expression) src, string surfix = "")
-            {
-                if (src.type == null || src.type.IsPointer || src.type.IsByRef || !src.type.IsValueType)
-                    return $"static_cast<uintptr_t>({src.expression})";
-                return src.expression + ".m;
-            }
-
-            void ConvertDup()
-            {
-                var value = stack.Peek();
-                stack.Push(value.type, value.expression);
-            }
-
-            void ConvertStelem_I4()
-            {
-                var value = stack.Pop();
-                var index = stack.Pop();
-                var target = stack.Pop();
-                writer.Ident(ident).WriteLine($"{target.expression}->set({index.expression}, {value.expression});");
-            }
-
-            void ConvertLdelem_I4()
-            {
-                var index = stack.Pop();
-                var target = stack.Pop();
-                stack.Push(((SZArraySig)target.type).Next, $"{target.expression}->get({index.expression})");
-            }
-
-            void ConvertIsinst(ITypeDefOrRef type)
-            {
-                var target = stack.Pop();
-                stack.Push(new SZArraySig(type.ToTypeSig()), $"{target.expression}.as<{EscapeTypeName(type)}>()");
-            }
-
-            void ConvertCgt_Un()
-            {
-                var v2 = stack.Pop();
-                var v1 = stack.Pop();
-                stack.Push(_corLibTypes.Int32, $"{PointerToU(v1)} > {PointerToU(v2)} ? 1 : 0");
-            }
-
-            void ConvertCgt()
-            {
-                var v2 = stack.Pop();
-                var v1 = stack.Pop();
-                stack.Push(_corLibTypes.Int32, $"{PointerToU(v1)} > {PointerToU(v2)}");
-            }
-
-            void ConvertClt()
-            {
-                var v2 = stack.Pop();
-                var v1 = stack.Pop();
-                stack.Push(_corLibTypes.Int32, $"{PointerToU(v1)} < {PointerToU(v2)}");
-            }
-
-            void ConvertClt_Un()
-            {
-                var v2 = stack.Pop();
-                var v1 = stack.Pop();
-                stack.Push(_corLibTypes.Int32, $"{PointerToU(v1)} < {PointerToU(v2)}");
-            }
-
-            void ConvertUnbox(ITypeDefOrRef type)
-            {
-                var target = stack.Pop();
-                stack.Push(new ByRefSig(type.ToTypeSig()), $"::natsu::unbox<{EscapeTypeName(type)}>({target.expression})");
-            }
-
-            void ConvertUnbox_Any(ITypeDefOrRef type)
-            {
-                var target = stack.Pop();
-                stack.Push(type.ToTypeSig(), $"::natsu::unbox_any<{EscapeTypeName(type)}>({target.expression})");
-            }
-
-            void ConvertBox(ITypeDefOrRef type)
-            {
-                var target = stack.Pop();
-                stack.Push(_corLibTypes.Object, $"::natsu::box({target.expression})");
-            }
-
-            void ConvertAdd()
-            {
-                var v2 = stack.Pop();
-                var v1 = stack.Pop();
-                stack.Push(v1.type, $"{v1.expression} + {v2.expression}");
-            }
-
-            void ConvertSub()
-            {
-                var v2 = stack.Pop();
-                var v1 = stack.Pop();
-                stack.Push(v1.type, $"{v1.expression} - {v2.expression}");
-            }
-
-            void ConvertLdind_U1()
-            {
-                var address = stack.Pop();
-                stack.Push(_corLibTypes.Byte, $"*reinterpret_cast<uint8_t *>({PointerToU(address)});");
-            }
-
-            void ConvertLdind_I4()
-            {
-                var address = stack.Pop();
-                stack.Push(_corLibTypes.Int32, $"*reinterpret_cast<int32_t *>({PointerToU(address)});");
-            }
-
-            void ConvertLdind_I()
-            {
-                var address = stack.Pop();
-                stack.Push(_corLibTypes.IntPtr, $"*reinterpret_cast<intptr_t *>({PointerToU(address)});");
-            }
-
-            void ConvertStind_I1()
-            {
-                var value = stack.Pop();
-                var address = stack.Pop();
-                writer.Ident(ident).WriteLine($"*{address.expression} = {value.expression};");
-            }
-
-            void ConvertStind_I4()
-            {
-                var value = stack.Pop();
-                var address = stack.Pop();
-                writer.Ident(ident).WriteLine($"*{address.expression} = {value.expression};");
-            }
-
-            void ConvertStind_Ref()
-            {
-                var value = stack.Pop();
-                var address = stack.Pop();
-                writer.Ident(ident).WriteLine($"*{address.expression} = {value.expression};");
-            }
-
-            void ConvertLdelema(ITypeDefOrRef type)
-            {
-                var index = stack.Pop();
-                var target = stack.Pop();
-                stack.Push(new ByRefSig(type.ToTypeSig()), $"{target.expression}->ref_at({index.expression})");
-            }
-
-            void ConvertShr()
-            {
-                var v2 = stack.Pop();
-                var v1 = stack.Pop();
-                stack.Push(v1.type, $"{v1.expression} >> {v2.expression}");
-            }
-
-            void ConvertShr_Un()
-            {
-                var v2 = stack.Pop();
-                var v1 = stack.Pop();
-                stack.Push(v1.type, $"{v1.expression} >> {v2.expression}");
-            }
-
-            void ConvertXor()
-            {
-                var v2 = stack.Pop();
-                var v1 = stack.Pop();
-                stack.Push(v1.type, $"{v1.expression} ^ {v2.expression}");
-            }
-
-            void ConvertAnd()
-            {
-                var v2 = stack.Pop();
-                var v1 = stack.Pop();
-                stack.Push(v1.type, $"{v1.expression} & {v2.expression}");
-            }
-
-            void ConvertOr()
-            {
-                var v2 = stack.Pop();
-                var v1 = stack.Pop();
-                stack.Push(v1.type, $"{v1.expression} | {v2.expression}");
-            }
-
-            void ConvertMul()
-            {
-                var v2 = stack.Pop();
-                var v1 = stack.Pop();
-                stack.Push(v1.type, $"{v1.expression} * {v2.expression}");
-            }
-
-            void ConvertNeg()
-            {
-                var v1 = stack.Pop();
-                stack.Push(v1.type, $"-{v1.expression}");
-            }
-
-            void ConvertShl()
-            {
-                var v2 = stack.Pop();
-                var v1 = stack.Pop();
-                stack.Push(v1.type, $"{v1.expression} << {v2.expression}");
-            }
-
-            void ConvertDiv_Un()
-            {
-                var v2 = stack.Pop();
-                var v1 = stack.Pop();
-                stack.Push(v1.type, $"{v1.expression} / {v2.expression}");
-            }
-
-            void ConvertRem_Un()
-            {
-                var v2 = stack.Pop();
-                var v1 = stack.Pop();
-                stack.Push(v1.type, $"{v1.expression} % {v2.expression}");
-            }
-
-            void ConvertThrow()
-            {
-                var v1 = stack.Pop();
-                writer.Ident(ident).WriteLine($"throw ::natsu::make_exception({v1.expression});");
-            }
-
-            void ConvertInitobj()
-            {
-                var target = stack.Pop();
-                writer.Ident(ident).WriteLine($"::natsu::init_obj({target.expression});");
-            }
-
-            void ConvertLdobj(ITypeDefOrRef type)
-            {
-                var addr = stack.Pop();
-                stack.Push(type.ToTypeSig(), $"*{addr.expression}");
-            }
-
-            void ConvertStobj(ITypeDefOrRef type)
-            {
-                var v1 = stack.Pop();
-                var addr = stack.Pop();
-                writer.Ident(ident).WriteLine($"*{addr.expression} = {v1.expression};");
-            }
-
-            void ConvertLdtoken(ITypeDefOrRef type)
-            {
-                stack.Push(_corLibTypes.IntPtr, $"::natsu::load_type<typename {EscapeTypeName(type)}::RuntimeType>()");
-            }
-
-            switch (op.OpCode.Code)
-            {
-                case Code.Ldarg_0:
-                    ConvertLdarg_I(0);
-                    break;
-                case Code.Ldarg_1:
-                    ConvertLdarg_I(1);
-                    break;
-                case Code.Ldarg_2:
-                    ConvertLdarg_I(2);
-                    break;
-                case Code.Ldarg_3:
-                    ConvertLdarg_I(3);
-                    break;
-                case Code.Ldarg:
-                    ConvertLdarg_I((int)op.Operand);
-                    break;
-                case Code.Ldarg_S:
-                    ConvertLdarg((dnlib.DotNet.Parameter)op.Operand);
-                    break;
-                case Code.Ldarga_S:
-                    ConvertLdarga((dnlib.DotNet.Parameter)op.Operand);
-                    break;
-                case Code.Starg_S:
-                    ConvertStarg((dnlib.DotNet.Parameter)op.Operand);
-                    break;
-                case Code.Ldfld:
-                    ConvertLdfld((IField)op.Operand);
-                    break;
-                case Code.Ldflda:
-                    ConvertLdflda((IField)op.Operand);
-                    break;
-                case Code.Stfld:
-                    ConvertStfld((IField)op.Operand);
-                    break;
-                case Code.Ldsfld:
-                    ConvertLdsfld((IField)op.Operand);
-                    break;
-                case Code.Ldsflda:
-                    ConvertLdsflda((IField)op.Operand);
-                    break;
-                case Code.Stsfld:
-                    ConvertStsfld((IField)op.Operand);
-                    break;
-                case Code.Ret:
-                    ConvertRet();
-                    break;
-                case Code.Ldc_I4_M1:
-                    ConvertLdc_I4(-1);
-                    break;
-                case Code.Ldc_I4_0:
-                    ConvertLdc_I4(0);
-                    break;
-                case Code.Ldc_I4_1:
-                    ConvertLdc_I4(1);
-                    break;
-                case Code.Ldc_I4_2:
-                    ConvertLdc_I4(2);
-                    break;
-                case Code.Ldc_I4_3:
-                    ConvertLdc_I4(3);
-                    break;
-                case Code.Ldc_I4_4:
-                    ConvertLdc_I4(4);
-                    break;
-                case Code.Ldc_I4_5:
-                    ConvertLdc_I4(5);
-                    break;
-                case Code.Ldc_I4_6:
-                    ConvertLdc_I4(6);
-                    break;
-                case Code.Ldc_I4_7:
-                    ConvertLdc_I4(7);
-                    break;
-                case Code.Ldc_I4_8:
-                    ConvertLdc_I4(8);
-                    break;
-                case Code.Ldc_I4:
-                    ConvertLdc_I4((int)op.Operand);
-                    break;
-                case Code.Ldc_I4_S:
-                    ConvertLdc_I4((sbyte)op.Operand);
-                    break;
-                case Code.Ldc_I8:
-                    ConvertLdc_I8((long)op.Operand);
-                    break;
-                case Code.Ldc_R8:
-                    ConvertLdc_R8((double)op.Operand);
-                    break;
-                case Code.Ldlen:
-                    ConvertLdlen();
-                    break;
-                case Code.Call:
-                    ConvertCall((IMethod)op.Operand);
-                    break;
-                case Code.Callvirt:
-                    ConvertCallvirt((IMethod)op.Operand);
-                    break;
-                case Code.Ldloc_0:
-                    ConvertLdloc_I(0);
-                    break;
-                case Code.Ldloc_1:
-                    ConvertLdloc_I(1);
-                    break;
-                case Code.Ldloc_2:
-                    ConvertLdloc_I(2);
-                    break;
-                case Code.Ldloc_3:
-                    ConvertLdloc_I(3);
-                    break;
-                case Code.Ldloc_S:
-                    ConvertLdloc((Local)op.Operand);
-                    break;
-                case Code.Ldloca_S:
-                    ConvertLdloc_a((Local)op.Operand);
-                    break;
-                case Code.Stloc_0:
-                    ConvertStloc_I(0);
-                    break;
-                case Code.Stloc_1:
-                    ConvertStloc_I(1);
-                    break;
-                case Code.Stloc_2:
-                    ConvertStloc_I(2);
-                    break;
-                case Code.Stloc_3:
-                    ConvertStloc_I(3);
-                    break;
-                case Code.Stloc_S:
-                    ConvertStloc((Local)op.Operand);
-                    break;
-                case Code.Nop:
-                    ConvertNop();
-                    break;
-                case Code.Br:
-                case Code.Br_S:
-                    ConvertBr((Instruction)op.Operand);
-                    break;
-                case Code.Blt_S:
-                    ConvertBlt((Instruction)op.Operand);
-                    break;
-                case Code.Blt_Un_S:
-                    ConvertBlt_Un((Instruction)op.Operand);
-                    break;
-                case Code.Bne_Un_S:
-                    ConvertBne_Un((Instruction)op.Operand);
-                    break;
-                case Code.Bge_Un_S:
-                    ConvertBge_Un((Instruction)op.Operand);
-                    break;
-                case Code.Bgt_Un_S:
-                    ConvertBgt_Un((Instruction)op.Operand);
-                    break;
-                case Code.Bgt_S:
-                    ConvertBgt((Instruction)op.Operand);
-                    break;
-                case Code.Ceq:
-                    ConvertCeq();
-                    break;
-                case Code.Brfalse:
-                case Code.Brfalse_S:
-                    ConvertBrfalse((Instruction)op.Operand);
-                    break;
-                case Code.Brtrue:
-                case Code.Brtrue_S:
-                    ConvertBrtrue((Instruction)op.Operand);
-                    break;
-                case Code.Switch:
-                    ConvertSwitch((Instruction[])op.Operand);
-                    break;
-                case Code.Ldnull:
-                    ConvertLdnull();
-                    break;
-                case Code.Ldstr:
-                    ConvertLdstr((string)op.Operand);
-                    break;
-                case Code.Conv_I4:
-                case Code.Conv_Ovf_I4:
-                case Code.Conv_Ovf_I4_Un:
-                    ConvertConv_I4();
-                    break;
-                case Code.Conv_U4:
-                case Code.Conv_Ovf_U4:
-                case Code.Conv_Ovf_U4_Un:
-                    ConvertConv_U4();
-                    break;
-                case Code.Conv_I8:
-                    ConvertConv_I8();
-                    break;
-                case Code.Conv_I:
-                    ConvertConv_I();
-                    break;
-                case Code.Conv_U:
-                    ConvertConv_U();
-                    break;
-                case Code.Conv_U1:
-                    ConvertConv_U1();
-                    break;
-                case Code.Conv_U8:
-                    ConvertConv_U8();
-                    break;
-                case Code.Newobj:
-                    ConvertNewobj((IMethodDefOrRef)op.Operand);
-                    break;
-                case Code.Newarr:
-                    ConvertNewarr((ITypeDefOrRef)op.Operand);
-                    break;
-                case Code.Initobj:
-                    ConvertInitobj();
-                    break;
-                case Code.Dup:
-                    ConvertDup();
-                    break;
-                case Code.Ldelem_I4:
-                    ConvertLdelem_I4();
-                    break;
-                case Code.Stelem_I1:
-                case Code.Stelem_I4:
-                    ConvertStelem_I4();
-                    break;
-                case Code.Isinst:
-                    ConvertIsinst((ITypeDefOrRef)op.Operand);
-                    break;
-                case Code.Cgt_Un:
-                    ConvertCgt_Un();
-                    break;
-                case Code.Cgt:
-                    ConvertCgt();
-                    break;
-                case Code.Clt:
-                    ConvertClt();
-                    break;
-                case Code.Clt_Un:
-                    ConvertClt_Un();
-                    break;
-                case Code.Box:
-                    ConvertBox((ITypeDefOrRef)op.Operand);
-                    break;
-                case Code.Unbox_Any:
-                    ConvertUnbox_Any((ITypeDefOrRef)op.Operand);
-                    break;
-                case Code.Unbox:
-                    ConvertUnbox((ITypeDefOrRef)op.Operand);
-                    break;
-                case Code.Add:
-                    ConvertAdd();
-                    break;
-                case Code.Sub:
-                    ConvertSub();
-                    break;
-                case Code.Ldind_U1:
-                    ConvertLdind_U1();
-                    break;
-                case Code.Ldind_I4:
-                    ConvertLdind_I4();
-                    break;
-                case Code.Ldind_I:
-                    ConvertLdind_I();
-                    break;
-                case Code.Stind_I1:
-                    ConvertStind_I1();
-                    break;
-                case Code.Stind_I4:
-                    ConvertStind_I4();
-                    break;
-                case Code.Stind_Ref:
-                    ConvertStind_Ref();
-                    break;
-                case Code.Ldelema:
-                    ConvertLdelema((ITypeDefOrRef)op.Operand);
-                    break;
-                case Code.Shr:
-                    ConvertShr();
-                    break;
-                case Code.Shr_Un:
-                    ConvertShr_Un();
-                    break;
-                case Code.Xor:
-                    ConvertXor();
-                    break;
-                case Code.And:
-                    ConvertAnd();
-                    break;
-                case Code.Or:
-                    ConvertOr();
-                    break;
-                case Code.Mul:
-                    ConvertMul();
-                    break;
-                case Code.Neg:
-                    ConvertNeg();
-                    break;
-                case Code.Shl:
-                    ConvertShl();
-                    break;
-                case Code.Div_Un:
-                    ConvertDiv_Un();
-                    break;
-                case Code.Rem_Un:
-                    ConvertRem_Un();
-                    break;
-                case Code.Throw:
-                    ConvertThrow();
-                    break;
-                case Code.Pop:
-                    stack.Pop();
-                    break;
-                case Code.Volatile:
-                    break;
-                case Code.Ldobj:
-                    ConvertLdobj((ITypeDefOrRef)op.Operand);
-                    break;
-                case Code.Stobj:
-                    ConvertStobj((ITypeDefOrRef)op.Operand);
-                    break;
-                case Code.Ldtoken:
-                    ConvertLdtoken((ITypeDefOrRef)op.Operand);
-                    break;
-                case Code.Constrained:
-                    stack.Constraint = (ITypeDefOrRef)op.Operand;
-                    break;
-                default:
-                    throw new NotSupportedException(op.ToString());
-            }
-
-            writer.Flush();
-        }
-
-        class EvaluationStack
-        {
-            private readonly Stack<(TypeSig type, string expression)> _stackValues = new Stack<(TypeSig type, string expression)>();
-            private int _paramIndex = 0;
-            private StreamWriter _writer;
-            public int Ident { get; }
-
-            public ITypeDefOrRef Constraint { get; set; }
-
-            public EvaluationStack(StreamWriter writer, int ident)
-            {
-                _writer = writer;
-                Ident = ident;
-            }
-
-            public void Push(TypeSig type, string expression)
-            {
-                if (type != null && type.ElementType == ElementType.Void)
-                {
-                    _writer.Ident(Ident).WriteLine($"{expression};");
-                }
-                else
-                {
-                    var id = $"_v{_paramIndex++}";
-                    _writer.Ident(Ident).WriteLine($"auto&& {id} = {expression};");
-                    _stackValues.Push((type, id));
-                }
-            }
-
-            public (TypeSig type, string expression) Pop()
-            {
-                return _stackValues.Pop();
-            }
-
-            public (TypeSig type, string expression) Peek()
-            {
-                return _stackValues.Peek();
-            }
-
-            public EvaluationStack Clone(int identInc = 0)
-            {
-                var stack = new EvaluationStack(_writer, Ident + identInc);
-                foreach (var value in _stackValues.Reverse())
-                    stack._stackValues.Push(value);
-                stack._paramIndex = _paramIndex;
-                return stack;
-            }
-        }
-
-        private static string GetEnumUnderlyingTypeName(ElementType type)
-        {
-            switch (type)
-            {
-                case ElementType.I1:
-                    return "int8_t";
-                case ElementType.U1:
-                    return "uint8_t";
-                case ElementType.I2:
-                    return "int16_t";
-                case ElementType.U2:
-                    return "uint16_t";
-                case ElementType.I4:
-                    return "int32_t";
-                case ElementType.U4:
-                    return "uint32_t";
-                case ElementType.I8:
-                    return "int64_t";
-                case ElementType.U8:
-                    return "uint64_t";
-                default:
-                    throw new ArgumentException("Invalid enum underlying type");
-            }
-        }
-
-        private static string GetConstantTypeName(ElementType type)
-        {
-            switch (type)
-            {
-                case ElementType.Boolean:
-                    return "bool";
-                case ElementType.Char:
-                    return "char16_t";
-                case ElementType.I1:
-                    return "int8_t";
-                case ElementType.U1:
-                    return "uint8_t";
-                case ElementType.I2:
-                    return "int16_t";
-                case ElementType.U2:
-                    return "uint16_t";
-                case ElementType.I4:
-                    return "int32_t";
-                case ElementType.U4:
-                    return "uint32_t";
-                case ElementType.I8:
-                    return "int64_t";
-                case ElementType.U8:
-                    return "uint64_t";
-                case ElementType.R4:
-                    return "float";
-                case ElementType.R8:
-                    return "double";
-                case ElementType.String:
-                    return "::System_Private_CorLib::System::String";
-                case ElementType.I:
-                    return "intptr_t";
-                case ElementType.U:
-                    return "uintptr_t";
-                default:
-                    throw new ArgumentException("Invalid constant type");
-            }
-        }
-
-        private static string EscapeModuleName(ModuleDef module)
-        {
-            return EscapeModuleName(module.Assembly.Name);
-        }
-
-        private static string EscapeModuleName(IAssembly assembly)
-        {
-            return EscapeModuleName(assembly.Name);
-        }
-
-        private static string EscapeModuleName(string name)
-        {
-            return name.Replace('.', '_');
-        }
-
-        private static string EscapeMethodName(IMethod method)
-        {
-            if (method.MethodSig.HasThis)
-                return EscapeIdentifier(method.Name);
-            else if (method.Name.EndsWith("op_Explicit"))
-                return "_s_" + EscapeIdentifier(method.Name) + "_" + EscapeIdentifier(method.MethodSig.Params[0].FullName) + "_" + EscapeIdentifier(method.MethodSig.RetType.FullName);
-            else if (method.Name == ".cctor")
-                return "Static";
-            else
-                return "_s_" + EscapeIdentifier(method.Name);
-        }
-
-        private static string EscapeNamespaceName(string ns)
-        {
-            return ns;
+            var byRef = type.ToByRefSig();
+            if (byRef != null)
+                return byRef.Next;
+            var ptr = type.ToPtrSig();
+            if (ptr != null)
+                return ptr.Next;
+            throw new ArgumentException();
         }
 
         class TypeDesc
@@ -2218,7 +814,7 @@ namespace Natsu.Compiler
             public TypeDesc(TypeDef typeDef)
             {
                 TypeDef = typeDef;
-                Name = EscapeTypeName(typeDef.FullName);
+                Name = TypeUtils.EscapeTypeName(typeDef.FullName);
                 QualifiedName = Name;
             }
 
@@ -2226,23 +822,6 @@ namespace Natsu.Compiler
             {
                 return QualifiedName;
             }
-        }
-
-        private static string EscapeIdentifier(string name)
-        {
-            if (string.IsNullOrEmpty(name))
-                throw new ArgumentException("Invalid identifier");
-
-            var sb = new StringBuilder();
-            foreach (var c in name)
-            {
-                if (char.IsLetterOrDigit(c) || c == '_')
-                    sb.Append(c);
-                else
-                    sb.Append('_');
-            }
-
-            return sb.ToString();
         }
     }
 
