@@ -759,6 +759,8 @@ namespace Natsu.Compiler
             if (method.HasThis)
                 para.Add((TypeUtils.ThisType(member.DeclaringType), Stack.Pop()));
 
+            if (Method.FullName.Contains("Log2SoftwareFallback"))
+                ;
             var gen = (member as MethodSpec)?.GenericInstMethodSig;
             para.Reverse();
             string expr;

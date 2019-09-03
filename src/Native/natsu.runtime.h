@@ -244,10 +244,10 @@ namespace stack
         template <class T>
         struct box_impl
         {
-            O operator()(T &&value)
+            O operator()(T value)
             {
-                auto box = gc_new<::System_Private_CorLib::System::Box_1<T>>();
-                box->value__ = value;
+                auto box = gc_new<T>();
+                *box = value;
                 return stack_from(box);
             }
         };
@@ -278,9 +278,9 @@ namespace stack
                 using ::System_Private_CorLib::System::Object;
 
                 check_null_obj_ref(obj);
-                auto box = stack_to<Object>(obj).as<T>();
+                auto box = stack_to<gc_obj_ref<Object>>(obj).as<T>();
                 if (box)
-                    return stack_to(gc_ref_from_ref(*box));
+                    return stack_from(gc_ref_from_ref(*box));
                 else
                     throw_invalid_cast_exception();
             }
@@ -296,11 +296,12 @@ namespace stack
 
                 if (obj)
                 {
-                    auto box = stack_to<Object>(obj).as<T>();
+                    auto box = stack_to<gc_obj_ref<Object>>(obj).as<T>();
                     if (box)
                     {
-                        auto new_obj = make_object<Nullable_1<T>>(*box);
-                        return stack_to(gc_ref_from_ref(*new_obj));
+                        auto new_obj = gc_new<Nullable_1<T>>();
+                        new_obj->value = *box;
+                        return stack_from(gc_ref_from_ref(*new_obj));
                     }
                     else
                     {
@@ -310,7 +311,61 @@ namespace stack
                 else
                 {
                     auto new_obj = gc_new<Nullable_1<T>>();
-                    return stack_to(gc_ref_from_ref(*new_obj));
+                    return stack_from(gc_ref_from_ref(*new_obj));
+                }
+            }
+        };
+
+        template <class T>
+        struct unbox_any_impl
+        {
+            auto operator()(const O &obj)
+            {
+                using ::System_Private_CorLib::System::Object;
+
+                check_null_obj_ref(obj);
+                auto box = stack_to<gc_obj_ref<Object>>(obj).as<T>();
+                if (box)
+                {
+                    if constexpr (natsu::is_value_type_v<T>)
+                    {
+                        return *box;
+                    }
+                    else
+                    {
+                        return obj;
+                    }
+                }
+                else
+                {
+                    throw_invalid_cast_exception();
+                }
+            }
+        };
+
+        template <class T>
+        struct unbox_any_impl<::System_Private_CorLib::System::Nullable_1<T>>
+        {
+            ::System_Private_CorLib::System::Nullable_1<T> operator()(const O &obj)
+            {
+                using ::System_Private_CorLib::System::Nullable_1;
+                using ::System_Private_CorLib::System::Object;
+
+                if (obj)
+                {
+                    auto box = stack_to<gc_obj_ref<Object>>(obj).as<T>();
+                    if (box)
+                    {
+                        return make_object<Nullable_1<T>>(*box);
+                    }
+                    else
+                    {
+                        throw_invalid_cast_exception();
+                    }
+                }
+                else
+                {
+                    return make_object<Nullable_1<T>>();
                 }
             }
         };
@@ -349,19 +404,19 @@ auto stack_to(TFrom &&value)
     return stack::details::stack_to_impl<std::decay_t<TFrom>, TTo>()(std::forward<TFrom>(value));
 }
 
-void check_null_obj_ref(stack::O obj)
+inline void check_null_obj_ref(stack::O obj)
 {
     if (!obj)
         throw_null_ref_exception();
 }
 
-void check_null_obj_ref(stack::native_int addr)
+inline void check_null_obj_ref(stack::native_int addr)
 {
     if (!addr)
         throw_null_ref_exception();
 }
 
-void check_null_obj_ref(stack::Ref addr)
+inline void check_null_obj_ref(stack::Ref addr)
 {
     if (!addr)
         throw_null_ref_exception();
@@ -383,7 +438,7 @@ gc_obj_ref<T> gc_new()
 }
 
 template <class T>
-gc_obj_ref<::System_Private_CorLib::System::SZArray_1<T>> gc_new_array(stack::int32 length)
+gc_obj_ref<::System_Private_CorLib::System::SZArray_1<T>> gc_new_array(int32_t length)
 {
     using obj_t = ::System_Private_CorLib::System::SZArray_1<T>;
     auto size = sizeof(obj_t) + (size_t)length * sizeof(T);
@@ -529,6 +584,19 @@ namespace ops
         return fmod(lhs.value_, rhs.value_);
     }
 
+#define UNARY_OP_IMPL(name, op, A, Med, Cast)                         \
+    inline A name(const A &value) noexcept                            \
+    {                                                                 \
+        return static_cast<Cast>(op##static_cast<Med>(value.value_)); \
+    }
+
+    UNARY_OP_IMPL(neg, -, stack::int32, int32_t, int32_t);
+    UNARY_OP_IMPL(neg, -, stack::int64, int64_t, int64_t);
+    UNARY_OP_IMPL(neg, -, stack::native_int, intptr_t, intptr_t);
+    UNARY_OP_IMPL(neg, -, stack::F, double, double);
+
+#undef UNARY_OP_IMPL
+
 #define COMPARE_OP_IMPL(name, op, A, B, Med)                                           \
     inline stack::int32 name(const A &lhs, const B &rhs) noexcept                      \
     {                                                                                  \
@@ -656,13 +724,19 @@ namespace ops
     template <class TFrom>
     stack::O box(TFrom &&value) noexcept
     {
-        return stack::details::box_impl()(std::forward<TFrom>(value));
+        return stack::details::box_impl<std::decay_t<TFrom>>()(std::forward<TFrom>(value));
     }
 
     template <class T>
     stack::Ref unbox(const stack::O &obj)
     {
         return stack::details::unbox_impl<T>()(obj);
+    }
+
+    template <class T>
+    auto unbox_any(const stack::O &obj)
+    {
+        return stack::details::unbox_any_impl<T>()(obj);
     }
 
     template <class TFrom>
@@ -690,7 +764,7 @@ namespace ops
     }
 
 #define STELEM_IMPL(name, type, value_type, cast)                                                       \
-    void stelem_##name(const stack::O &obj, stack::int32 index, value_type value)                       \
+    inline void stelem_##name(const stack::O &obj, stack::int32 index, value_type value)                \
     {                                                                                                   \
         using ::System_Private_CorLib::System::SZArray_1;                                               \
         check_null_obj_ref(obj);                                                                        \
@@ -705,7 +779,7 @@ namespace ops
     STELEM_IMPL(r8, ::System_Private_CorLib::System::Double, stack::F, double);
     STELEM_IMPL(i, ::System_Private_CorLib::System::IntPtr, stack::native_int, intptr_t);
 
-    void stelem_ref(const stack::O &obj, stack::int32 index, stack::O value)
+    inline void stelem_ref(const stack::O &obj, stack::int32 index, stack::O value)
     {
         using ::System_Private_CorLib::System::Object;
         using ::System_Private_CorLib::System::SZArray_1;
@@ -716,12 +790,12 @@ namespace ops
 #undef STELEM_IMPL
 
 #define LDIND_IMPL(name, type, ret, cast)                                 \
-    ret ldind_##name(stack::native_int addr)                              \
+    inline ret ldind_##name(stack::native_int addr)                       \
     {                                                                     \
         check_null_obj_ref(addr);                                         \
         return static_cast<cast>(*reinterpret_cast<type *>(addr.value_)); \
     }                                                                     \
-    ret ldind_##name(stack::Ref addr)                                     \
+    inline ret ldind_##name(stack::Ref addr)                              \
     {                                                                     \
         check_null_obj_ref(addr);                                         \
         return static_cast<cast>(*reinterpret_cast<type *>(addr.value_)); \
@@ -742,12 +816,12 @@ namespace ops
 #undef LDIND_IMPL
 
 #define STIND_IMPL(name, type, value_type)                                        \
-    void stind_##name(stack::native_int addr, value_type value)                   \
+    inline void stind_##name(stack::native_int addr, value_type value)            \
     {                                                                             \
         check_null_obj_ref(addr);                                                 \
         *reinterpret_cast<type *>(addr.value_) = static_cast<type>(value.value_); \
     }                                                                             \
-    void stind_##name(stack::Ref addr, value_type value)                          \
+    inline void stind_##name(stack::Ref addr, value_type value)                   \
     {                                                                             \
         check_null_obj_ref(addr);                                                 \
         *reinterpret_cast<type *>(addr.value_) = static_cast<type>(value.value_); \
@@ -765,7 +839,7 @@ namespace ops
 #undef STIND_IMPL
 
 #define CONV_IMPL(name, value_type, ret, med_cast, cast)               \
-    ret conv_##name(value_type value)                                  \
+    inline ret conv_##name(value_type value)                           \
     {                                                                  \
         return static_cast<cast>(static_cast<med_cast>(value.value_)); \
     }
@@ -841,7 +915,7 @@ namespace ops
 #undef CONV_IMPL
 
 #define CONV_OVF_IMPL(name, value_type, ret, pre_cast, med_cast, cast)                                 \
-    ret conv_ovf_##name(value_type value)                                                              \
+    inline ret conv_ovf_##name(value_type value)                                                       \
     {                                                                                                  \
         auto v1 = static_cast<pre_cast>(value.value_);                                                 \
         if (v1 < std::numeric_limits<med_cast>::lowest() || v1 > std::numeric_limits<med_cast>::max()) \
@@ -970,7 +1044,8 @@ namespace ops
     template <class T>
     stack::Ref ldelema(const stack::O &obj, stack::int32 index)
     {
-        return stack_from(stack_to<::System_Private_CorLib::System::SZArray_1<T>>(obj)->ref_at(index.value_));
+        using ::System_Private_CorLib::System::SZArray_1;
+        return stack_from(stack_to<gc_obj_ref<SZArray_1<T>>>(obj)->ref_at(index.value_));
     }
 
     [[noreturn]] void throw_(const stack::O &obj);

@@ -188,7 +188,7 @@ namespace Natsu.Compiler
                         sb.Append("<");
                         for (int i = 0; i < sig.GenericArguments.Count; i++)
                         {
-                            EscapeTypeName(sb, sig.GenericArguments[i], null);
+                            EscapeTypeName(sb, sig.GenericArguments[i], null, genArgs: genArgs);
                             if (i != sig.GenericArguments.Count - 1)
                                 sb.Append(", ");
                         }
