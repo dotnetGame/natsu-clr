@@ -88,21 +88,21 @@ namespace Natsu.Compiler
             return type.ToTypeSig();
         }
 
-        public static string EscapeTypeName(TypeSig fieldType, TypeDef declaringType = null, int hasGen = 0)
+        public static string EscapeTypeName(TypeSig fieldType, TypeDef declaringType = null, int hasGen = 0, IList<TypeSig> genArgs = null)
         {
             var sb = new StringBuilder();
-            EscapeTypeName(sb, fieldType, declaringType, hasGen);
+            EscapeTypeName(sb, fieldType, declaringType, hasGen, genArgs);
             return sb.ToString();
         }
 
-        public static string EscapeVariableTypeName(TypeSig fieldType, TypeDef declaringType = null, int hasGen = 0)
+        public static string EscapeVariableTypeName(TypeSig fieldType, TypeDef declaringType = null, int hasGen = 0, IList<TypeSig> genArgs = null)
         {
             if (IsValueType(fieldType))
-                return EscapeTypeName(fieldType, declaringType, hasGen);
+                return EscapeTypeName(fieldType, declaringType, hasGen, genArgs);
             else if (fieldType.IsGenericParameter)
-                return $"::natsu::variable_type_t<{EscapeTypeName(fieldType, declaringType, hasGen)}>";
+                return $"::natsu::variable_type_t<{EscapeTypeName(fieldType, declaringType, hasGen, genArgs)}>";
             else
-                return $"::natsu::gc_obj_ref<{EscapeTypeName(fieldType, declaringType, hasGen)}>";
+                return $"::natsu::gc_obj_ref<{EscapeTypeName(fieldType, declaringType, hasGen, genArgs)}>";
         }
 
         private static bool IsValueType(TypeSig type)
@@ -111,7 +111,7 @@ namespace Natsu.Compiler
             return type.IsValueType || type.IsByRef || type.IsPointer || (type.IsPinned && IsValueType(type.Next));
         }
 
-        public static void EscapeTypeName(StringBuilder sb, TypeSig cntSig, TypeDef declaringType = null, int hasGen = 0)
+        public static void EscapeTypeName(StringBuilder sb, TypeSig cntSig, TypeDef declaringType = null, int hasGen = 0, IList<TypeSig> genArgs = null)
         {
             switch (cntSig.ElementType)
             {
@@ -140,7 +140,7 @@ namespace Natsu.Compiler
                                 if (declaringType != null && sig.TypeDef == declaringType)
                                     sb.Append(GetConstantTypeName(cntSig.ElementType));
                                 else
-                                    sb.Append(EscapeTypeName(sig.TypeDefOrRef, hasGen: hasGen-- > 0));
+                                    sb.Append(EscapeTypeName(sig.TypeDefOrRef, hasGen: hasGen-- > 0, genArgs: genArgs));
                                 break;
                             default:
                                 throw new NotSupportedException();
@@ -157,7 +157,7 @@ namespace Natsu.Compiler
                                 if (sig.IsValueType && declaringType != null && sig.TypeDef == declaringType)
                                     sb.Append(GetConstantTypeName(cntSig.ElementType));
                                 else
-                                    sb.Append(EscapeTypeName(sig.TypeDefOrRef, hasGen: hasGen-- > 0));
+                                    sb.Append(EscapeTypeName(sig.TypeDefOrRef, hasGen: hasGen-- > 0, genArgs: genArgs));
                                 break;
                             default:
                                 throw new NotSupportedException();
@@ -166,14 +166,20 @@ namespace Natsu.Compiler
                     break;
                 case ElementType.SZArray:
                     sb.Append("::System_Private_CorLib::System::SZArray_1<");
-                    EscapeTypeName(sb, cntSig.Next, declaringType);
+                    EscapeTypeName(sb, cntSig.Next, declaringType, genArgs: genArgs);
                     sb.Append(">");
                     break;
                 case ElementType.Var:
                     sb.Append(cntSig.ToGenericVar().GetName());
                     break;
                 case ElementType.MVar:
-                    sb.Append(cntSig.ToGenericMVar().GetName());
+                    {
+                        var mvar = cntSig.ToGenericMVar();
+                        if (genArgs != null)
+                            EscapeTypeName(sb, genArgs[(int)mvar.Number]);
+                        else
+                            sb.Append(cntSig.ToGenericMVar().GetName());
+                    }
                     break;
                 case ElementType.GenericInst:
                     {
@@ -191,39 +197,39 @@ namespace Natsu.Compiler
                     break;
                 case ElementType.ByRef:
                     sb.Append("::natsu::gc_ref<");
-                    sb.Append(EscapeVariableTypeName(cntSig.Next, declaringType, hasGen));
+                    sb.Append(EscapeVariableTypeName(cntSig.Next, declaringType, hasGen, genArgs));
                     sb.Append(">");
                     break;
                 case ElementType.Ptr:
                     sb.Append("::natsu::gc_ptr<");
-                    sb.Append(EscapeVariableTypeName(cntSig.Next, declaringType, hasGen));
+                    sb.Append(EscapeVariableTypeName(cntSig.Next, declaringType, hasGen, genArgs));
                     sb.Append(">");
                     break;
                 case ElementType.Pinned:
-                    EscapeTypeName(sb, cntSig.Next, declaringType, hasGen);
+                    EscapeTypeName(sb, cntSig.Next, declaringType, hasGen, genArgs);
                     break;
                 case ElementType.CModReqd:
-                    EscapeTypeName(sb, cntSig.Next, declaringType, hasGen);
+                    EscapeTypeName(sb, cntSig.Next, declaringType, hasGen, genArgs);
                     break;
                 default:
                     throw new NotSupportedException();
             }
         }
 
-        public static string EscapeTypeName(ITypeDefOrRef type, bool hasGen = true, bool hasModuleName = true)
+        public static string EscapeTypeName(ITypeDefOrRef type, bool hasGen = true, bool hasModuleName = true, IList<TypeSig> genArgs = null)
         {
-            return EscapeTypeNameImpl(type, hasGen, hasModuleName);
+            return EscapeTypeNameImpl(type, hasGen, hasModuleName, genArgs);
         }
 
-        public static string EscapeVariableTypeName(ITypeDefOrRef type, bool hasGen = true, bool hasModuleName = true)
+        public static string EscapeVariableTypeName(ITypeDefOrRef type, bool hasGen = true, bool hasModuleName = true, IList<TypeSig> genArgs = null)
         {
             var sig = type.ToTypeSig();
             if (type.IsValueType || IsValueType(sig))
-                return EscapeTypeNameImpl(type, hasGen, hasModuleName);
+                return EscapeTypeNameImpl(type, hasGen, hasModuleName, genArgs);
             else if (type.IsGenericParam)
-                return $"::natsu::variable_type_t<{EscapeTypeNameImpl(type, hasGen, hasModuleName)}>";
+                return $"::natsu::variable_type_t<{EscapeTypeNameImpl(type, hasGen, hasModuleName, genArgs)}>";
             else
-                return $"::natsu::gc_obj_ref<{EscapeTypeNameImpl(type, hasGen, hasModuleName)}>";
+                return $"::natsu::gc_obj_ref<{EscapeTypeNameImpl(type, hasGen, hasModuleName, genArgs)}>";
         }
 
         public static string EscapeTypeName(string name)
@@ -231,7 +237,7 @@ namespace Natsu.Compiler
             return EscapeIdentifier(name.Split('.').Last());
         }
 
-        private static string EscapeTypeNameImpl(ITypeDefOrRef type, bool hasGen, bool hasModuleName)
+        private static string EscapeTypeNameImpl(ITypeDefOrRef type, bool hasGen, bool hasModuleName, IList<TypeSig> genArgs = null)
         {
             if (type is TypeSpec typeSpec)
             {
@@ -364,6 +370,28 @@ namespace Natsu.Compiler
             };
 
             return text;
+        }
+
+        public static IList<TypeSig> InstantiateGenericTypes(IList<TypeSig> types, IList<TypeSig> genericArguments)
+        {
+            var newTypes = new List<TypeSig>(types.Count);
+            for (int i = 0; i < types.Count; i++)
+            {
+                var oldType = types[i];
+                if (oldType.IsGenericParameter)
+                {
+                    var gen = genericArguments.FirstOrDefault(x => x.GetName() == oldType.GetName());
+                    if (gen != null)
+                    {
+                        newTypes.Add(gen);
+                        continue;
+                    }
+                }
+
+                newTypes.Add(oldType);
+            }
+
+            return newTypes;
         }
     }
 }

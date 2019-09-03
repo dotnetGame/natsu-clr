@@ -39,7 +39,7 @@ namespace Natsu.Compiler
         private StreamWriter _writer;
         public int Ident { get; }
 
-        public ITypeDefOrRef Constraint { get; set; }
+        public ITypeDefOrRef Constrained { get; set; }
 
         public EvaluationStack(StreamWriter writer, int ident)
         {

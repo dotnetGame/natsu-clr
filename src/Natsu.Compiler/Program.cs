@@ -402,8 +402,6 @@ namespace Natsu.Compiler
                 var baseType = GetBaseType(type.TypeDef);
                 if (baseType != null)
                     writer.WriteLine(" : public " + TypeUtils.EscapeTypeName(baseType));
-                else
-                    writer.WriteLine(" : public ::natsu::object");
             }
             else
             {
@@ -488,6 +486,8 @@ namespace Natsu.Compiler
 
             // IsValueType
             writer.Ident(ident + 1).WriteLine($"static constexpr bool IsValueType = {type.TypeDef.IsValueType.ToString().ToLower()};");
+            // IsEnum
+            writer.Ident(ident + 1).WriteLine($"static constexpr bool IsEnum = {type.TypeDef.IsEnum.ToString().ToLower()};");
 
             writer.Ident(ident).WriteLine("};");
         }
@@ -583,7 +583,7 @@ namespace Natsu.Compiler
                 if (hasType)
                 {
                     if (isVTable && method.IsVirtual && param.IsHiddenThisParameter)
-                        writer.Write("::natsu::gc_obj_ref<::natsu::object>");
+                        writer.Write("::natsu::gc_obj_ref<::System_Private_CorLib::System::Object>");
                     else
                         writer.Write(TypeUtils.EscapeVariableTypeName(param.Type, hasGen: 1) + " ");
                 }

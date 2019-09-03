@@ -1,4 +1,3 @@
-#include "natsu.runtime.h"
 #include "System.Private.CorLib.h"
 #include <algorithm>
 
@@ -34,14 +33,24 @@ void natsu::throw_null_ref_exception()
     throw make_exception(make_object<System_Private_CorLib::System::NullReferenceException>());
 }
 
+void natsu::throw_invalid_cast_exception()
+{
+    throw make_exception(make_object<System_Private_CorLib::System::InvalidCastException>());
+}
+
+void natsu::throw_overflow_exception()
+{
+    throw make_exception(make_object<System_Private_CorLib::System::OverflowException>());
+}
+
 native_int ops::ldlen(const O &obj)
 {
     check_null_obj_ref(obj);
-    return (intptr_t)stack_to<RawSzArrayData>(obj)->Count;
+    return (intptr_t)stack_to<gc_obj_ref<RawSzArrayData>>(obj)->Count;
 }
 
 void throw_(const stack::O &obj)
 {
     check_null_obj_ref(obj);
-    throw make_exception(stack_to<Exception>(obj));
+    throw make_exception(stack_to<gc_obj_ref<Exception>>(obj));
 }

@@ -35,6 +35,8 @@ struct gc_ref;
 struct natsu_exception;
 
 [[noreturn]] void throw_null_ref_exception();
+[[noreturn]] void throw_invalid_cast_exception();
+[[noreturn]] void throw_overflow_exception();
 
 template <class T>
 void check_null_obj_ref(gc_obj_ref<T> obj)
@@ -104,19 +106,11 @@ struct object_header
     }
 };
 
-struct object
-{
-    object_header header_;
-};
+template <class T>
+constexpr bool is_value_type_v = T::TypeInfo::IsValueType;
 
 template <class T>
-struct is_value_type
-{
-    static constexpr bool value = T::TypeInfo::IsValueType;
-};
-
-template <class T>
-constexpr bool is_value_type_v = is_value_type<T>::value;
+constexpr bool is_enum_v = T::TypeInfo::IsEnum;
 
 template <class T, bool IsValueType>
 struct variable_type;
@@ -385,7 +379,7 @@ struct gc_obj_ref
     {
         if (ptr_)
         {
-            auto vtable = ptr_->header_.template vtable_as<typename U::VTable>();
+            auto vtable = header().vtable_as<typename U::VTable>();
             if (vtable)
                 return gc_obj_ref<U>(reinterpret_cast<U *>(ptr_));
         }
@@ -397,6 +391,11 @@ struct gc_obj_ref
     gc_obj_ref<U> cast() const noexcept
     {
         return gc_obj_ref<U>(reinterpret_cast<U *>(ptr_));
+    }
+
+    object_header &header() const noexcept
+    {
+        return *reinterpret_cast<object_header *>(reinterpret_cast<uint8_t *>(ptr_) - sizeof(object_header));
     }
 };
 
@@ -527,13 +526,13 @@ constexpr bool operator==(null_gc_obj_ref, const gc_obj_ref<T> &rhs) noexcept
 #define NATSU_SZARRAY_IMPL                                                                         \
     T &at(int index)                                                                               \
     {                                                                                              \
-        if ((uint32_t)index >= Length)                                                             \
+        if ((uint32_t)index >= length())                                                           \
             ::natsu::throw_exception<::System_Private_CorLib::System::IndexOutOfRangeException>(); \
         return elements_[index];                                                                   \
     }                                                                                              \
     ::natsu::gc_ref<T> ref_at(int index)                                                           \
     {                                                                                              \
-        if ((uint32_t)index >= Length)                                                             \
+        if ((uint32_t)index >= length())                                                           \
             ::natsu::throw_exception<::System_Private_CorLib::System::IndexOutOfRangeException>(); \
         return ::natsu::gc_ref_from_ref(elements_[index]);                                         \
     }                                                                                              \
@@ -544,5 +543,9 @@ constexpr bool operator==(null_gc_obj_ref, const gc_obj_ref<T> &rhs) noexcept
     void set(int index, T value)                                                                   \
     {                                                                                              \
         at(index) = value;                                                                         \
+    }                                                                                              \
+    uintptr_t length() const noexcept                                                              \
+    {                                                                                              \
+        return Length.m_value;                                                                     \
     }                                                                                              \
     T elements_[0];

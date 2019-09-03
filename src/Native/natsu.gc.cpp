@@ -1,7 +1,7 @@
 //
 // Chino Memory
 //
-#include "natsu.runtime.h"
+#include "System.Private.CorLib.h"
 #include <cstring>
 
 #define traceMALLOC(p, size)
@@ -384,13 +384,17 @@ static void prvInsertBlockIntoFreeList(BlockLink_t *pBlockToInsert)
     }
 }
 
+using namespace System_Private_CorLib::System;
+
 namespace natsu
 {
-gc_obj_ref<object> gc_alloc(const vtable_t &vtable, size_t size)
+gc_obj_ref<Object> gc_alloc(const vtable_t &vtable, size_t size)
 {
-    gc_obj_ref<object> ptr(reinterpret_cast<object *>(HeapAlloc(size)));
-    kassert(ptr);
-    ptr->header_.vtable_ = &vtable;
+    auto mem_ptr = reinterpret_cast<uint8_t *>(HeapAlloc(size + sizeof(object_header)));
+    if (!mem_ptr)
+        throw make_exception(make_object<OutOfMemoryException>());
+    gc_obj_ref<Object> ptr(reinterpret_cast<Object *>(mem_ptr + sizeof(object_header)));
+    ptr.header().vtable_ = &vtable;
     return ptr;
 }
 } // namespace  natsu
