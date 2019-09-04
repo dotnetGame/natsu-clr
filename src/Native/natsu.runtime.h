@@ -17,7 +17,7 @@ namespace stack
         constexpr int32(int32_t value)
             : value_(value) {}
 
-        constexpr operator bool() const noexcept
+        constexpr bool istrue() const noexcept
         {
             return value_;
         }
@@ -30,7 +30,7 @@ namespace stack
         constexpr int64(int64_t value)
             : value_(value) {}
 
-        constexpr operator bool() const noexcept
+        constexpr bool istrue() const noexcept
         {
             return value_;
         }
@@ -43,7 +43,7 @@ namespace stack
         constexpr native_int(intptr_t value)
             : value_(value) {}
 
-        constexpr operator bool() const noexcept
+        constexpr bool istrue() const noexcept
         {
             return value_;
         }
@@ -64,7 +64,7 @@ namespace stack
         constexpr Ref(uintptr_t value)
             : value_(value) {}
 
-        constexpr operator bool() const noexcept
+        constexpr bool istrue() const noexcept
         {
             return value_;
         }
@@ -77,7 +77,7 @@ namespace stack
         constexpr O(uintptr_t value)
             : value_(value) {}
 
-        constexpr operator bool() const noexcept
+        constexpr bool istrue() const noexcept
         {
             return value_;
         }
@@ -140,26 +140,28 @@ namespace stack
             }
         };
 
-#define DEFINE_STACK_FROM_CAST(From, To, Med)           \
-    template <>                                         \
-    struct stack_from_impl<From>                        \
-    {                                                   \
-        To operator()(const From &value) const noexcept \
-        {                                               \
-            return static_cast<Med>(value.m_value);     \
-        }                                               \
+#define DEFINE_STACK_FROM_CAST(From, To, Med, Cast)                    \
+    template <>                                                        \
+    struct stack_from_impl<From>                                       \
+    {                                                                  \
+        To operator()(const From &value) const noexcept                \
+        {                                                              \
+            return static_cast<Cast>(static_cast<Med>(value.m_value)); \
+        }                                                              \
     };
 
-        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::Boolean, int32, int32_t);
-        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::SByte, int32, int32_t);
-        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::Byte, int32, int32_t);
-        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::Char, int32, int32_t);
-        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::Int16, int32, int32_t);
-        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::UInt16, int32, int32_t);
-        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::Int32, int32, int32_t);
-        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::UInt32, int32, int32_t);
-        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::Int64, int64, int64_t);
-        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::UInt64, int64, int64_t);
+        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::Boolean, int32, uint32_t, int32_t);
+        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::SByte, int32, int32_t, int32_t);
+        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::Byte, int32, uint32_t, int32_t);
+        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::Char, int32, uint32_t, int32_t);
+        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::Int16, int32, int32_t, int32_t);
+        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::UInt16, int32, uint32_t, int32_t);
+        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::Int32, int32, int32_t, int32_t);
+        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::UInt32, int32, uint32_t, int32_t);
+        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::Int64, int64, int64_t, int64_t);
+        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::UInt64, int64, uint64_t, int64_t);
+        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::Single, F, float, double);
+        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::Double, F, double, double);
 
 #undef DEFINE_STACK_FROM_CAST
 
@@ -180,7 +182,10 @@ namespace stack
         {
             TTo operator()(TFrom value)
             {
-                return static_cast<TTo>(value);
+                if constexpr (natsu::is_enum_v<TTo>)
+                    return static_cast<TTo>(value.value_);
+                else
+                    return value;
             }
         };
 
@@ -199,6 +204,33 @@ namespace stack
             gc_ref<TTo> operator()(const Ref &value) const noexcept
             {
                 return gc_ref<TTo>(*reinterpret_cast<TTo *>(value.value_));
+            }
+        };
+
+        template <class TTo>
+        struct stack_to_impl<Ref, gc_ptr<TTo>>
+        {
+            gc_ptr<TTo> operator()(const Ref &value) const noexcept
+            {
+                return gc_ptr<TTo>(reinterpret_cast<TTo *>(value.value_));
+            }
+        };
+
+        template <class TTo>
+        struct stack_to_impl<native_int, gc_ref<TTo>>
+        {
+            gc_ref<TTo> operator()(const native_int &value) const noexcept
+            {
+                return gc_ref<TTo>(*reinterpret_cast<TTo *>(value.value_));
+            }
+        };
+
+        template <class TTo>
+        struct stack_to_impl<native_int, gc_ptr<TTo>>
+        {
+            gc_ptr<TTo> operator()(const native_int &value) const noexcept
+            {
+                return gc_ptr<TTo>(reinterpret_cast<TTo *>(value.value_));
             }
         };
 
@@ -375,7 +407,7 @@ namespace stack
         {
             O operator()(const O &obj) const noexcept
             {
-                if (obj && obj.header().vtable_as<typename T::VTable>())
+                if (obj.istrue() && obj.header().vtable_as<typename T::VTable>())
                     return obj;
                 return null;
             }
@@ -387,6 +419,36 @@ namespace stack
             O operator()(const O &obj) const noexcept
             {
                 return isinst_impl<T>()(obj);
+            }
+        };
+
+        template <class TFrom, class TTo>
+        struct access_impl;
+
+        template <class TFrom, class TTo>
+        struct access_impl<TFrom, gc_ref<TTo>>
+        {
+            gc_ref<TTo> operator()(const TFrom &obj) const noexcept
+            {
+                return gc_ref_from_ref(stack_to<TTo>(obj));
+            }
+        };
+
+        template <class TTo>
+        struct access_impl<Ref, gc_ref<TTo>>
+        {
+            gc_ref<TTo> operator()(const Ref &obj) const noexcept
+            {
+                return stack_to<gc_ref<TTo>>(obj);
+            }
+        };
+
+        template <class TTo>
+        struct access_impl<O, TTo>
+        {
+            TTo operator()(const O &obj) const noexcept
+            {
+                return stack_to<TTo>(obj);
             }
         };
     }
@@ -406,19 +468,19 @@ auto stack_to(TFrom &&value)
 
 inline void check_null_obj_ref(stack::O obj)
 {
-    if (!obj)
+    if (!obj.istrue())
         throw_null_ref_exception();
 }
 
 inline void check_null_obj_ref(stack::native_int addr)
 {
-    if (!addr)
+    if (!addr.istrue())
         throw_null_ref_exception();
 }
 
 inline void check_null_obj_ref(stack::Ref addr)
 {
-    if (!addr)
+    if (!addr.istrue())
         throw_null_ref_exception();
 }
 
@@ -438,12 +500,12 @@ gc_obj_ref<T> gc_new()
 }
 
 template <class T>
-gc_obj_ref<::System_Private_CorLib::System::SZArray_1<T>> gc_new_array(int32_t length)
+gc_obj_ref<::System_Private_CorLib::System::SZArray_1<T>> gc_new_array(stack::int32 length)
 {
     using obj_t = ::System_Private_CorLib::System::SZArray_1<T>;
-    auto size = sizeof(obj_t) + (size_t)length * sizeof(T);
+    auto size = sizeof(obj_t) + (size_t)length.value_ * sizeof(T);
     auto obj = gc_new<obj_t>(size);
-    obj->Length = length;
+    obj->Length = length.value_;
     return obj;
 }
 
@@ -481,10 +543,10 @@ template <class T, class... TArgs>
 
 namespace ops
 {
-#define BINARY_OP_IMPL(name, op, A, B, Ret, Med, Cast)                                            \
-    inline Ret name(const A &lhs, const B &rhs) noexcept                                          \
-    {                                                                                             \
-        return static_cast<Cast>(static_cast<Med>(lhs.value_)##op##static_cast<Med>(rhs.value_)); \
+#define BINARY_OP_IMPL(name, op, A, B, Ret, Med, Cast)                                          \
+    inline Ret name(const A &lhs, const B &rhs) noexcept                                        \
+    {                                                                                           \
+        return static_cast<Cast>(static_cast<Med>(lhs.value_) op static_cast<Med>(rhs.value_)); \
     }
 
     BINARY_OP_IMPL(add, +, stack::int32, stack::int32, stack::int32, int32_t, int32_t);
@@ -584,10 +646,10 @@ namespace ops
         return fmod(lhs.value_, rhs.value_);
     }
 
-#define UNARY_OP_IMPL(name, op, A, Med, Cast)                         \
-    inline A name(const A &value) noexcept                            \
-    {                                                                 \
-        return static_cast<Cast>(op##static_cast<Med>(value.value_)); \
+#define UNARY_OP_IMPL(name, op, A, Med, Cast)                        \
+    inline A name(const A &value) noexcept                           \
+    {                                                                \
+        return static_cast<Cast>(op static_cast<Med>(value.value_)); \
     }
 
     UNARY_OP_IMPL(neg, -, stack::int32, int32_t, int32_t);
@@ -597,10 +659,10 @@ namespace ops
 
 #undef UNARY_OP_IMPL
 
-#define COMPARE_OP_IMPL(name, op, A, B, Med)                                           \
-    inline stack::int32 name(const A &lhs, const B &rhs) noexcept                      \
-    {                                                                                  \
-        return static_cast<Med>(lhs.value_)##op##static_cast<Med>(rhs.value_) ? 1 : 0; \
+#define COMPARE_OP_IMPL(name, op, A, B, Med)                                         \
+    inline stack::int32 name(const A &lhs, const B &rhs) noexcept                    \
+    {                                                                                \
+        return static_cast<Med>(lhs.value_) op static_cast<Med>(rhs.value_) ? 1 : 0; \
     }
 
     COMPARE_OP_IMPL(clt, <, stack::int32, stack::int32, int32_t);
@@ -745,6 +807,12 @@ namespace ops
         return reinterpret_cast<uintptr_t>(&value);
     }
 
+    template <class TTo, class TFrom>
+    auto access(TFrom value) noexcept
+    {
+        return stack::details::access_impl<TFrom, TTo>()(std::forward<TFrom>(value));
+    }
+
     template <class TFrom>
     void initobj(const stack::Ref &addr) noexcept
     {
@@ -762,6 +830,37 @@ namespace ops
     {
         return stack::details::isinst_impl<T>()(obj);
     }
+
+#define LDELEM_IMPL(name, type, value_type)                                              \
+    inline value_type ldelem_##name(const stack::O &obj, stack::int32 index)             \
+    {                                                                                    \
+        using ::System_Private_CorLib::System::SZArray_1;                                \
+        check_null_obj_ref(obj);                                                         \
+        return stack_from(stack_to<gc_obj_ref<SZArray_1<type>>>(obj)->at(index.value_)); \
+    }
+
+    LDELEM_IMPL(i1, ::System_Private_CorLib::System::SByte, stack::int32);
+    LDELEM_IMPL(i2, ::System_Private_CorLib::System::Int16, stack::int32);
+    LDELEM_IMPL(i4, ::System_Private_CorLib::System::Int32, stack::int32);
+    LDELEM_IMPL(i8, ::System_Private_CorLib::System::Int64, stack::int64);
+    LDELEM_IMPL(r4, ::System_Private_CorLib::System::Single, stack::F);
+    LDELEM_IMPL(r8, ::System_Private_CorLib::System::Double, stack::F);
+    LDELEM_IMPL(i, ::System_Private_CorLib::System::IntPtr, stack::native_int);
+    LDELEM_IMPL(u1, ::System_Private_CorLib::System::Byte, stack::int32);
+    LDELEM_IMPL(u2, ::System_Private_CorLib::System::UInt16, stack::int32);
+    LDELEM_IMPL(u4, ::System_Private_CorLib::System::UInt32, stack::int32);
+    LDELEM_IMPL(u8, ::System_Private_CorLib::System::UInt64, stack::int64);
+    LDELEM_IMPL(u, ::System_Private_CorLib::System::UIntPtr, stack::native_int);
+
+    inline stack::O ldelem_ref(const stack::O &obj, stack::int32 index)
+    {
+        using ::System_Private_CorLib::System::Object;
+        using ::System_Private_CorLib::System::SZArray_1;
+        check_null_obj_ref(obj);
+        return stack_from(stack_to<gc_obj_ref<SZArray_1<gc_obj_ref<Object>>>>(obj)->at(index.value_));
+    }
+
+#undef LDELEM_IMPL
 
 #define STELEM_IMPL(name, type, value_type, cast)                                                       \
     inline void stelem_##name(const stack::O &obj, stack::int32 index, value_type value)                \
@@ -1048,6 +1147,18 @@ namespace ops
         return stack_from(stack_to<gc_obj_ref<SZArray_1<T>>>(obj)->ref_at(index.value_));
     }
 
+    template <class T>
+    auto ldobj(const stack::Ref &addr)
+    {
+        return stack_from(*reinterpret_cast<T *>(addr.value_));
+    }
+
+    template <class T, class TStack>
+    void stobj(const TStack &src, const stack::Ref &dest)
+    {
+        *reinterpret_cast<T *>(dest.value_) = stack_to<T>(src);
+    }
+
     [[noreturn]] void throw_(const stack::O &obj);
 }
 
@@ -1056,5 +1167,20 @@ gc_ref<T> unbox_exact(gc_obj_ref<::System_Private_CorLib::System::Object> value)
 {
     auto box = value.cast<T>();
     return gc_ref_from_ref(*box);
+}
+}
+
+namespace System_Private_CorLib
+{
+template <class T>
+void System::ByReference_1<T>::_ctor(::natsu::gc_ref<System::ByReference_1<T>> _this, ::natsu::gc_ref<::natsu::variable_type_t<T>> value)
+{
+    _this->_value = static_cast<intptr_t>(static_cast<uintptr_t>(value));
+}
+
+template <class T>
+::natsu::gc_ref<::natsu::variable_type_t<T>> System::ByReference_1<T>::get_Value(::natsu::gc_ref<System::ByReference_1<T>> _this)
+{
+    return ::natsu::gc_ref_from_ref(*reinterpret_cast<::natsu::variable_type_t<T> *>(static_cast<intptr_t>(_this->_value)));
 }
 }

@@ -105,7 +105,6 @@ struct object_header
         return dynamic_cast<const TVTable *>(vtable_);
     }
 };
-
 template <class T>
 constexpr bool is_value_type_v = T::TypeInfo::IsValueType;
 
@@ -239,6 +238,11 @@ struct gc_ptr
     }
 
     operator T *() const noexcept
+    {
+        return ptr_;
+    }
+
+    T *get() const noexcept
     {
         return ptr_;
     }

@@ -21,17 +21,15 @@ namespace System
 #pragma warning restore 169
 
         [Intrinsic]
+        [MethodImpl(MethodImplOptions.InternalCall)]
         public ByReference(ref T value)
         {
-            // Implemented as a JIT intrinsic - This default implementation is for
-            // completeness and to provide a concrete error if called via reflection
-            // or if intrinsic is missed.
             throw new PlatformNotSupportedException();
         }
 
         public ref T Value
         {
-            [Intrinsic]
+            [MethodImpl(MethodImplOptions.InternalCall)]
             get
             {
                 // Implemented as a JIT intrinsic - This default implementation is for

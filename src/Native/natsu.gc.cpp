@@ -185,6 +185,10 @@ void InitializeHeap() noexcept
 
 void *HeapAlloc(size_t wantedSize) noexcept
 {
+#ifdef WIN32
+    InitializeHeap();
+#endif
+
     BlockLink_t *pBlock, *pPreviousBlock, *pNewBlockLink;
     void *pReturn = nullptr;
     uintptr_t alignOffset = 0;

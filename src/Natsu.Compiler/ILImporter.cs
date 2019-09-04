@@ -60,12 +60,26 @@ namespace Natsu.Compiler
                         case Code.Brfalse_S:
                         case Code.Brtrue:
                         case Code.Brtrue_S:
-                        case Code.Bne_Un_S:
-                        case Code.Bge_Un_S:
-                        case Code.Bgt_Un_S:
-                        case Code.Bgt_S:
                         case Code.Blt_S:
+                        case Code.Blt:
                         case Code.Blt_Un_S:
+                        case Code.Blt_Un:
+                        case Code.Ble_S:
+                        case Code.Ble:
+                        case Code.Ble_Un:
+                        case Code.Ble_Un_S:
+                        case Code.Beq_S:
+                        case Code.Beq:
+                        case Code.Bge_S:
+                        case Code.Bge:
+                        case Code.Bge_Un_S:
+                        case Code.Bge_Un:
+                        case Code.Bgt_S:
+                        case Code.Bgt:
+                        case Code.Bgt_Un_S:
+                        case Code.Bgt_Un:
+                        case Code.Bne_Un_S:
+                        case Code.Bne_Un:
                             block.Instructions.Add(inst);
                             AddNext((Instruction)inst.Operand);
                             AddNext(NextInst(inst));
@@ -892,7 +906,7 @@ namespace Natsu.Compiler
             var v2 = Stack.Pop();
             var v1 = Stack.Pop();
             var nextOp = (Instruction)Op.Operand;
-            Writer.Ident(Ident).WriteLine($"if (::natsu::ops::{op}({v1.Expression}, {v2.Expression}))");
+            Writer.Ident(Ident).WriteLine($"if (::natsu::ops::{op}({v1.Expression}, {v2.Expression}).istrue())");
             Writer.Ident(Ident + 1).WriteLine($"goto {ILUtils.GetLabel(Method, nextOp, Block)};");
             Writer.Ident(Ident).WriteLine("else");
             Writer.Ident(Ident + 1).WriteLine($"goto {ILUtils.GetFallthroughLabel(Method, Op, Block)};");
@@ -902,7 +916,7 @@ namespace Natsu.Compiler
         {
             var v1 = Stack.Pop();
             var nextOp = (Instruction)Op.Operand;
-            Writer.Ident(Ident).WriteLine($"if ({op}{v1.Expression})");
+            Writer.Ident(Ident).WriteLine($"if ({op}{v1.Expression}.istrue())");
             Writer.Ident(Ident + 1).WriteLine($"goto {ILUtils.GetLabel(Method, nextOp, Block)};");
             Writer.Ident(Ident).WriteLine("else");
             Writer.Ident(Ident + 1).WriteLine($"goto {ILUtils.GetFallthroughLabel(Method, Op, Block)};");
@@ -930,7 +944,7 @@ namespace Natsu.Compiler
             var target = Stack.Pop();
             var field = (IField)Op.Operand;
             var thisType = TypeUtils.ThisType(field.DeclaringType);
-            string expr = $"::natsu::stack_to<{TypeUtils.EscapeVariableTypeName(thisType)}>({target.Expression})->" + TypeUtils.EscapeIdentifier(field.Name);
+            string expr = $"::natsu::ops::access<{TypeUtils.EscapeVariableTypeName(thisType)}>({target.Expression})->" + TypeUtils.EscapeIdentifier(field.Name);
             var fieldType = field.FieldSig.Type;
 
             Stack.Push(TypeUtils.GetStackType(fieldType), $"::natsu::stack_from({expr})");
@@ -989,7 +1003,7 @@ namespace Natsu.Compiler
         {
             var type = (ITypeDefOrRef)Op.Operand;
             var addr = Stack.Pop();
-            Writer.Ident(Ident).WriteLine($"::natsu::initobj<{TypeUtils.EscapeTypeName(type)}>({addr.Expression});");
+            Writer.Ident(Ident).WriteLine($"::natsu::ops::initobj<{TypeUtils.EscapeVariableTypeName(type)}>({addr.Expression});");
         }
 
         public void Newobj()
@@ -1002,7 +1016,8 @@ namespace Natsu.Compiler
                 para.Add((method.Params[i], Stack.Pop()));
 
             para.Reverse();
-            var expr = $"::natsu::ops::newobj<{TypeUtils.EscapeTypeName(member.DeclaringType)}>({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src)))})";
+            var genSig = member.DeclaringType.TryGetGenericInstSig();
+            var expr = $"::natsu::ops::newobj<{TypeUtils.EscapeTypeName(member.DeclaringType)}>({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src, genSig?.GenericArguments)))})";
             Stack.Push(StackType.O, expr);
         }
 
@@ -1010,15 +1025,15 @@ namespace Natsu.Compiler
         {
             var type = (ITypeDefOrRef)Op.Operand;
             var addr = Stack.Pop();
-            Stack.Push(StackType.O, $"::natsu::ops::ldobj<{TypeUtils.EscapeTypeName(type)}>({addr.Expression})");
+            Stack.Push(StackType.O, $"::natsu::ops::ldobj<{TypeUtils.EscapeVariableTypeName(type)}>({addr.Expression})");
         }
 
         public void Stobj()
         {
             var type = (ITypeDefOrRef)Op.Operand;
-            var addr = Stack.Pop();
-            var obj = Stack.Pop();
-            Writer.Ident(Ident).WriteLine($"::natsu::ops::stobj<{TypeUtils.EscapeTypeName(type)}>({addr.Expression}, {obj.Expression});");
+            var src = Stack.Pop();
+            var dest = Stack.Pop();
+            Writer.Ident(Ident).WriteLine($"::natsu::ops::stobj<{TypeUtils.EscapeVariableTypeName(type)}>({src.Expression}, {dest.Expression});");
         }
 
         public void Ldtoken()
@@ -1098,8 +1113,9 @@ namespace Natsu.Compiler
 
         public void Box()
         {
+            var type = (ITypeDefOrRef)Op.Operand;
             var value = Stack.Pop();
-            Stack.Push(StackType.O, $"::natsu::ops::box({value.Expression})");
+            Stack.Push(StackType.O, $"::natsu::ops::box({CastExpression(type.ToTypeSig(), value)})");
         }
 
         public void Ldnull()

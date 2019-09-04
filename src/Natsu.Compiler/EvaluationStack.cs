@@ -56,7 +56,7 @@ namespace Natsu.Compiler
             else
             {
                 var id = $"_v{_paramIndex++}";
-                _writer.Ident(Ident).WriteLine($"auto &&{id} = {entry.Expression};");
+                _writer.Ident(Ident).WriteLine($"auto {id} = {entry.Expression};");
                 _stackValues.Push(new StackEntry { Type = entry.Type, Expression = id });
             }
         }

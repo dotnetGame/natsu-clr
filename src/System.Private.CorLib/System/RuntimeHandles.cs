@@ -12,6 +12,6 @@ namespace System
 {
     public unsafe struct RuntimeTypeHandle
     {
-
+        internal RuntimeType _runtimeType;
     }
 }

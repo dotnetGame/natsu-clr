@@ -170,7 +170,13 @@ namespace Natsu.Compiler
                     sb.Append(">");
                     break;
                 case ElementType.Var:
-                    sb.Append(cntSig.ToGenericVar().GetName());
+                    {
+                        var var = cntSig.ToGenericVar();
+                        if (genArgs != null)
+                            EscapeTypeName(sb, genArgs[(int)var.Number]);
+                        else
+                            sb.Append(var.GetName());
+                    }
                     break;
                 case ElementType.MVar:
                     {
@@ -178,7 +184,7 @@ namespace Natsu.Compiler
                         if (genArgs != null)
                             EscapeTypeName(sb, genArgs[(int)mvar.Number]);
                         else
-                            sb.Append(cntSig.ToGenericMVar().GetName());
+                            sb.Append(mvar.GetName());
                     }
                     break;
                 case ElementType.GenericInst:
@@ -226,7 +232,7 @@ namespace Natsu.Compiler
             var sig = type.ToTypeSig();
             if (type.IsValueType || IsValueType(sig))
                 return EscapeTypeNameImpl(type, hasGen, hasModuleName, genArgs);
-            else if (type.IsGenericParam)
+            else if (type.ToTypeSig().IsGenericParameter)
                 return $"::natsu::variable_type_t<{EscapeTypeNameImpl(type, hasGen, hasModuleName, genArgs)}>";
             else
                 return $"::natsu::gc_obj_ref<{EscapeTypeNameImpl(type, hasGen, hasModuleName, genArgs)}>";
