@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -33,17 +34,22 @@ namespace Natsu.Compiler
                 return null;
             }
 
-            BasicBlock ImportBlock(Instruction inst)
+            BasicBlock ImportBlock(BasicBlock parent, Instruction inst)
             {
                 if (inst == null) return null;
 
-                var block = new BasicBlock { Id = id++ };
+                var block = new BasicBlock { Id = id++, Parent = parent };
+                Debug.Assert(id < 2000);
                 bool conti = true;
 
                 void AddNext(Instruction next)
                 {
-                    if (block.Instructions[0] != next)
-                        block.Next.Add(ImportBlock(next));
+                    if (!block.Contains(next))
+                    {
+                        var nextBlock = ImportBlock(block, next);
+                        if(nextBlock != null)
+                            block.Next.Add(nextBlock);
+                    }
                 }
 
                 while (conti)
@@ -111,7 +117,7 @@ namespace Natsu.Compiler
             }
 
             if (instructions.Count != 0)
-                _headBlock = ImportBlock(instructions[0]);
+                _headBlock = ImportBlock(null, instructions[0]);
             else
                 _headBlock = new BasicBlock { Id = 0 };
         }
@@ -773,8 +779,6 @@ namespace Natsu.Compiler
             if (method.HasThis)
                 para.Add((TypeUtils.ThisType(member.DeclaringType), Stack.Pop()));
 
-            if (Method.FullName.Contains("Log2SoftwareFallback"))
-                ;
             var gen = (member as MethodSpec)?.GenericInstMethodSig;
             para.Reverse();
             string expr;
@@ -933,7 +937,7 @@ namespace Natsu.Compiler
             var field = (IField)Op.Operand;
             string expr = Method.IsStaticConstructor && Method.DeclaringType == field.DeclaringType
                 ? TypeUtils.EscapeIdentifier(field.Name)
-                : "::natsu::static_holder<typename" + TypeUtils.EscapeTypeName(field.DeclaringType) + "::Static>::value." + TypeUtils.EscapeIdentifier(field.Name);
+                : "::natsu::static_holder<typename" + TypeUtils.EscapeTypeName(field.DeclaringType) + "::Static>::get()." + TypeUtils.EscapeIdentifier(field.Name);
             var fieldType = field.FieldSig.Type;
 
             Stack.Push(TypeUtils.GetStackType(fieldType), $"::natsu::stack_from({expr})");
@@ -964,7 +968,7 @@ namespace Natsu.Compiler
             var field = (IField)Op.Operand;
             string expr = Method.IsStaticConstructor && Method.DeclaringType == field.DeclaringType
                 ? TypeUtils.EscapeIdentifier(field.Name)
-                : "::natsu::static_holder<typename" + TypeUtils.EscapeTypeName(field.DeclaringType) + "::Static>::value." + TypeUtils.EscapeIdentifier(field.Name);
+                : "::natsu::static_holder<typename" + TypeUtils.EscapeTypeName(field.DeclaringType) + "::Static>::get()." + TypeUtils.EscapeIdentifier(field.Name);
             Stack.Push(StackType.Ref, $"::natsu::ops::ref({expr})");
         }
 
@@ -974,7 +978,7 @@ namespace Natsu.Compiler
             var field = (IField)Op.Operand;
             string expr = Method.IsStaticConstructor && Method.DeclaringType == field.DeclaringType
                 ? TypeUtils.EscapeIdentifier(field.Name)
-                : "::natsu::static_holder<typename" + TypeUtils.EscapeTypeName(field.DeclaringType) + "::Static>::value." + TypeUtils.EscapeIdentifier(field.Name);
+                : "::natsu::static_holder<typename" + TypeUtils.EscapeTypeName(field.DeclaringType) + "::Static>::get()." + TypeUtils.EscapeIdentifier(field.Name);
             var fieldType = field.FieldSig.Type;
 
             Writer.Ident(Ident).WriteLine($"{expr} = ::natsu::stack_to<{TypeUtils.EscapeVariableTypeName(fieldType)}>({value.Expression});");

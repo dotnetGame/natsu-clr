@@ -108,7 +108,7 @@ namespace Natsu.Compiler
         private static bool IsValueType(TypeSig type)
         {
             if (type == null) return false;
-            return type.IsValueType || type.IsByRef || type.IsPointer || (type.IsPinned && IsValueType(type.Next));
+            return type.IsValueType || type.IsByRef || type.IsPointer || (type.IsPinned && IsValueType(type.Next)) || (type.IsModifier && IsValueType(type.Next));
         }
 
         public static void EscapeTypeName(StringBuilder sb, TypeSig cntSig, TypeDef declaringType = null, int hasGen = 0, IList<TypeSig> genArgs = null)

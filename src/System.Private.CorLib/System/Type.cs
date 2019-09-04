@@ -5,7 +5,9 @@ namespace System
 {
     public class Type
     {
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        public static extern Type GetTypeFromHandle(RuntimeTypeHandle handle);
+        public static Type GetTypeFromHandle(RuntimeTypeHandle handle)
+        {
+            return handle._runtimeType;
+        }
     }
 }

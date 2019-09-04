@@ -70,13 +70,23 @@ inline constexpr void nop() noexcept
 }
 
 template <class T>
-struct static_holder
+struct constexpr_holder
 {
-    static T value;
+    static constexpr T value;
 };
 
 template <class T>
-T static_holder<T>::value;
+constexpr T constexpr_holder<T>::value;
+
+template <class T>
+struct static_holder
+{
+    static T &get()
+    {
+        static T value;
+        return value;
+    }
+};
 
 typedef struct _vtable
 {

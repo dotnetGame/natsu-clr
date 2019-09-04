@@ -105,7 +105,7 @@ namespace System
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         public extern unsafe String(char* value);
 
-        private unsafe string Ctor(char* ptr)
+        private static unsafe string Ctor(char* ptr)
         {
             if (ptr == null)
                 return Empty;

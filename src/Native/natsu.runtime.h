@@ -199,6 +199,15 @@ namespace stack
         };
 
         template <class TTo>
+        struct stack_to_impl<Ref, TTo>
+        {
+            gc_ref<TTo> operator()(const Ref &value) const noexcept
+            {
+                return gc_ref<TTo>(*reinterpret_cast<TTo *>(value.value_));
+            }
+        };
+
+        template <class TTo>
         struct stack_to_impl<Ref, gc_ref<TTo>>
         {
             gc_ref<TTo> operator()(const Ref &value) const noexcept
@@ -361,11 +370,11 @@ namespace stack
                 {
                     if constexpr (natsu::is_value_type_v<T>)
                     {
-                        return *box;
+                        return stack_from(*box);
                     }
                     else
                     {
-                        return obj;
+                        return stack_from(obj);
                     }
                 }
                 else
@@ -388,7 +397,7 @@ namespace stack
                     auto box = stack_to<gc_obj_ref<Object>>(obj).as<T>();
                     if (box)
                     {
-                        return make_object<Nullable_1<T>>(*box);
+                        return stack_from(make_object<Nullable_1<T>>(*box));
                     }
                     else
                     {
@@ -397,7 +406,7 @@ namespace stack
                 }
                 else
                 {
-                    return make_object<Nullable_1<T>>();
+                    return stack_from(make_object<Nullable_1<T>>());
                 }
             }
         };
@@ -489,7 +498,7 @@ gc_obj_ref<::System_Private_CorLib::System::Object> gc_alloc(const vtable_t &vta
 template <class T>
 gc_obj_ref<T> gc_new(size_t size)
 {
-    auto obj = gc_alloc(static_holder<typename T::VTable>::value, size);
+    auto obj = gc_alloc(static_holder<typename T::VTable>::get(), size);
     return obj.template cast<T>();
 }
 
@@ -540,6 +549,18 @@ template <class T, class... TArgs>
 {
     throw make_exception(make_object<T>(std::forward<TArgs>(args)...));
 }
+
+template <class T>
+struct runtime_type_holder
+{
+    static gc_obj_ref<::System_Private_CorLib::System::RuntimeType> get()
+    {
+        using namespace ::System_Private_CorLib::System;
+        static auto type = make_object<RuntimeType>(
+            reinterpret_cast<intptr_t>(&static_cast<vtable_t &>(static_holder<typename T::VTable>::get())));
+        return type;
+    }
+};
 
 namespace ops
 {
@@ -773,6 +794,11 @@ namespace ops
         {
             T value;
             value._ctor(value, std::forward<TArgs>(args)...);
+            return stack_from(value);
+        }
+        else if constexpr (std::is_same_v<T, ::System_Private_CorLib::System::String>)
+        {
+            auto value = ::System_Private_CorLib::System::String::_s_Ctor(std::forward<TArgs>(args)...);
             return stack_from(value);
         }
         else
@@ -1157,6 +1183,12 @@ namespace ops
     void stobj(const TStack &src, const stack::Ref &dest)
     {
         *reinterpret_cast<T *>(dest.value_) = stack_to<T>(src);
+    }
+
+    template <class T>
+    ::System_Private_CorLib::System::RuntimeTypeHandle ldtoken_type()
+    {
+        return { runtime_type_holder<T>::get() };
     }
 
     [[noreturn]] void throw_(const stack::O &obj);

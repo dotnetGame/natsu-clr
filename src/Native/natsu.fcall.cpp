@@ -124,7 +124,8 @@ gc_obj_ref<String> String::_s_FastAllocateString(Int32 length)
 
 Int32 String::_s_wcslen(gc_ptr<Char> ptr)
 {
-    return (int32_t)wcslen(reinterpret_cast<wchar_t *>(ptr.get()));
+    std::u16string_view sv = reinterpret_cast<const char16_t *>(&ptr->m_value);
+    return (int32_t)sv.length();
 }
 
 Double Math::_s_Abs(Double value)
