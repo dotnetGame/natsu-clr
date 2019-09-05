@@ -113,5 +113,25 @@ namespace System
 
             Array.Copy(sourceArray, (int)sourceIndex, destinationArray, (int)destinationIndex, (int)length);
         }
+
+        public static void Resize<T>(ref T[] array, int newSize)
+        {
+            if (newSize < 0)
+                ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.newSize, ExceptionResource.ArgumentOutOfRange_NeedNonNegNum);
+
+            T[] larray = array;
+            if (larray == null)
+            {
+                array = new T[newSize];
+                return;
+            }
+
+            if (larray.Length != newSize)
+            {
+                T[] newArray = new T[newSize];
+                Array.Copy(larray, 0, newArray, 0, larray.Length > newSize ? newSize : larray.Length);
+                array = newArray;
+            }
+        }
     }
 }

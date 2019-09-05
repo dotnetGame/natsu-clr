@@ -16,6 +16,16 @@ namespace System
     /// </summary>
     public static partial class MemoryExtensions
     {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static bool EqualsOrdinal(this ReadOnlySpan<char> span, ReadOnlySpan<char> value)
+        {
+            if (span.Length != value.Length)
+                return false;
+            if (value.Length == 0)  // span.Length == value.Length == 0
+                return true;
+            return span.SequenceEqual(value);
+        }
+
         /// <summary>
         /// Creates a new span over the portion of the target array.
         /// </summary>

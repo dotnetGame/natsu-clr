@@ -14,6 +14,7 @@ namespace stack
     {
         int32_t value_;
 
+        int32() = default;
         constexpr int32(int32_t value)
             : value_(value) {}
 
@@ -27,6 +28,7 @@ namespace stack
     {
         int64_t value_;
 
+        int64() = default;
         constexpr int64(int64_t value)
             : value_(value) {}
 
@@ -40,6 +42,7 @@ namespace stack
     {
         intptr_t value_;
 
+        native_int() = default;
         constexpr native_int(intptr_t value)
             : value_(value) {}
 
@@ -53,6 +56,7 @@ namespace stack
     {
         double value_;
 
+        F() = default;
         constexpr F(double value)
             : value_(value) {}
     };
@@ -61,6 +65,7 @@ namespace stack
     {
         uintptr_t value_;
 
+        Ref() = default;
         constexpr Ref(uintptr_t value)
             : value_(value) {}
 
@@ -74,6 +79,7 @@ namespace stack
     {
         intptr_t value_;
 
+        O() = default;
         constexpr O(uintptr_t value)
             : value_(value) {}
 
@@ -294,6 +300,15 @@ namespace stack
         };
 
         template <class T>
+        struct box_impl<gc_obj_ref<T>>
+        {
+            O operator()(const gc_obj_ref<T> &value) const noexcept
+            {
+                return stack_from(value);
+            }
+        };
+
+        template <class T>
         struct box_impl<::System_Private_CorLib::System::Nullable_1<T>>
         {
             O operator()(const ::System_Private_CorLib::System::Nullable_1<T> &value) const noexcept
@@ -428,6 +443,34 @@ namespace stack
             O operator()(const O &obj) const noexcept
             {
                 return isinst_impl<T>()(obj);
+            }
+        };
+
+        template <class T>
+        struct castclass_impl
+        {
+            O operator()(const O &obj) const noexcept
+            {
+                check_null_obj_ref(obj);
+                if (obj.header().vtable_as<typename T::VTable>())
+                    return obj;
+                throw_invalid_cast_exception();
+            }
+        };
+
+        template <class T>
+        struct castclass_impl<::System_Private_CorLib::System::Nullable_1<T>>
+        {
+            O operator()(const O &obj) const noexcept
+            {
+                if (obj.istrue())
+                {
+                    if (obj.header().vtable_as<typename T::VTable>())
+                        return obj;
+                    throw_invalid_cast_exception();
+                }
+
+                return null;
             }
         };
 
@@ -857,6 +900,12 @@ namespace ops
         return stack::details::isinst_impl<T>()(obj);
     }
 
+    template <class T>
+    stack::O castclass(const stack::O &obj) noexcept
+    {
+        return stack::details::castclass_impl<T>()(obj);
+    }
+
 #define LDELEM_IMPL(name, type, value_type)                                              \
     inline value_type ldelem_##name(const stack::O &obj, stack::int32 index)             \
     {                                                                                    \
@@ -884,6 +933,15 @@ namespace ops
         using ::System_Private_CorLib::System::SZArray_1;
         check_null_obj_ref(obj);
         return stack_from(stack_to<gc_obj_ref<SZArray_1<gc_obj_ref<Object>>>>(obj)->at(index.value_));
+    }
+
+    template <class T>
+    inline auto ldelem(const stack::O &obj, stack::int32 index)
+    {
+        using ::System_Private_CorLib::System::Object;
+        using ::System_Private_CorLib::System::SZArray_1;
+        check_null_obj_ref(obj);
+        return stack_from(stack_to<gc_obj_ref<SZArray_1<T>>>(obj)->at(index.value_));
     }
 
 #undef LDELEM_IMPL

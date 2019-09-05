@@ -1,5 +1,6 @@
 #include "System.Private.CorLib.h"
 #include <algorithm>
+#include <stdexcept>
 
 using namespace natsu;
 using namespace natsu::stack;
@@ -38,6 +39,11 @@ void natsu::throw_invalid_cast_exception()
 void natsu::throw_overflow_exception()
 {
     throw make_exception(make_object<System_Private_CorLib::System::OverflowException>());
+}
+
+void natsu::pure_call()
+{
+    throw std::runtime_error("pure call");
 }
 
 native_int ops::ldlen(const O &obj)

@@ -239,20 +239,5 @@ namespace System
 
             return new ReadOnlySpan<T>(ref Unsafe.Add(ref _pointer.Value, start), length);
         }
-
-        /// <summary>
-        /// Copies the contents of this read-only span into a new array.  This heap
-        /// allocates, so should generally be avoided, however it is sometimes
-        /// necessary to bridge the gap with APIs written in terms of arrays.
-        /// </summary>
-        //public T[] ToArray()
-        //{
-        //    if (_length == 0)
-        //        return Array.Empty<T>();
-
-        //    var destination = new T[_length];
-        //    Buffer.Memmove(ref Unsafe.As<byte, T>(ref destination.GetRawSzArrayData()), ref _pointer.Value, (nuint)_length);
-        //    return destination;
-        //}
     }
 }

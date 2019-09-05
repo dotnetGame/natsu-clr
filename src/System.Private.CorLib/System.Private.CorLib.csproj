@@ -30,6 +30,5 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="System\Security\" />
-    <Folder Include="System\Text\" />
   </ItemGroup>
 </Project>

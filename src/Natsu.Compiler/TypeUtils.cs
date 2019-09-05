@@ -11,66 +11,95 @@ namespace Natsu.Compiler
     {
         public static StackType GetStackType(TypeSig type)
         {
+            StackTypeCode code;
             switch (type.ElementType)
             {
                 case ElementType.Void:
-                    return StackType.Void;
+                    code = StackTypeCode.Void;
+                    break;
                 case ElementType.Boolean:
-                    return StackType.Int32;
+                    code = StackTypeCode.Int32;
+                    break;
                 case ElementType.Char:
-                    return StackType.Int32;
+                    code = StackTypeCode.Int32;
+                    break;
                 case ElementType.I1:
-                    return StackType.Int32;
+                    code = StackTypeCode.Int32;
+                    break;
                 case ElementType.U1:
-                    return StackType.Int32;
+                    code = StackTypeCode.Int32;
+                    break;
                 case ElementType.I2:
-                    return StackType.Int32;
+                    code = StackTypeCode.Int32;
+                    break;
                 case ElementType.U2:
-                    return StackType.Int32;
+                    code = StackTypeCode.Int32;
+                    break;
                 case ElementType.I4:
-                    return StackType.Int32;
+                    code = StackTypeCode.Int32;
+                    break;
                 case ElementType.U4:
-                    return StackType.Int32;
+                    code = StackTypeCode.Int32;
+                    break;
                 case ElementType.I8:
-                    return StackType.Int64;
+                    code = StackTypeCode.Int64;
+                    break;
                 case ElementType.U8:
-                    return StackType.Int64;
+                    code = StackTypeCode.Int64;
+                    break;
                 case ElementType.R4:
-                    return StackType.F;
+                    code = StackTypeCode.F;
+                    break;
                 case ElementType.R8:
-                    return StackType.F;
+                    code = StackTypeCode.F;
+                    break;
                 case ElementType.String:
-                    return StackType.O;
+                    code = StackTypeCode.O;
+                    break;
                 case ElementType.Ptr:
-                    return StackType.NativeInt;
+                    code = StackTypeCode.NativeInt;
+                    break;
                 case ElementType.ByRef:
-                    return StackType.Ref;
+                    code = StackTypeCode.Ref;
+                    break;
                 case ElementType.ValueType:
-                    return StackType.ValueType;
+                    code = StackTypeCode.Runtime;
+                    break;
                 case ElementType.Class:
-                    return StackType.O;
+                    code = StackTypeCode.O;
+                    break;
                 case ElementType.Var:
-                    return StackType.Var;
+                    code = StackTypeCode.Runtime;
+                    break;
                 case ElementType.Array:
-                    return StackType.O;
+                    code = StackTypeCode.O;
+                    break;
                 case ElementType.TypedByRef:
-                    return StackType.ValueType;
+                    code = StackTypeCode.Runtime;
+                    break;
                 case ElementType.I:
-                    return StackType.NativeInt;
+                    code = StackTypeCode.NativeInt;
+                    break;
                 case ElementType.U:
-                    return StackType.NativeInt;
+                    code = StackTypeCode.NativeInt;
+                    break;
                 case ElementType.R:
-                    return StackType.F;
+                    code = StackTypeCode.F;
+                    break;
                 case ElementType.Object:
-                    return StackType.O;
+                    code = StackTypeCode.O;
+                    break;
                 case ElementType.SZArray:
-                    return StackType.O;
+                    code = StackTypeCode.O;
+                    break;
                 case ElementType.MVar:
-                    return StackType.Var;
+                    code = StackTypeCode.Runtime;
+                    break;
                 case ElementType.GenericInst:
                     {
                         var gen = type.ToGenericInstSig();
-                        return GetStackType(gen.GenericType);
+                        code = GetStackType(gen.GenericType).Code;
+                        break;
                     }
                 case ElementType.CModReqd:
                 case ElementType.CModOpt:
@@ -79,6 +108,8 @@ namespace Natsu.Compiler
                 default:
                     throw new NotSupportedException();
             }
+
+            return new StackType { Code = code, Name = EscapeVariableTypeName(type) };
         }
 
         public static TypeSig ThisType(ITypeDefOrRef type)
@@ -398,6 +429,29 @@ namespace Natsu.Compiler
             }
 
             return newTypes;
+        }
+
+        public static string EscapeStackTypeName(StackType stackType)
+        {
+            switch (stackType.Code)
+            {
+                case StackTypeCode.Int32:
+                    return "::natsu::stack::int32";
+                case StackTypeCode.Int64:
+                    return "::natsu::stack::int64";
+                case StackTypeCode.NativeInt:
+                    return "::natsu::stack::native_int";
+                case StackTypeCode.F:
+                    return "::natsu::stack::F";
+                case StackTypeCode.O:
+                    return "::natsu::stack::O";
+                case StackTypeCode.Ref:
+                    return "::natsu::stack::Ref";
+                default:
+                    if (string.IsNullOrEmpty(stackType.Name))
+                        throw new NotSupportedException(stackType.ToString());
+                    return stackType.Name;
+            }
         }
     }
 }

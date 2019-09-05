@@ -2,16 +2,31 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+/*============================================================
+**
+**
+**
+** Purpose: This is the value class representing a Unicode character
+** Char methods until we create this functionality.
+**
+**
+===========================================================*/
+
+using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.InteropServices;
 
 namespace System
 {
-    public struct Char
+    [Serializable]
+    [StructLayout(LayoutKind.Sequential)]
+    [System.Runtime.CompilerServices.TypeForwardedFrom("mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089")]
+    public readonly struct Char : IComparable, IComparable<char>, IEquatable<char>
     {
         //
         // Member Variables
         //
-        private short m_value; // Do not rename (binary serialization)
+        private readonly char m_value; // Do not rename (binary serialization)
 
         //
         // Public Constants
@@ -64,6 +79,63 @@ namespace System
                 return (IsWhiteSpaceLatin1(c));
             }
             return false;
+        }
+
+
+        //
+        // Private Constants
+        //
+
+        //
+        // Overriden Instance Methods
+        //
+
+        // Calculate a hashcode for a 2 byte Unicode character.
+        public override int GetHashCode()
+        {
+            return (int)m_value | ((int)m_value << 16);
+        }
+
+        // Used for comparing two boxed Char objects.
+        //
+        public override bool Equals(object obj)
+        {
+            if (!(obj is char))
+            {
+                return false;
+            }
+            return (m_value == ((char)obj).m_value);
+        }
+
+        [System.Runtime.Versioning.NonVersionable]
+        public bool Equals(char obj)
+        {
+            return m_value == obj;
+        }
+
+        // Compares this object to another object, returning an integer that
+        // indicates the relationship. 
+        // Returns a value less than zero if this  object
+        // null is considered to be less than any instance.
+        // If object is not of type Char, this method throws an ArgumentException.
+        //
+        public int CompareTo(object value)
+        {
+            if (value == null)
+            {
+                return 1;
+            }
+            if (!(value is char))
+            {
+                throw new ArgumentException(SR.Arg_MustBeChar);
+            }
+
+            return (m_value - ((char)value).m_value);
+        }
+
+        public int CompareTo(char value)
+        {
+            return (m_value - value);
         }
     }
 }

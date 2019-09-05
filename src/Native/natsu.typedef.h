@@ -15,6 +15,7 @@ namespace System
 {
     struct Exception;
     struct String;
+    struct Object;
 
     template <class T>
     struct SZArray_1;
@@ -37,6 +38,7 @@ struct natsu_exception;
 [[noreturn]] void throw_null_ref_exception();
 [[noreturn]] void throw_invalid_cast_exception();
 [[noreturn]] void throw_overflow_exception();
+[[noreturn]] void pure_call();
 
 template <class T>
 void check_null_obj_ref(gc_obj_ref<T> obj)
@@ -347,9 +349,9 @@ struct gc_obj_ref
     {
     }
 
-    template <class U, class = std::enable_if_t<std::is_convertible_v<U *, T *>>>
+    template <class U>
     gc_obj_ref(gc_obj_ref<U> &&other) noexcept
-        : ptr_(static_cast<T *>(other.ptr_))
+        : ptr_(reinterpret_cast<T *>(other.ptr_))
     {
         other.ptr_ = nullptr;
     }

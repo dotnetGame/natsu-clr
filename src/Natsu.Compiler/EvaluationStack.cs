@@ -7,7 +7,7 @@ using dnlib.DotNet;
 
 namespace Natsu.Compiler
 {
-    enum StackType
+    public enum StackTypeCode
     {
         Void,
         Int32,
@@ -16,8 +16,14 @@ namespace Natsu.Compiler
         F,
         O,
         Ref,
-        ValueType,
-        Var
+        Runtime
+    }
+
+    public struct StackType
+    {
+        public StackTypeCode Code;
+
+        public string Name;
     }
 
     class StackEntry
@@ -36,20 +42,27 @@ namespace Natsu.Compiler
     {
         private readonly Stack<StackEntry> _stackValues = new Stack<StackEntry>();
         private int _paramIndex = 0;
-        private StreamWriter _writer;
+        private TextWriter _writer;
         public int Ident { get; }
 
         public ITypeDefOrRef Constrained { get; set; }
 
-        public EvaluationStack(StreamWriter writer, int ident)
+        public bool Empty => _stackValues.Count == 0;
+
+        public EvaluationStack(TextWriter writer, int ident)
         {
             _writer = writer;
             Ident = ident;
         }
 
+        public void SetWriter(TextWriter writer)
+        {
+            _writer = writer;
+        }
+
         public void Push(StackEntry entry)
         {
-            if (entry.Type == StackType.Void)
+            if (entry.Type.Code == StackTypeCode.Void)
             {
                 _writer.Ident(Ident).WriteLine($"{entry.Expression};");
             }
@@ -64,6 +77,11 @@ namespace Natsu.Compiler
         public void Push(StackType type, string expression)
         {
             Push(new StackEntry { Type = type, Expression = expression });
+        }
+
+        public void Push(StackTypeCode type, string expression)
+        {
+            Push(new StackEntry { Type = new StackType { Code = type }, Expression = expression });
         }
 
         public StackEntry Pop()
@@ -84,5 +102,12 @@ namespace Natsu.Compiler
             stack._paramIndex = _paramIndex;
             return stack;
         }
+    }
+
+    class SpillSlot
+    {
+        public string Name { get; set; }
+
+        public StackEntry Entry { get; set; }
     }
 }

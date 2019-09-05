@@ -634,19 +634,16 @@ namespace Natsu.Compiler
             {
                 if (inHeader == (type.TypeDef.HasGenericParameters || method.HasGenericParameters))
                 {
-                    if (!method.IsAbstract)
+                    if (!method.IsInstanceConstructor && !method.IsStatic)
                     {
-                        if (!method.IsInstanceConstructor && !method.IsStatic)
-                        {
-                            WriteVTableMethodBody(writer, ident, method);
-                            writer.WriteLine();
-                        }
+                        WriteVTableMethodBody(writer, ident, method);
+                        writer.WriteLine();
+                    }
 
-                        if (!method.IsInternalCall)
-                        {
-                            WriteMethodBody(writer, ident, method);
-                            writer.WriteLine();
-                        }
+                    if (!method.IsAbstract && !method.IsInternalCall)
+                    {
+                        WriteMethodBody(writer, ident, method);
+                        writer.WriteLine();
                     }
                 }
             }
@@ -707,7 +704,7 @@ namespace Natsu.Compiler
             writer.Write(") const");
             if (method.IsAbstract)
             {
-                writer.WriteLine(" = 0;");
+                writer.WriteLine(";");
             }
             else
             {
@@ -745,11 +742,18 @@ namespace Natsu.Compiler
             WriteParameterList(writer, method.Parameters, isVTable: true);
             writer.WriteLine(") const");
             writer.Ident(ident).WriteLine("{");
-            writer.Ident(ident + 1).Write("return ");
-            writer.Write(TypeUtils.EscapeTypeName(method.DeclaringType));
-            writer.Write("::" + TypeUtils.EscapeMethodName(method) + "(");
-            WriteParameterList(writer, method.Parameters, hasType: false, isVTable: true);
-            writer.WriteLine(");");
+            if (method.IsAbstract)
+            {
+                writer.Ident(ident + 1).WriteLine("::natsu::pure_call();");
+            }
+            else
+            {
+                writer.Ident(ident + 1).Write("return ");
+                writer.Write(TypeUtils.EscapeTypeName(method.DeclaringType));
+                writer.Write("::" + TypeUtils.EscapeMethodName(method) + "(");
+                WriteParameterList(writer, method.Parameters, hasType: false, isVTable: true);
+                writer.WriteLine(");");
+            }
             writer.Ident(ident).WriteLine("}");
 
             writer.Flush();
@@ -827,7 +831,7 @@ namespace Natsu.Compiler
 
     internal static class Extensions
     {
-        public static StreamWriter Ident(this StreamWriter writer, int ident)
+        public static TextWriter Ident(this TextWriter writer, int ident)
         {
             for (int i = 0; i < ident; i++)
                 writer.Write("    ");

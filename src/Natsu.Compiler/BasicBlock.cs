@@ -11,17 +11,17 @@ namespace Natsu.Compiler
 
         public List<Instruction> Instructions { get; } = new List<Instruction>();
 
-        public BasicBlock Parent { get; set; }
-
         public List<BasicBlock> Next { get; set; } = new List<BasicBlock>();
 
-        public bool Contains(Instruction instruction)
-        {
-            if (Instructions.Count != 0 && Instructions[0] == instruction)
-                return true;
-            if (Parent != null)
-                return Parent.Contains(instruction);
-            return false;
-        }
+        public BasicBlock Parent { get; set; }
+
+        public string Text { get; set; }
+
+        public List<SpillSlot> Spills { get; } = new List<SpillSlot>();
+    }
+
+    class BlockGraph
+    {
+        public Dictionary<Instruction, BasicBlock> Blocks { get; } = new Dictionary<Instruction, BasicBlock>();
     }
 }

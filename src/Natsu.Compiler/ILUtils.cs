@@ -19,18 +19,8 @@ namespace Natsu.Compiler
         {
             var id = instruction == block.Instructions[0]
                 ? block.Id
-                : block.Next.FirstOrDefault(x => x.Instructions[0] == instruction)?.Id;
-            if (id.HasValue)
-                return GetLabel(method, id.Value);
-            return GetParentLabel(method, instruction, block.Parent);
-        }
-
-        private static string GetParentLabel(MethodDef method, Instruction instruction, BasicBlock block)
-        {
-            Debug.Assert(block != null);
-            if (instruction == block.Instructions[0])
-                return GetLabel(method, block.Id);
-            return GetParentLabel(method, instruction, block.Parent);
+                : block.Next.First(x => x.Instructions[0] == instruction).Id;
+            return GetLabel(method, id);
         }
 
         public static string GetFallthroughLabel(MethodDef method, Instruction instruction, BasicBlock block)
