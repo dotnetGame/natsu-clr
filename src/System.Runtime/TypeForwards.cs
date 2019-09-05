@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 [assembly: TypeForwardedTo(typeof(Object))]
 [assembly: TypeForwardedTo(typeof(ValueType))]
@@ -21,3 +22,4 @@ using System.Runtime.CompilerServices;
 [assembly: TypeForwardedTo(typeof(Nullable<>))]
 [assembly: TypeForwardedTo(typeof(IComparable))]
 [assembly: TypeForwardedTo(typeof(IEquatable<>))]
+[assembly: TypeForwardedTo(typeof(StringBuilder))]

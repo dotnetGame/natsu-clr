@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Text;
 
 namespace Chino.Kernel
 {
@@ -7,12 +8,11 @@ namespace Chino.Kernel
     {
         static void Main()
         {
-            bool b = true;
-            for (int i = 0; i < 3; i++)
-            {
-                Debug.WriteLine("Hello Chino OS! " + b.ToString());
-                b = !b;
-            }
+            var sb = new StringBuilder();
+            sb.AppendLine("Hello Chino OS!");
+            sb.AppendLine("Baka xiahuan!");
+
+            Debug.WriteLine(sb.ToString());
         }
 
         static string ToString(IComparable i)
