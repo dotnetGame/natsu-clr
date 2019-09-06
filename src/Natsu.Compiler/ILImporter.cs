@@ -901,14 +901,14 @@ namespace Natsu.Compiler
                 Stack.Push(StackTypeCode.O, $"::natsu::ops::box(*::natsu::stack_to<{TypeUtils.EscapeVariableTypeName(new ByRefSig(Stack.Constrained.ToTypeSig()))}>({para[0].src.Expression}))");
                 para[0] = (para[0].destType, Stack.Pop());
 
-                expr = $"{para[0].src.Expression}.header().template vtable_as<{TypeUtils.EscapeTypeName(member.DeclaringType)}::VTable>()->{TypeUtils.EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src)))})";
+                expr = $"{para[0].src.Expression}.header().template vtable_as<typename {TypeUtils.EscapeTypeName(member.DeclaringType)}::VTable>()->{TypeUtils.EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src)))})";
 
                 Stack.Constrained = null;
             }
             else
             {
                 Writer.Ident(Ident).WriteLine($"::natsu::check_null_obj_ref({para[0].src.Expression});");
-                expr = $"{para[0].src.Expression}.header().template vtable_as<{TypeUtils.EscapeTypeName(member.DeclaringType)}::VTable>()->{TypeUtils.EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src)))})";
+                expr = $"{para[0].src.Expression}.header().template vtable_as<typename {TypeUtils.EscapeTypeName(member.DeclaringType)}::VTable>()->{TypeUtils.EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src)))})";
             }
 
             var stackType = TypeUtils.GetStackType(method.RetType);
@@ -981,14 +981,14 @@ namespace Natsu.Compiler
         public void Unary(string op)
         {
             var v1 = Stack.Pop();
-            Stack.Push(StackTypeCode.Int32, $"::natsu::ops::{op}({v1.Expression})");
+            Stack.Push(StackTypeCode.Int32, $"::natsu::ops::{op}_({v1.Expression})");
         }
 
         public void Binary(string op)
         {
             var v2 = Stack.Pop();
             var v1 = Stack.Pop();
-            Stack.Push(StackTypeCode.Int32, $"::natsu::ops::{op}({v1.Expression}, {v2.Expression})");
+            Stack.Push(StackTypeCode.Int32, $"::natsu::ops::{op}_({v1.Expression}, {v2.Expression})");
         }
 
         private void BranchUnconditional(int ident, Instruction op)
@@ -1001,7 +1001,7 @@ namespace Natsu.Compiler
             var v2 = Stack.Pop();
             var v1 = Stack.Pop();
             var nextOp = (Instruction)Op.Operand;
-            Writer.Ident(Ident).WriteLine($"if (::natsu::ops::{op}({v1.Expression}, {v2.Expression}).istrue())");
+            Writer.Ident(Ident).WriteLine($"if (::natsu::ops::{op}_({v1.Expression}, {v2.Expression}).istrue())");
             Writer.Ident(Ident + 1).WriteLine($"goto {ILUtils.GetLabel(Method, nextOp, Block)};");
             Writer.Ident(Ident).WriteLine("else");
             Writer.Ident(Ident + 1).WriteLine($"goto {ILUtils.GetFallthroughLabel(Method, Op, Block)};");

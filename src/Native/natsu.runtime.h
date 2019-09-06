@@ -185,7 +185,7 @@ struct runtime_type_holder
 };
 
 template <class TFrom>
-auto stack_from(TFrom &&value);
+auto stack_from(const TFrom &value);
 
 template <class TTo, class TFrom>
 auto stack_to(TFrom &&value);
@@ -488,7 +488,7 @@ namespace stack
                     }
                     else
                     {
-                        return stack_from(obj);
+                        return obj;
                     }
                 }
                 else
@@ -579,9 +579,9 @@ namespace stack
         template <class TFrom, class TTo>
         struct access_impl<TFrom, gc_ref<TTo>>
         {
-            gc_ref<TTo> operator()(const TFrom &obj) const noexcept
+            gc_ref<TTo> operator()(TFrom &obj) const noexcept
             {
-                return gc_ref_from_ref(stack_to<TTo>(obj));
+                return gc_ref_from_ref(obj);
             }
         };
 
@@ -606,9 +606,9 @@ namespace stack
 }
 
 template <class TFrom>
-auto stack_from(TFrom &&value)
+auto stack_from(const TFrom &value)
 {
-    return stack::details::stack_from_impl<std::decay_t<TFrom>>()(std::forward<TFrom>(value));
+    return stack::details::stack_from_impl<std::decay_t<TFrom>>()(value);
 }
 
 template <class TTo, class TFrom>
@@ -620,7 +620,7 @@ auto stack_to(TFrom &&value)
 namespace ops
 {
 #define BINARY_OP_IMPL(name, op, A, B, Ret, Med, Cast)                                          \
-    inline Ret name(const A &lhs, const B &rhs) noexcept                                        \
+    inline Ret name##_(const A &lhs, const B &rhs) noexcept                                     \
     {                                                                                           \
         return static_cast<Cast>(static_cast<Med>(lhs.value_) op static_cast<Med>(rhs.value_)); \
     }
@@ -717,13 +717,13 @@ namespace ops
 
 #undef BINARY_OP_IMPL
 
-    inline stack::F rem(const stack::F &lhs, const stack::F &rhs) noexcept
+    inline stack::F rem_(const stack::F &lhs, const stack::F &rhs) noexcept
     {
         return fmod(lhs.value_, rhs.value_);
     }
 
 #define UNARY_OP_IMPL(name, op, A, Med, Cast)                        \
-    inline A name(const A &value) noexcept                           \
+    inline A name##_(const A &value) noexcept                        \
     {                                                                \
         return static_cast<Cast>(op static_cast<Med>(value.value_)); \
     }
@@ -736,7 +736,7 @@ namespace ops
 #undef UNARY_OP_IMPL
 
 #define COMPARE_OP_IMPL(name, op, A, B, Med)                                         \
-    inline stack::int32 name(const A &lhs, const B &rhs) noexcept                    \
+    inline stack::int32 name##_(const A &lhs, const B &rhs) noexcept                 \
     {                                                                                \
         return static_cast<Med>(lhs.value_) op static_cast<Med>(rhs.value_) ? 1 : 0; \
     }
@@ -889,9 +889,9 @@ namespace ops
     }
 
     template <class TTo, class TFrom>
-    auto access(TFrom value) noexcept
+    auto access(TFrom &&value) noexcept
     {
-        return stack::details::access_impl<TFrom, TTo>()(std::forward<TFrom>(value));
+        return stack::details::access_impl<std::decay_t<TFrom>, TTo>()(std::forward<TFrom>(value));
     }
 
     template <class TFrom>

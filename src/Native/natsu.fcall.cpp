@@ -1,5 +1,4 @@
 #include "Chino.Kernel.h"
-#include "System.Private.CorLib.h"
 #include <cmath>
 #include <cstring>
 
