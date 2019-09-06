@@ -12,6 +12,8 @@ namespace Chino.Kernel
             sb.AppendLine("Hello Chino OS!");
             sb.AppendLine("Baka xiahuan!");
 
+            //Action action = () => Debug.WriteLine(sb.ToString());
+            //action();
             Debug.WriteLine(sb.ToString());
         }
 

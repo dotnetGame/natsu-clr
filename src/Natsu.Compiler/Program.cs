@@ -640,7 +640,8 @@ namespace Natsu.Compiler
                         writer.WriteLine();
                     }
 
-                    if (!method.IsAbstract && !method.IsInternalCall)
+                    if (!method.IsAbstract && !method.IsInternalCall
+                        && method.HasBody)
                     {
                         WriteMethodBody(writer, ident, method);
                         writer.WriteLine();

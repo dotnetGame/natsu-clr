@@ -95,7 +95,106 @@ namespace stack
     };
 
     static constexpr O null = 0;
+}
 
+gc_obj_ref<::System_Private_CorLib::System::Object> gc_alloc(const vtable_t &vtable, size_t size);
+
+template <class T>
+gc_obj_ref<T> gc_new(size_t size)
+{
+    auto obj = gc_alloc(static_holder<typename T::VTable>::get(), size);
+    return obj.template cast<T>();
+}
+
+template <class T>
+gc_obj_ref<T> gc_new()
+{
+    return gc_new<T>(sizeof(T));
+}
+
+template <class T>
+gc_obj_ref<::System_Private_CorLib::System::SZArray_1<T>> gc_new_array(stack::int32 length)
+{
+    using obj_t = ::System_Private_CorLib::System::SZArray_1<T>;
+    auto size = sizeof(obj_t) + (size_t)length.value_ * sizeof(T);
+    auto obj = gc_new<obj_t>(size);
+    obj->Length = length.value_;
+    return obj;
+}
+
+gc_obj_ref<::System_Private_CorLib::System::String> load_string(std::u16string_view string);
+std::u16string_view to_string_view(gc_obj_ref<::System_Private_CorLib::System::String> string);
+
+template <class T, class... TArgs>
+auto make_object(TArgs... args)
+{
+    if constexpr (is_value_type_v<T>)
+    {
+        T value;
+        value._ctor(value, std::forward<TArgs>(args)...);
+        return value;
+    }
+    else
+    {
+        auto value = gc_new<T>();
+        value->_ctor(value, std::forward<TArgs>(args)...);
+        return value;
+    }
+}
+
+template <class T>
+natsu_exception make_exception(gc_obj_ref<T> exception)
+{
+    return { std::move(exception) };
+}
+
+template <class T, class... TArgs>
+[[noreturn]] void throw_exception(TArgs &&... args)
+{
+    throw make_exception(make_object<T>(std::forward<TArgs>(args)...));
+}
+
+inline void check_null_obj_ref(stack::O obj)
+{
+    if (!obj.istrue())
+        throw_null_ref_exception();
+}
+
+inline void check_null_obj_ref(stack::native_int addr)
+{
+    if (!addr.istrue())
+        throw_null_ref_exception();
+}
+
+inline void check_null_obj_ref(stack::Ref addr)
+{
+    if (!addr.istrue())
+        throw_null_ref_exception();
+}
+
+template <class T>
+struct runtime_type_holder
+{
+    static gc_obj_ref<::System_Private_CorLib::System::RuntimeType> get()
+    {
+        using namespace ::System_Private_CorLib::System;
+        static auto type = make_object<RuntimeType>(
+            reinterpret_cast<intptr_t>(&static_cast<vtable_t &>(static_holder<typename T::VTable>::get())));
+        return type;
+    }
+};
+
+template <class TFrom>
+auto stack_from(TFrom &&value);
+
+template <class TTo, class TFrom>
+auto stack_to(TFrom &&value);
+}
+
+namespace natsu
+{
+namespace stack
+{
     namespace details
     {
         template <class T>
@@ -334,7 +433,7 @@ namespace stack
                 using ::System_Private_CorLib::System::Object;
 
                 check_null_obj_ref(obj);
-                auto box = stack_to<gc_obj_ref<Object>>(obj).as<T>();
+                auto box = stack_to<gc_obj_ref<Object>>(obj).template as<T>();
                 if (box)
                     return stack_from(gc_ref_from_ref(*box));
                 else
@@ -352,7 +451,7 @@ namespace stack
 
                 if (obj)
                 {
-                    auto box = stack_to<gc_obj_ref<Object>>(obj).as<T>();
+                    auto box = stack_to<gc_obj_ref<Object>>(obj).template as<T>();
                     if (box)
                     {
                         auto new_obj = gc_new<Nullable_1<T>>();
@@ -380,7 +479,7 @@ namespace stack
                 using ::System_Private_CorLib::System::Object;
 
                 check_null_obj_ref(obj);
-                auto box = stack_to<gc_obj_ref<Object>>(obj).as<T>();
+                auto box = stack_to<gc_obj_ref<Object>>(obj).template as<T>();
                 if (box)
                 {
                     if constexpr (natsu::is_value_type_v<T>)
@@ -409,7 +508,7 @@ namespace stack
 
                 if (obj)
                 {
-                    auto box = stack_to<gc_obj_ref<Object>>(obj).as<T>();
+                    auto box = stack_to<gc_obj_ref<Object>>(obj).template as<T>();
                     if (box)
                     {
                         return stack_from(make_object<Nullable_1<T>>(*box));
@@ -517,93 +616,6 @@ auto stack_to(TFrom &&value)
 {
     return stack::details::stack_to_impl<std::decay_t<TFrom>, TTo>()(std::forward<TFrom>(value));
 }
-
-inline void check_null_obj_ref(stack::O obj)
-{
-    if (!obj.istrue())
-        throw_null_ref_exception();
-}
-
-inline void check_null_obj_ref(stack::native_int addr)
-{
-    if (!addr.istrue())
-        throw_null_ref_exception();
-}
-
-inline void check_null_obj_ref(stack::Ref addr)
-{
-    if (!addr.istrue())
-        throw_null_ref_exception();
-}
-
-gc_obj_ref<::System_Private_CorLib::System::Object> gc_alloc(const vtable_t &vtable, size_t size);
-
-template <class T>
-gc_obj_ref<T> gc_new(size_t size)
-{
-    auto obj = gc_alloc(static_holder<typename T::VTable>::get(), size);
-    return obj.template cast<T>();
-}
-
-template <class T>
-gc_obj_ref<T> gc_new()
-{
-    return gc_new<T>(sizeof(T));
-}
-
-template <class T>
-gc_obj_ref<::System_Private_CorLib::System::SZArray_1<T>> gc_new_array(stack::int32 length)
-{
-    using obj_t = ::System_Private_CorLib::System::SZArray_1<T>;
-    auto size = sizeof(obj_t) + (size_t)length.value_ * sizeof(T);
-    auto obj = gc_new<obj_t>(size);
-    obj->Length = length.value_;
-    return obj;
-}
-
-gc_obj_ref<::System_Private_CorLib::System::String> load_string(std::u16string_view string);
-std::u16string_view to_string_view(gc_obj_ref<::System_Private_CorLib::System::String> string);
-
-template <class T, class... TArgs>
-auto make_object(TArgs... args)
-{
-    if constexpr (is_value_type_v<T>)
-    {
-        T value;
-        value._ctor(value, std::forward<TArgs>(args)...);
-        return value;
-    }
-    else
-    {
-        auto value = gc_new<T>();
-        value->_ctor(value, std::forward<TArgs>(args)...);
-        return value;
-    }
-}
-
-template <class T>
-natsu_exception make_exception(gc_obj_ref<T> exception)
-{
-    return { std::move(exception) };
-}
-
-template <class T, class... TArgs>
-[[noreturn]] void throw_exception(TArgs &&... args)
-{
-    throw make_exception(make_object<T>(std::forward<TArgs>(args)...));
-}
-
-template <class T>
-struct runtime_type_holder
-{
-    static gc_obj_ref<::System_Private_CorLib::System::RuntimeType> get()
-    {
-        using namespace ::System_Private_CorLib::System;
-        static auto type = make_object<RuntimeType>(
-            reinterpret_cast<intptr_t>(&static_cast<vtable_t &>(static_holder<typename T::VTable>::get())));
-        return type;
-    }
-};
 
 namespace ops
 {

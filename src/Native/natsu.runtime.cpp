@@ -36,6 +36,11 @@ void natsu::throw_invalid_cast_exception()
     throw make_exception(make_object<System_Private_CorLib::System::InvalidCastException>());
 }
 
+void natsu::throw_index_out_of_range_exception()
+{
+    throw make_exception(make_object<System_Private_CorLib::System::IndexOutOfRangeException>());
+}
+
 void natsu::throw_overflow_exception()
 {
     throw make_exception(make_object<System_Private_CorLib::System::OverflowException>());
@@ -56,4 +61,9 @@ void ops::throw_(const stack::O &obj)
 {
     check_null_obj_ref(obj);
     throw make_exception(stack_to<gc_obj_ref<Exception>>(obj));
+}
+
+void Action::Invoke(gc_obj_ref<Action> _this)
+{
+    throw make_exception(make_object<System_Private_CorLib::System::NotImplementedException>());
 }

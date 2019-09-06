@@ -23,7 +23,7 @@ namespace System
         internal IntPtr _methodPtrAux;
 
         // Protect the default constructor so you can't build a delegate
-        private Delegate()
+        internal Delegate()
         {
         }
     }

@@ -37,6 +37,7 @@ struct natsu_exception;
 
 [[noreturn]] void throw_null_ref_exception();
 [[noreturn]] void throw_invalid_cast_exception();
+[[noreturn]] void throw_index_out_of_range_exception();
 [[noreturn]] void throw_overflow_exception();
 [[noreturn]] void pure_call();
 
@@ -70,15 +71,6 @@ inline constexpr int64_t to_int64(uint64_t value) noexcept
 inline constexpr void nop() noexcept
 {
 }
-
-template <class T>
-struct constexpr_holder
-{
-    static constexpr T value;
-};
-
-template <class T>
-constexpr T constexpr_holder<T>::value;
 
 template <class T>
 struct static_holder
@@ -395,7 +387,7 @@ struct gc_obj_ref
     {
         if (ptr_)
         {
-            auto vtable = header().vtable_as<typename U::VTable>();
+            auto vtable = header().template vtable_as<typename U::VTable>();
             if (vtable)
                 return gc_obj_ref<U>(reinterpret_cast<U *>(ptr_));
         }
@@ -539,29 +531,29 @@ constexpr bool operator==(null_gc_obj_ref, const gc_obj_ref<T> &rhs) noexcept
 
 #define NATSU_PRIMITIVE_OPERATORS_IMPL
 
-#define NATSU_SZARRAY_IMPL                                                                         \
-    T &at(int index)                                                                               \
-    {                                                                                              \
-        if ((uint32_t)index >= length())                                                           \
-            ::natsu::throw_exception<::System_Private_CorLib::System::IndexOutOfRangeException>(); \
-        return elements_[index];                                                                   \
-    }                                                                                              \
-    ::natsu::gc_ref<T> ref_at(int index)                                                           \
-    {                                                                                              \
-        if ((uint32_t)index >= length())                                                           \
-            ::natsu::throw_exception<::System_Private_CorLib::System::IndexOutOfRangeException>(); \
-        return ::natsu::gc_ref_from_ref(elements_[index]);                                         \
-    }                                                                                              \
-    T get(int index)                                                                               \
-    {                                                                                              \
-        return at(index);                                                                          \
-    }                                                                                              \
-    void set(int index, T value)                                                                   \
-    {                                                                                              \
-        at(index) = value;                                                                         \
-    }                                                                                              \
-    uintptr_t length() const noexcept                                                              \
-    {                                                                                              \
-        return Length.m_value;                                                                     \
-    }                                                                                              \
+#define NATSU_SZARRAY_IMPL                                 \
+    T &at(int index)                                       \
+    {                                                      \
+        if ((uint32_t)index >= length())                   \
+            ::natsu::throw_index_out_of_range_exception(); \
+        return elements_[index];                           \
+    }                                                      \
+    ::natsu::gc_ref<T> ref_at(int index)                   \
+    {                                                      \
+        if ((uint32_t)index >= length())                   \
+            ::natsu::throw_index_out_of_range_exception(); \
+        return ::natsu::gc_ref_from_ref(elements_[index]); \
+    }                                                      \
+    T get(int index)                                       \
+    {                                                      \
+        return at(index);                                  \
+    }                                                      \
+    void set(int index, T value)                           \
+    {                                                      \
+        at(index) = value;                                 \
+    }                                                      \
+    uintptr_t length() const noexcept                      \
+    {                                                      \
+        return Length.m_value;                             \
+    }                                                      \
     T elements_[0];

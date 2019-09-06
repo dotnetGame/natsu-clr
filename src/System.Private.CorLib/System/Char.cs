@@ -78,7 +78,7 @@ namespace System
             {
                 return (IsWhiteSpaceLatin1(c));
             }
-            return false;
+            return CharUnicodeInfo.IsWhiteSpace(c);
         }
 
 

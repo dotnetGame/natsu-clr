@@ -5,6 +5,7 @@ include_directories(${CMAKE_CURRENT_LIST_DIR} ${CMAKE_CURRENT_LIST_DIR}/Generate
 set(SRCS natsu.fcall.cpp
          natsu.runtime.cpp
          natsu.gc.cpp
+         natsu.unicode.cpp
          main.cpp
          Generated/System.Private.CorLib.cpp
          Generated/Chino.Kernel.cpp)
