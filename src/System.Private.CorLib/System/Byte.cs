@@ -69,5 +69,142 @@ namespace System
         {
             return m_value;
         }
+
+
+        public static byte Parse(string s)
+        {
+            if (s == null) ThrowHelper.ThrowArgumentNullException(ExceptionArgument.s);
+            return Parse((ReadOnlySpan<char>)s, NumberStyles.Integer, NumberFormatInfo.CurrentInfo);
+        }
+
+        public static byte Parse(string s, NumberStyles style)
+        {
+            NumberFormatInfo.ValidateParseStyleInteger(style);
+            if (s == null) ThrowHelper.ThrowArgumentNullException(ExceptionArgument.s);
+            return Parse((ReadOnlySpan<char>)s, style, NumberFormatInfo.CurrentInfo);
+        }
+
+        public static byte Parse(string s, IFormatProvider provider)
+        {
+            if (s == null) ThrowHelper.ThrowArgumentNullException(ExceptionArgument.s);
+            return Parse((ReadOnlySpan<char>)s, NumberStyles.Integer, NumberFormatInfo.GetInstance(provider));
+        }
+
+        // Parses an unsigned byte from a String in the given style.  If
+        // a NumberFormatInfo isn't specified, the current culture's 
+        // NumberFormatInfo is assumed.
+        public static byte Parse(string s, NumberStyles style, IFormatProvider provider)
+        {
+            NumberFormatInfo.ValidateParseStyleInteger(style);
+            if (s == null) ThrowHelper.ThrowArgumentNullException(ExceptionArgument.s);
+            return Parse((ReadOnlySpan<char>)s, style, NumberFormatInfo.GetInstance(provider));
+        }
+
+        public static byte Parse(ReadOnlySpan<char> s, NumberStyles style = NumberStyles.Integer, IFormatProvider provider = null)
+        {
+            NumberFormatInfo.ValidateParseStyleInteger(style);
+            return Parse(s, style, NumberFormatInfo.GetInstance(provider));
+        }
+
+        private static byte Parse(ReadOnlySpan<char> s, NumberStyles style, NumberFormatInfo info)
+        {
+            int i = 0;
+            try
+            {
+                i = Number.ParseInt32(s, style, info);
+            }
+            catch (OverflowException e)
+            {
+                throw new OverflowException(SR.Overflow_Byte, e);
+            }
+
+            if (i < MinValue || i > MaxValue) throw new OverflowException(SR.Overflow_Byte);
+            return (byte)i;
+        }
+
+        public static bool TryParse(string s, out byte result)
+        {
+            if (s == null)
+            {
+                result = 0;
+                return false;
+            }
+
+            return TryParse((ReadOnlySpan<char>)s, NumberStyles.Integer, NumberFormatInfo.CurrentInfo, out result);
+        }
+
+        public static bool TryParse(ReadOnlySpan<char> s, out byte result)
+        {
+            return TryParse(s, NumberStyles.Integer, NumberFormatInfo.CurrentInfo, out result);
+        }
+
+        public static bool TryParse(string s, NumberStyles style, IFormatProvider provider, out byte result)
+        {
+            NumberFormatInfo.ValidateParseStyleInteger(style);
+
+            if (s == null)
+            {
+                result = 0;
+                return false;
+            }
+
+            return TryParse((ReadOnlySpan<char>)s, style, NumberFormatInfo.GetInstance(provider), out result);
+        }
+
+        public static bool TryParse(ReadOnlySpan<char> s, NumberStyles style, IFormatProvider provider, out byte result)
+        {
+            NumberFormatInfo.ValidateParseStyleInteger(style);
+            return TryParse(s, style, NumberFormatInfo.GetInstance(provider), out result);
+        }
+
+        private static bool TryParse(ReadOnlySpan<char> s, NumberStyles style, NumberFormatInfo info, out byte result)
+        {
+            result = 0;
+            int i;
+            if (!Number.TryParseInt32(s, style, info, out i))
+            {
+                return false;
+            }
+            if (i < MinValue || i > MaxValue)
+            {
+                return false;
+            }
+            result = (byte)i;
+            return true;
+        }
+
+
+        public override string ToString()
+        {
+            return Number.FormatUInt32(m_value, null, null);
+        }
+
+        public string ToString(string format)
+        {
+            return Number.FormatUInt32(m_value, format, null);
+        }
+
+        public string ToString(IFormatProvider provider)
+        {
+            return Number.FormatUInt32(m_value, null, provider);
+        }
+
+        public string ToString(string format, IFormatProvider provider)
+        {
+            return Number.FormatUInt32(m_value, format, provider);
+        }
+
+        public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format = default, IFormatProvider provider = null)
+        {
+            return Number.TryFormatUInt32(m_value, format, provider, destination, out charsWritten);
+        }
+
+        //
+        // IConvertible implementation
+        // 
+        public TypeCode GetTypeCode()
+        {
+            return TypeCode.Byte;
+        }
     }
 }
