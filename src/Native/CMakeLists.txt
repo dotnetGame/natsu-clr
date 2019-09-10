@@ -6,6 +6,7 @@ set(SRCS natsu.fcall.cpp
          natsu.runtime.cpp
          natsu.gc.cpp
          natsu.unicode.cpp
+         natsu.threading.cpp
          main.cpp
          Generated/System.Private.CorLib.cpp
          Generated/Chino.Kernel.cpp)

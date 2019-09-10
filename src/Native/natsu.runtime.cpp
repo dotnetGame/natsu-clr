@@ -63,7 +63,7 @@ void ops::throw_(const stack::O &obj)
     throw make_exception(stack_to<gc_obj_ref<Exception>>(obj));
 }
 
-void Action::Invoke(gc_obj_ref<Action> _this)
+void Action::Invoke_(gc_obj_ref<Action> _this)
 {
     throw make_exception(make_object<System_Private_CorLib::System::NotImplementedException>());
 }

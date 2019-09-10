@@ -31,6 +31,7 @@ else()
         -Wno-multichar
         -fno-common
         -std=c++17
+        -ffast-math
         -Os
         -flto
         -ffunction-sections

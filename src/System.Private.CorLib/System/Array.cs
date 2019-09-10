@@ -133,5 +133,12 @@ namespace System
                 array = newArray;
             }
         }
+
+        // Make a new array which is a shallow copy of the original array.
+        // 
+        public object Clone()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

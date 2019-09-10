@@ -179,7 +179,7 @@ struct runtime_type_holder
     {
         using namespace ::System_Private_CorLib::System;
         static auto type = make_object<RuntimeType>(
-            reinterpret_cast<intptr_t>(&static_cast<vtable_t &>(static_holder<typename T::VTable>::get())));
+            reinterpret_cast<intptr_t>(&static_holder<typename T::VTable>::get()));
         return type;
     }
 };
@@ -733,6 +733,10 @@ namespace ops
     UNARY_OP_IMPL(neg, -, stack::native_int, intptr_t, intptr_t);
     UNARY_OP_IMPL(neg, -, stack::F, double, double);
 
+    UNARY_OP_IMPL(not, ~, stack::int32, int32_t, int32_t);
+    UNARY_OP_IMPL(not, ~, stack::int64, int64_t, int64_t);
+    UNARY_OP_IMPL(not, ~, stack::native_int, intptr_t, intptr_t);
+
 #undef UNARY_OP_IMPL
 
 #define COMPARE_OP_IMPL(name, op, A, B, Med)                                         \
@@ -1281,7 +1285,7 @@ void System::ByReference_1<T>::_ctor(::natsu::gc_ref<System::ByReference_1<T>> _
 }
 
 template <class T>
-::natsu::gc_ref<::natsu::variable_type_t<T>> System::ByReference_1<T>::get_Value(::natsu::gc_ref<System::ByReference_1<T>> _this)
+::natsu::gc_ref<::natsu::variable_type_t<T>> System::ByReference_1<T>::get_Value_(::natsu::gc_ref<System::ByReference_1<T>> _this)
 {
     return ::natsu::gc_ref_from_ref(*reinterpret_cast<::natsu::variable_type_t<T> *>(static_cast<intptr_t>(_this->_value)));
 }

@@ -27,6 +27,39 @@ namespace System
         }
 
         /// <summary>
+        /// Determines whether the beginning of the <paramref name="span"/> matches the specified <paramref name="value"/> when compared using the specified <paramref name="comparisonType"/> option.
+        /// </summary>
+        /// <param name="span">The source span.</param>
+        /// <param name="value">The sequence to compare to the beginning of the source span.</param>
+        /// <param name="comparisonType">One of the enumeration values that determines how the <paramref name="span"/> and <paramref name="value"/> are compared.</param>
+        public static bool StartsWith(this ReadOnlySpan<char> span, ReadOnlySpan<char> value, StringComparison comparisonType)
+        {
+            string.CheckStringComparison(comparisonType);
+
+            if (value.Length == 0)
+            {
+                return true;
+            }
+
+            if (comparisonType >= StringComparison.Ordinal || GlobalizationMode.Invariant)
+            {
+                if (string.GetCaseCompareOfComparisonCulture(comparisonType) == CompareOptions.None)
+                    return span.StartsWith(value);
+
+                return (span.Length >= value.Length) ? (CompareInfo.CompareOrdinalIgnoreCase(span.Slice(0, value.Length), value) == 0) : false;
+            }
+
+            if (span.Length == 0)
+            {
+                return false;
+            }
+
+            return (comparisonType >= StringComparison.InvariantCulture) ?
+                CompareInfo.Invariant.IsPrefix(span, value, string.GetCaseCompareOfComparisonCulture(comparisonType)) :
+                    CultureInfo.CurrentCulture.CompareInfo.IsPrefix(span, value, string.GetCaseCompareOfComparisonCulture(comparisonType));
+        }
+
+        /// <summary>
         /// Creates a new span over the portion of the target array.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

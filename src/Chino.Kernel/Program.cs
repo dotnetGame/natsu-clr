@@ -8,18 +8,14 @@ namespace Chino.Kernel
     {
         static void Main()
         {
-            var sb = new StringBuilder();
-            sb.AppendLine("Hello Chino OS!");
-            sb.AppendLine("Baka xiahuan!");
+            //var sb = new StringBuilder();
+            //sb.AppendLine("Hello Chino OS!");
+            //sb.AppendLine("Baka xiahuan!");
 
             //Action action = () => Debug.WriteLine(sb.ToString());
             //action();
-            Debug.WriteLine(sb.ToString());
-        }
-
-        static string ToString(IComparable i)
-        {
-            return i.ToString();
+            //Debug.WriteLine(sb.ToString());
+            Debug.WriteLine("Hello Chino OS!");
         }
     }
 }

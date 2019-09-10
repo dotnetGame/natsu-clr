@@ -62,6 +62,32 @@ namespace System
                 *(src + len) = 0;
         }
 
+        // The attributes on this method are chosen for best JIT performance. 
+        // Please do not edit unless intentional.
+        [MethodImplAttribute(MethodImplOptions.AggressiveInlining)]
+        [CLSCompliant(false)]
+        public static unsafe void MemoryCopy(void* source, void* destination, long destinationSizeInBytes, long sourceBytesToCopy)
+        {
+            if (sourceBytesToCopy > destinationSizeInBytes)
+            {
+                ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.sourceBytesToCopy);
+            }
+            Memmove((byte*)destination, (byte*)source, checked((nuint)sourceBytesToCopy));
+        }
+
+        // The attributes on this method are chosen for best JIT performance. 
+        // Please do not edit unless intentional.
+        [MethodImplAttribute(MethodImplOptions.AggressiveInlining)]
+        [CLSCompliant(false)]
+        public static unsafe void MemoryCopy(void* source, void* destination, ulong destinationSizeInBytes, ulong sourceBytesToCopy)
+        {
+            if (sourceBytesToCopy > destinationSizeInBytes)
+            {
+                ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.sourceBytesToCopy);
+            }
+            Memmove((byte*)destination, (byte*)source, checked((nuint)sourceBytesToCopy));
+        }
+
         internal static unsafe void Memcpy(byte[] dest, int destIndex, byte* src, int srcIndex, int len)
         {
             //Debug.Assert((srcIndex >= 0) && (destIndex >= 0) && (len >= 0), "Index and length must be non-negative!");

@@ -185,7 +185,7 @@ namespace Natsu.Compiler
                         switch (cntSig)
                         {
                             case TypeDefOrRefSig sig:
-                                if (sig.IsValueType && declaringType != null && sig.TypeDef == declaringType)
+                                if (sig.IsPrimitive && declaringType != null && sig.TypeDef == declaringType)
                                     sb.Append(GetConstantTypeName(cntSig.ElementType));
                                 else
                                     sb.Append(EscapeTypeName(sig.TypeDefOrRef, hasGen: hasGen-- > 0, genArgs: genArgs));
@@ -316,14 +316,124 @@ namespace Natsu.Compiler
 
         public static string EscapeMethodName(IMethod method)
         {
+            if (method.Name == ".ctor")
+                return "_ctor";
             if (method.MethodSig.HasThis)
-                return EscapeIdentifier(method.Name);
+            {
+                var sb = new StringBuilder();
+                sb.Append(EscapeIdentifier(method.Name));
+                sb.Append("_");
+
+                for (int i = 0; i < method.MethodSig.Params.Count; i++)
+                {
+                    EscapeMethodTypeName(sb, method.MethodSig.Params[i]);
+                    if (i != method.MethodSig.Params.Count - 1)
+                        sb.Append("_");
+                }
+
+                return EscapeIdentifier(sb.ToString());
+            }
             else if (method.Name.EndsWith("op_Explicit"))
                 return "_s_" + EscapeIdentifier(method.Name) + "_" + EscapeIdentifier(method.MethodSig.Params[0].FullName) + "_" + EscapeIdentifier(method.MethodSig.RetType.FullName);
             else if (method.Name == ".cctor")
                 return "Static";
             else
                 return "_s_" + EscapeIdentifier(method.Name);
+        }
+
+        public static void EscapeMethodTypeName(StringBuilder sb, TypeSig cntSig)
+        {
+            switch (cntSig.ElementType)
+            {
+                case ElementType.Void:
+                    sb.Append("void");
+                    break;
+                case ElementType.Boolean:
+                case ElementType.Char:
+                case ElementType.I1:
+                case ElementType.U1:
+                case ElementType.I2:
+                case ElementType.U2:
+                case ElementType.I4:
+                case ElementType.U4:
+                case ElementType.I8:
+                case ElementType.U8:
+                case ElementType.R4:
+                case ElementType.R8:
+                case ElementType.String:
+                case ElementType.I:
+                case ElementType.U:
+                    {
+                        switch (cntSig)
+                        {
+                            case TypeDefOrRefSig sig:
+                                sb.Append(EscapeTypeName(sig.TypeDefOrRef, hasGen: false, hasModuleName: false));
+                                break;
+                            default:
+                                throw new NotSupportedException();
+                        }
+                    }
+                    break;
+                case ElementType.ValueType:
+                case ElementType.Class:
+                case ElementType.Object:
+                    {
+                        switch (cntSig)
+                        {
+                            case TypeDefOrRefSig sig:
+                                sb.Append(EscapeTypeName(sig.TypeDefOrRef, hasGen: false, hasModuleName: false));
+                                break;
+                            default:
+                                throw new NotSupportedException();
+                        }
+                    }
+                    break;
+                case ElementType.SZArray:
+                    sb.Append("System_SZArray_1_");
+                    EscapeTypeName(sb, cntSig.Next);
+                    break;
+                case ElementType.Var:
+                    {
+                        var var = cntSig.ToGenericVar();
+                        sb.Append(var.GetName());
+                    }
+                    break;
+                case ElementType.MVar:
+                    {
+                        var mvar = cntSig.ToGenericMVar();
+                        sb.Append(mvar.GetName());
+                    }
+                    break;
+                case ElementType.GenericInst:
+                    {
+                        var sig = cntSig.ToGenericInstSig();
+                        sb.Append(EscapeTypeName(sig.GenericType.TypeDefOrRef, hasGen: false, hasModuleName: false));
+                        sb.Append("_");
+                        for (int i = 0; i < sig.GenericArguments.Count; i++)
+                        {
+                            EscapeMethodTypeName(sb, sig.GenericArguments[i]);
+                            if (i != sig.GenericArguments.Count - 1)
+                                sb.Append("_ ");
+                        }
+                    }
+                    break;
+                case ElementType.ByRef:
+                    sb.Append("ref_");
+                    EscapeMethodTypeName(sb, cntSig.Next);
+                    break;
+                case ElementType.Ptr:
+                    sb.Append("ptr_");
+                    EscapeMethodTypeName(sb, cntSig.Next);
+                    break;
+                case ElementType.Pinned:
+                    EscapeMethodTypeName(sb, cntSig.Next);
+                    break;
+                case ElementType.CModReqd:
+                    EscapeMethodTypeName(sb, cntSig.Next);
+                    break;
+                default:
+                    throw new NotSupportedException();
+            }
         }
 
         public static string EscapeNamespaceName(string ns)

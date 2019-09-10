@@ -453,6 +453,27 @@ constexpr bool operator==(null_gc_obj_ref, const gc_obj_ref<T> &rhs) noexcept
 {
     return !rhs.ptr_;
 }
+
+template <class TBase, class TIFace, bool>
+struct vtable_impl;
+
+template <class TBase, class TIFace>
+struct vtable_impl<TBase, TIFace, true>
+{
+};
+
+template <class TBase, class TIFace>
+struct vtable_impl<TBase, TIFace, false> : public TIFace
+{
+};
+
+template <class TBase, class TIFace>
+using vtable_impl_t = vtable_impl<TBase, TIFace, std::is_base_of_v<TIFace, TBase>>;
+
+template <class TBase, class... TIFaces>
+struct vtable_class : public TBase, public vtable_impl_t<TBase, TIFaces>...
+{
+};
 }
 
 #define NATSU_PRIMITIVE_IMPL_BYTE                     \
@@ -521,6 +542,11 @@ constexpr bool operator==(null_gc_obj_ref, const gc_obj_ref<T> &rhs) noexcept
     UIntPtr() = default;                                   \
     UIntPtr(uintptr_t value) : _value((uintptr_t)value) {} \
     operator uintptr_t() const noexcept { return (uintptr_t)_value; }
+
+#define NATSU_ENUM_IMPL_BYTE(name)                    \
+    name() = default;                                 \
+    constexpr name(uint8_t value) : value__(value) {} \
+    constexpr operator uint8_t() const noexcept { return value__; }
 
 #define NATSU_ENUM_IMPL_INT32(name)                   \
     name() = default;                                 \

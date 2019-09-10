@@ -73,5 +73,10 @@ namespace System
         // 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         public extern Type GetType();
+
+        public object MemberwiseClone()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

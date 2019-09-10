@@ -282,7 +282,7 @@ namespace System
         /// <summary>
         /// Defines an implicit conversion of a <see cref="Span{T}"/> to a <see cref="ReadOnlySpan{T}"/>
         /// </summary>
-        //public static implicit operator ReadOnlySpan<T>(Span<T> span) => new ReadOnlySpan<T>(ref span._pointer.Value, span._length);
+        public static implicit operator ReadOnlySpan<T>(Span<T> span) => new ReadOnlySpan<T>(ref span._pointer.Value, span._length);
 
         /// <summary>
         /// For <see cref="Span{Char}"/>, returns a new instance of string that represents the characters pointed to by the span.

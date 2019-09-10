@@ -698,8 +698,6 @@ namespace System
                 case ExceptionResource.Argument_InvalidOffLen:
                     return SR.Argument_InvalidOffLen;
                 case ExceptionResource.Argument_CannotExtractScalar:
-                    return SR.Argument_CannotExtractScalar;
-                case ExceptionResource.ArgumentOutOfRange_BiggerThanCollection:
                     return SR.ArgumentOutOfRange_BiggerThanCollection;
                 case ExceptionResource.Serialization_MissingKeys:
                     return SR.Serialization_MissingKeys;

@@ -402,6 +402,8 @@ namespace Natsu.Compiler
                 var baseType = GetBaseType(type.TypeDef);
                 if (baseType != null)
                     writer.WriteLine(" : public " + TypeUtils.EscapeTypeName(baseType));
+                else
+                    writer.WriteLine();
             }
             else
             {
@@ -469,10 +471,17 @@ namespace Natsu.Compiler
             if (hasStaticMember)
             {
                 writer.WriteLine();
-                WriteStatic(writer, ident + 1, type);
+                writer.Ident(ident + 1).WriteLine("struct Static;");
             }
 
             writer.Ident(ident).WriteLine("};");
+
+            // Static
+            if (hasStaticMember)
+            {
+                writer.WriteLine();
+                WriteStatic(writer, ident, type);
+            }
 
             foreach (var ns in nss)
                 writer.Write("} ");
@@ -494,20 +503,28 @@ namespace Natsu.Compiler
 
         private void WriteVTableDeclare(StreamWriter writer, int ident, TypeDesc type)
         {
-            writer.Ident(ident).Write($"struct VTable : public ");
-            var baseType = GetBaseType(type.TypeDef);
-            if (baseType == null)
-                writer.Write("virtual natsu::vtable_t");
-            else
-                writer.Write($"{TypeUtils.EscapeTypeName(baseType)}::VTable");
-
-            foreach (var iface in type.TypeDef.Interfaces)
+            writer.Ident(ident).Write($"struct VTable");
+            if (!type.TypeDef.IsInterface)
             {
-                var ifaceType = iface.Interface;
-                writer.Write($", public virtual {TypeUtils.EscapeTypeName(ifaceType)}::VTable");
-            }
+                writer.Write(" : public ::natsu::vtable_class<");
+                var baseType = GetBaseType(type.TypeDef);
+                if (baseType == null)
+                    writer.Write("natsu::vtable_t");
+                else
+                    writer.Write($"typename {TypeUtils.EscapeTypeName(baseType)}::VTable");
 
-            writer.WriteLine();
+                foreach (var iface in type.TypeDef.Interfaces)
+                {
+                    var ifaceType = iface.Interface;
+                    writer.Write($", typename {TypeUtils.EscapeTypeName(ifaceType)}::VTable");
+                }
+
+                writer.WriteLine(">");
+            }
+            else
+            {
+                writer.WriteLine();
+            }
 
             writer.Ident(ident).WriteLine("{");
 
@@ -522,7 +539,20 @@ namespace Natsu.Compiler
 
         private void WriteStatic(StreamWriter writer, int ident, TypeDesc type)
         {
-            writer.Ident(ident).WriteLine("struct Static");
+            if (type.TypeDef.HasGenericParameters)
+            {
+                var typeNames = type.TypeDef.GenericParameters.Select(x => "class " + x.Name.String).ToList();
+                writer.Ident(ident).WriteLine($"template <{string.Join(", ", typeNames)}> ");
+            }
+
+            writer.Ident(ident).Write($"struct {type.Name}");
+            if (type.TypeDef.HasGenericParameters)
+            {
+                var typeNames = type.TypeDef.GenericParameters.Select(x => x.Name.String).ToList();
+                writer.Ident(ident).WriteLine($"<{string.Join(", ", typeNames)}> ");
+            }
+
+            writer.WriteLine("::Static");
             writer.Ident(ident).WriteLine("{");
 
             foreach (var field in type.TypeDef.Fields)

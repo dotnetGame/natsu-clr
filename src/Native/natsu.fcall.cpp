@@ -12,34 +12,34 @@ using namespace System_Private_CorLib::System;
 using namespace System_Private_CorLib::System::Diagnostics;
 using namespace System_Private_CorLib::System::Runtime::CompilerServices;
 
-Int32 Array::GetLength(gc_obj_ref<Array> _this, Int32 dimension)
+Int32 Array::GetLength_System__Int32(gc_obj_ref<Array> _this, Int32 dimension)
 {
     if (dimension != 0)
         throw_exception<IndexOutOfRangeException>();
     return (intptr_t)_this.cast<RawSzArrayData>()->Count;
 }
 
-Int32 Array::get_Rank(gc_obj_ref<Array> _this)
+Int32 Array::get_Rank_(gc_obj_ref<Array> _this)
 {
     return 1;
 }
 
-Int32 Array::get_Length(gc_obj_ref<Array> _this)
+Int32 Array::get_Length_(gc_obj_ref<Array> _this)
 {
     return (intptr_t)_this.cast<RawSzArrayData>()->Count;
 }
 
-Int64 Array::get_LongLength(gc_obj_ref<Array> _this)
+Int64 Array::get_LongLength_(gc_obj_ref<Array> _this)
 {
     return (intptr_t)_this.cast<RawSzArrayData>()->Count;
 }
 
-Int32 Array::GetUpperBound(gc_obj_ref<Array> _this, Int32 dimension)
+Int32 Array::GetUpperBound_System__Int32(gc_obj_ref<Array> _this, Int32 dimension)
 {
-    return GetLength(_this, dimension);
+    return GetLength_System__Int32(_this, dimension);
 }
 
-Int32 Array::GetLowerBound(gc_obj_ref<Array> _this, Int32 dimension)
+Int32 Array::GetLowerBound_System__Int32(gc_obj_ref<Array> _this, Int32 dimension)
 {
     if (dimension != 0)
         throw_exception<IndexOutOfRangeException>();
@@ -94,20 +94,20 @@ void Buffer::_s_Memmove(gc_ptr<Byte> dest, gc_ptr<Byte> src, UInt64 len)
     std::memmove(dest, src, len);
 }
 
-gc_obj_ref<Type> Object::GetType(::natsu::gc_obj_ref<Object> _this)
+gc_obj_ref<Type> Object::GetType_(::natsu::gc_obj_ref<Object> _this)
 {
     check_null_obj_ref(_this);
     return ::natsu::null;
 }
 
-Char String::get_Chars(gc_obj_ref<String> _this, Int32 index)
+Char String::get_Chars_System__Int32(gc_obj_ref<String> _this, Int32 index)
 {
     if ((uint32_t)index >= (uint32_t)_this->_stringLength)
         throw_exception<IndexOutOfRangeException>();
     return (&_this->_firstChar)[index];
 }
 
-Int32 String::get_Length(gc_obj_ref<String> _this)
+Int32 String::get_Length_(gc_obj_ref<String> _this)
 {
     return _this->_stringLength;
 }

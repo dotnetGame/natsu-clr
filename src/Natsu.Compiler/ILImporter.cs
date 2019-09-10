@@ -403,6 +403,9 @@ namespace Natsu.Compiler
                     case Code.Stind_I8:
                         emitter.Stind_I8();
                         break;
+                    case Code.Stind_I:
+                        emitter.Stind_I();
+                        break;
                     case Code.Stind_R4:
                         emitter.Stind_R4();
                         break;
@@ -663,6 +666,8 @@ namespace Natsu.Compiler
                         stack.Constrained = (ITypeDefOrRef)op.Operand;
                         break;
                     case Code.Readonly:
+                        break;
+                    case Code.Volatile:
                         break;
                     default:
                         throw new NotSupportedException(op.OpCode.Code.ToString());
