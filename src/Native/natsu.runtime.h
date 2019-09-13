@@ -3,6 +3,11 @@
 #include "natsu.typedef.h"
 #include <cmath>
 #include <limits>
+#if _MSC_VER
+#include <malloc.h>
+#else
+#include <alloca.h>
+#endif
 
 using namespace std::string_view_literals;
 
@@ -922,12 +927,18 @@ namespace ops
         return stack::details::castclass_impl<T>()(obj);
     }
 
-#define LDELEM_IMPL(name, type, value_type)                                              \
-    inline value_type ldelem_##name(const stack::O &obj, stack::int32 index)             \
-    {                                                                                    \
-        using ::System_Private_CorLib::System::SZArray_1;                                \
-        check_null_obj_ref(obj);                                                         \
-        return stack_from(stack_to<gc_obj_ref<SZArray_1<type>>>(obj)->at(index.value_)); \
+#define LDELEM_IMPL(name, type, value_type)                                                         \
+    inline value_type ldelem_##name(const stack::O &obj, stack::int32 index)                        \
+    {                                                                                               \
+        using ::System_Private_CorLib::System::SZArray_1;                                           \
+        check_null_obj_ref(obj);                                                                    \
+        return stack_from(stack_to<gc_obj_ref<SZArray_1<type>>>(obj)->at((uint32_t)index.value_));  \
+    }                                                                                               \
+    inline value_type ldelem_##name(const stack::O &obj, stack::native_int index)                   \
+    {                                                                                               \
+        using ::System_Private_CorLib::System::SZArray_1;                                           \
+        check_null_obj_ref(obj);                                                                    \
+        return stack_from(stack_to<gc_obj_ref<SZArray_1<type>>>(obj)->at((uintptr_t)index.value_)); \
     }
 
     LDELEM_IMPL(i1, ::System_Private_CorLib::System::SByte, stack::int32);
@@ -948,7 +959,15 @@ namespace ops
         using ::System_Private_CorLib::System::Object;
         using ::System_Private_CorLib::System::SZArray_1;
         check_null_obj_ref(obj);
-        return stack_from(stack_to<gc_obj_ref<SZArray_1<gc_obj_ref<Object>>>>(obj)->at(index.value_));
+        return stack_from(stack_to<gc_obj_ref<SZArray_1<gc_obj_ref<Object>>>>(obj)->at((uint32_t)index.value_));
+    }
+
+    inline stack::O ldelem_ref(const stack::O &obj, stack::native_int index)
+    {
+        using ::System_Private_CorLib::System::Object;
+        using ::System_Private_CorLib::System::SZArray_1;
+        check_null_obj_ref(obj);
+        return stack_from(stack_to<gc_obj_ref<SZArray_1<gc_obj_ref<Object>>>>(obj)->at((uintptr_t)index.value_));
     }
 
     template <class T>
@@ -957,7 +976,16 @@ namespace ops
         using ::System_Private_CorLib::System::Object;
         using ::System_Private_CorLib::System::SZArray_1;
         check_null_obj_ref(obj);
-        return stack_from(stack_to<gc_obj_ref<SZArray_1<T>>>(obj)->at(index.value_));
+        return stack_from(stack_to<gc_obj_ref<SZArray_1<T>>>(obj)->at((uint32_t)index.value_));
+    }
+
+    template <class T>
+    inline auto ldelem(const stack::O &obj, stack::native_int index)
+    {
+        using ::System_Private_CorLib::System::Object;
+        using ::System_Private_CorLib::System::SZArray_1;
+        check_null_obj_ref(obj);
+        return stack_from(stack_to<gc_obj_ref<SZArray_1<T>>>(obj)->at((uintptr_t)index.value_));
     }
 
 #undef LDELEM_IMPL
@@ -1266,6 +1294,16 @@ namespace ops
     }
 
     [[noreturn]] void throw_(const stack::O &obj);
+
+    inline stack::native_int localloc(const stack::int32 &size)
+    {
+        return reinterpret_cast<intptr_t>(alloca(size.value_));
+    }
+
+    inline stack::native_int localloc(const stack::native_int &size)
+    {
+        return reinterpret_cast<intptr_t>(alloca(size.value_));
+    }
 }
 
 template <class T>

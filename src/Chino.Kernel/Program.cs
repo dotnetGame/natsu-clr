@@ -15,6 +15,7 @@ namespace Chino.Kernel
             //Action action = () => Debug.WriteLine(sb.ToString());
             //action();
             //Debug.WriteLine(sb.ToString());
+            byte i = 225;
             Debug.WriteLine("Hello Chino OS!");
         }
     }

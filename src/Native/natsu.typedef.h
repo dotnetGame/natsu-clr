@@ -356,13 +356,11 @@ struct gc_obj_ref
 
     T *operator->() const
     {
-        check_null_obj_ref(*this);
         return ptr_;
     }
 
     T &operator*() const noexcept
     {
-        check_null_obj_ref(*this);
         return *ptr_;
     }
 
@@ -558,15 +556,15 @@ struct vtable_class : public TBase, public vtable_impl_t<TBase, TIFaces>...
 #define NATSU_PRIMITIVE_OPERATORS_IMPL
 
 #define NATSU_SZARRAY_IMPL                                 \
-    T &at(int index)                                       \
+    T &at(size_t index)                                    \
     {                                                      \
-        if ((uint32_t)index >= length())                   \
+        if (index >= length())                             \
             ::natsu::throw_index_out_of_range_exception(); \
         return elements_[index];                           \
     }                                                      \
-    ::natsu::gc_ref<T> ref_at(int index)                   \
+    ::natsu::gc_ref<T> ref_at(size_t index)                \
     {                                                      \
-        if ((uint32_t)index >= length())                   \
+        if (index >= length())                             \
             ::natsu::throw_index_out_of_range_exception(); \
         return ::natsu::gc_ref_from_ref(elements_[index]); \
     }                                                      \

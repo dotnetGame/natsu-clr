@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -6,7 +8,7 @@ using System.Runtime.Versioning;
 
 namespace System
 {
-    public sealed partial class String
+    public sealed partial class String : IComparable, IEnumerable, IEnumerable<char>, IComparable<string>, IEquatable<string>, ICloneable
     {
         //
         // These fields map directly onto the fields in an EE StringObject.  See object.h for the layout.
@@ -305,6 +307,21 @@ namespace System
         public override string ToString()
         {
             return this;
+        }
+
+        public CharEnumerator GetEnumerator()
+        {
+            return new CharEnumerator(this);
+        }
+
+        IEnumerator<char> IEnumerable<char>.GetEnumerator()
+        {
+            return new CharEnumerator(this);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return new CharEnumerator(this);
         }
 
         // This is only intended to be used by char.ToString.

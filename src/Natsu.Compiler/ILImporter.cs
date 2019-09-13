@@ -517,6 +517,9 @@ namespace Natsu.Compiler
                     case Code.Ldlen:
                         emitter.Ldlen();
                         break;
+                    case Code.Localloc:
+                        emitter.Localloc();
+                        break;
                     case Code.Conv_I1:
                         emitter.Conv_I1();
                         break;
@@ -705,11 +708,11 @@ namespace Natsu.Compiler
         public void Shl() => Binary("shl");
         public void Shr() => Binary("shr");
         public void Shr_Un() => Binary("shr_un");
-        public void Clt() => Binary("clt");
-        public void Clt_Un() => Binary("clt_un");
-        public void Ceq() => Binary("ceq");
-        public void Cgt() => Binary("cgt");
-        public void Cgt_Un() => Binary("cgt_un");
+        public void Clt() => Compare("clt");
+        public void Clt_Un() => Compare("clt_un");
+        public void Ceq() => Compare("ceq");
+        public void Cgt() => Compare("cgt");
+        public void Cgt_Un() => Compare("cgt_un");
 
         // Branch
 
@@ -912,7 +915,6 @@ namespace Natsu.Compiler
             }
             else
             {
-                Writer.Ident(Ident).WriteLine($"::natsu::check_null_obj_ref({para[0].src.Expression});");
                 expr = $"{para[0].src.Expression}.header().template vtable_as<typename {TypeUtils.EscapeTypeName(member.DeclaringType)}::VTable>()->{TypeUtils.EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src)))})";
             }
 
@@ -990,6 +992,13 @@ namespace Natsu.Compiler
         }
 
         public void Binary(string op)
+        {
+            var v2 = Stack.Pop();
+            var v1 = Stack.Pop();
+            Stack.Push(v1.Type, $"::natsu::ops::{op}_({v1.Expression}, {v2.Expression})");
+        }
+
+        public void Compare(string op)
         {
             var v2 = Stack.Pop();
             var v1 = Stack.Pop();
@@ -1174,6 +1183,12 @@ namespace Natsu.Compiler
         {
             var target = Stack.Pop();
             Stack.Push(StackTypeCode.NativeInt, $"::natsu::ops::ldlen({target.Expression})");
+        }
+
+        public void Localloc()
+        {
+            var size = Stack.Pop();
+            Stack.Push(StackTypeCode.NativeInt, $"::natsu::ops::localloc({size.Expression})");
         }
 
         private void Conversion(StackTypeCode stackType, string type)

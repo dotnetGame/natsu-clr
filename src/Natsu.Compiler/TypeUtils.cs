@@ -321,7 +321,7 @@ namespace Natsu.Compiler
             if (method.MethodSig.HasThis)
             {
                 var sb = new StringBuilder();
-                sb.Append(EscapeIdentifier(method.Name));
+                sb.Append(EscapeIdentifier(method.Name.String.Split('.').Last()));
                 sb.Append("_");
 
                 for (int i = 0; i < method.MethodSig.Params.Count; i++)
@@ -331,7 +331,18 @@ namespace Natsu.Compiler
                         sb.Append("_");
                 }
 
-                return EscapeIdentifier(sb.ToString());
+                var name = EscapeIdentifier(sb.ToString());
+                if (name == "get_Current_" && method.MethodSig.RetType.ElementType == ElementType.Object)
+                    return "get_Current_O";
+                if (name == "GetEnumerator_")
+                {
+                    if (method.MethodSig.RetType.FullName.Contains("System.Collections.IEnumerator"))
+                        return "GetEnumerator_O";
+                    if (method.MethodSig.RetType.FullName.Contains("System.Collections.Generic.IEnumerator"))
+                        return "GetEnumerator_G";
+                }
+
+                return name;
             }
             else if (method.Name.EndsWith("op_Explicit"))
                 return "_s_" + EscapeIdentifier(method.Name) + "_" + EscapeIdentifier(method.MethodSig.Params[0].FullName) + "_" + EscapeIdentifier(method.MethodSig.RetType.FullName);
