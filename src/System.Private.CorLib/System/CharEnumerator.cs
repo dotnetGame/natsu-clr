@@ -17,7 +17,7 @@ using System.Collections.Generic;
 
 namespace System
 {
-    public sealed class CharEnumerator : IEnumerator, IEnumerator<char>, IDisposable, ICloneable
+    public sealed class CharEnumerator : IEnumerator<char>, IDisposable, ICloneable
     {
         private string _str;
         private int _index;
@@ -52,11 +52,6 @@ namespace System
             if (_str != null)
                 _index = _str.Length;
             _str = null;
-        }
-
-        object IEnumerator.Current
-        {
-            get { return Current; }
         }
 
         public char Current

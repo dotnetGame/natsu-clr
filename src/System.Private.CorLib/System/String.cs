@@ -8,7 +8,7 @@ using System.Runtime.Versioning;
 
 namespace System
 {
-    public sealed partial class String : IComparable, IEnumerable, IEnumerable<char>, IComparable<string>, IEquatable<string>, ICloneable
+    public sealed partial class String : IComparable, IEnumerable<char>, IComparable<string>, IEquatable<string>, ICloneable
     {
         //
         // These fields map directly onto the fields in an EE StringObject.  See object.h for the layout.
@@ -315,11 +315,6 @@ namespace System
         }
 
         IEnumerator<char> IEnumerable<char>.GetEnumerator()
-        {
-            return new CharEnumerator(this);
-        }
-
-        IEnumerator IEnumerable.GetEnumerator()
         {
             return new CharEnumerator(this);
         }

@@ -15,8 +15,10 @@ namespace Chino.Kernel
             //Action action = () => Debug.WriteLine(sb.ToString());
             //action();
             //Debug.WriteLine(sb.ToString());
-            byte i = 225;
+            //byte i = 225;
             Debug.WriteLine("Hello Chino OS!");
+            Debug.WriteLine("Used: " + Memory.MemoryManager.GetUsedMemorySize() + " Bytes");
+            Debug.WriteLine("Free: " + Memory.MemoryManager.GetFreeMemorySize() + " Bytes");
         }
     }
 }
