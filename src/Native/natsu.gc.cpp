@@ -404,7 +404,11 @@ gc_obj_ref<Object> natsu::gc_alloc(const vtable_t &vtable, size_t size)
 
 Int32 MemoryManager::_s_GetUsedMemorySize()
 {
+#if _WIN32
     return (int32_t)(6 * 1024 * 1024 - freeBytesRemaining_);
+#else
+    return (int32_t)(size_t(&_heap_end[0] - &_heap_start[0]) - freeBytesRemaining_);
+#endif
 }
 
 Int32 MemoryManager::_s_GetFreeMemorySize()

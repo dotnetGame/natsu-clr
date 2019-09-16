@@ -4,6 +4,23 @@
 
 #ifdef WIN32
 #include <Windows.h>
+#else
+#include "uarths.h"
+
+#define uarths ((volatile uarths_t *)UARTHS_BASE_ADDR)
+
+void uarths_write_byte(uint8_t c)
+{
+    while (uarths->txdata.full)
+        continue;
+    uarths->txdata.data = c;
+}
+
+void uarths_puts(const char16_t *s)
+{
+    while (*s)
+        uarths_write_byte(*s++);
+}
 #endif
 
 using namespace natsu;
@@ -74,6 +91,8 @@ void Debug::_s_WriteLineCore(gc_obj_ref<String> message)
     WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE), &message->_firstChar, message->_stringLength, nullptr, nullptr);
     WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE), new_line, 1, nullptr, nullptr);
 #else
+    uarths_puts(&message->_firstChar.m_value);
+    uarths_puts(u"\n");
     Chino_Kernel::Chino::Kernel::KernelDebug::_s_Write(message);
     Chino_Kernel::Chino::Kernel::KernelDebug::_s_Write(::System_Private_CorLib::System::Environment::_s_get_NewLine());
 #endif
