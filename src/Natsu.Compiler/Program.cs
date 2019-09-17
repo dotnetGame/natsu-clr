@@ -12,36 +12,23 @@ namespace Natsu.Compiler
 {
     class Program
     {
+        private static readonly string[] _modulePaths = new[]
+        {
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Kernel.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Core.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.K210.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Private.CorLib.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Diagnostics.Debug.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.InteropServices.dll",
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), @".nuget\packages\bitfields\0.1.0\lib\netstandard1.0\BitFields.dll")
+        };
+
         static void Main(string[] args)
         {
-            var path = @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Kernel.dll";
-            var resolver = new AssemblyResolver();
-            var modCtx = new ModuleContext(resolver);
-            resolver.DefaultModuleContext = modCtx;
-            resolver.EnableTypeDefCache = true;
-            resolver.FindExactMatch = false;
-            resolver.UseGAC = false;
-            resolver.PreSearchPaths.Add(Path.GetFullPath(@"..\..\..\..\..\out\bin\netcoreapp3.0"));
-            resolver.PreSearchPaths.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), @".nuget\packages\bitfields\0.1.0\lib\netstandard1.0"));
-
-            var modules = new HashSet<ModuleDef>();
-
-            void AddAssemblies(ModuleDef module)
+            foreach (var path in _modulePaths)
             {
-                modules.Add(module);
-
-                foreach (var ass in module.GetAssemblyRefs())
-                {
-                    var r = resolver.ResolveThrow(ass, module);
-                    foreach (var m in r.Modules)
-                        AddAssemblies(m);
-                }
-            }
-
-            AddAssemblies(ModuleDefMD.Load(path));
-
-            foreach (var module in modules)
-            {
+                var module = ModuleDefMD.Load(path);
                 var generator = new Generator(module);
                 generator.Generate();
             }
@@ -107,6 +94,11 @@ namespace Natsu.Compiler
                 if (_module.Assembly.Name == "System.Private.CorLib")
                 {
                     writer.WriteLine("#include <natsu.runtime.h>");
+                    writer.WriteLine();
+                }
+                else if (_module.Assembly.Name == "Chino.Core")
+                {
+                    writer.WriteLine("#include <chino.runtime.h>");
                     writer.WriteLine();
                 }
 

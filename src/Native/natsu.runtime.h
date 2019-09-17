@@ -454,7 +454,7 @@ namespace stack
                 using ::System_Private_CorLib::System::Nullable_1;
                 using ::System_Private_CorLib::System::Object;
 
-                if (obj)
+                if (obj.istrue())
                 {
                     auto box = stack_to<gc_obj_ref<Object>>(obj).template as<T>();
                     if (box)
@@ -511,7 +511,7 @@ namespace stack
                 using ::System_Private_CorLib::System::Nullable_1;
                 using ::System_Private_CorLib::System::Object;
 
-                if (obj)
+                if (obj.istrue())
                 {
                     auto box = stack_to<gc_obj_ref<Object>>(obj).template as<T>();
                     if (box)
@@ -525,7 +525,7 @@ namespace stack
                 }
                 else
                 {
-                    return stack_from(make_object<Nullable_1<T>>());
+                    return stack_from(Nullable_1<T>());
                 }
             }
         };

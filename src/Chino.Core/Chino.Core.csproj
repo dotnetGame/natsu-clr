@@ -1,14 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Library</OutputType>
     <TargetFramework>netcoreapp3.0</TargetFramework>
     <OutputPath>$(SolutionDir)../out/bin/</OutputPath>
     <RootNamespace>Chino</RootNamespace>
   </PropertyGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\Chino.Chip.K210\Chino.Chip.K210.csproj" />
-  </ItemGroup>
 
 </Project>

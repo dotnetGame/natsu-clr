@@ -1,4 +1,5 @@
 ﻿using System;
+using Chino.Chip.K210.HAL.Serial;
 
 namespace Chino.Kernel
 {
@@ -6,7 +7,7 @@ namespace Chino.Kernel
     {
         private static void Write(string message)
         {
-
+            Uarths.DebugWrite(message);
         }
     }
 }

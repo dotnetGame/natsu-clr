@@ -2,6 +2,7 @@
 using System.Runtime.CompilerServices;
 using System.Text;
 
+[assembly: TypeForwardedTo(typeof(Attribute))]
 [assembly: TypeForwardedTo(typeof(Object))]
 [assembly: TypeForwardedTo(typeof(ValueType))]
 [assembly: TypeForwardedTo(typeof(Enum))]

@@ -2,9 +2,6 @@
 
 #if _MSC_VER
 #include <intrin.h>
-#endif
-
-#if WIN32
 #include <Windows.h>
 #endif
 
@@ -74,7 +71,7 @@ Int64 Interlocked::_s_ExchangeAdd(gc_ref<Int64> location1, Int64 value)
 
 void Interlocked::_s__MemoryBarrierProcessWide()
 {
-#if WIN32
+#if _MSC_VER
     FlushProcessWriteBuffers();
 #endif
 }

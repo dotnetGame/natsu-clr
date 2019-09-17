@@ -1,14 +1,16 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Library</OutputType>
     <TargetFramework>netcoreapp3.0</TargetFramework>
     <OutputPath>$(SolutionDir)../out/bin/</OutputPath>
-    <RootNamespace>Chino</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Chino.Chip.K210\Chino.Chip.K210.csproj" />
+    <PackageReference Include="BitFields" Version="0.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Chino.Core\Chino.Core.csproj" />
   </ItemGroup>
 
 </Project>
