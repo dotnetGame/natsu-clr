@@ -16,7 +16,6 @@ namespace Chino.Chip.K210.HAL.Serial
         private static void DebugWriteChar(char c)
         {
             DebugWriteByte((byte)c);
-            //DebugWriteByte((byte)(c >> 8));
         }
 
         private static void DebugWriteByte(byte value)
