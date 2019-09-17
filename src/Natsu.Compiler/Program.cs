@@ -411,6 +411,8 @@ namespace Natsu.Compiler
             WriteVTableDeclare(writer, ident + 1, type);
             writer.WriteLine();
 
+            var hasSize = type.TypeDef.HasClassLayout && type.TypeDef.ClassLayout.ClassSize != 0;
+            string fieldSize = "0";
             foreach (var field in type.TypeDef.Fields)
             {
                 if (field.HasConstant && field.ElementType != ElementType.String)
@@ -419,7 +421,13 @@ namespace Natsu.Compiler
                     WriteField(writer, ident + 1, field);
                 else
                     hasStaticMember = true;
+
+                if (hasSize && !field.IsStatic)
+                    fieldSize += " + " + TypeUtils.GetTypeSize(field.FieldType.ElementType);
             }
+
+            if (hasSize)
+                writer.Ident(ident + 1).WriteLine($"uint8_t padding_[{type.TypeDef.ClassLayout.ClassSize} - ({fieldSize})];");
 
             writer.WriteLine();
 

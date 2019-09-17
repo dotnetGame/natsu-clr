@@ -447,6 +447,41 @@ namespace Natsu.Compiler
             }
         }
 
+        public static string GetTypeSize(ElementType elementType)
+        {
+            switch (elementType)
+            {
+                case ElementType.Boolean:
+                case ElementType.I1:
+                case ElementType.U1:
+                    return "1";
+                case ElementType.Char:
+                case ElementType.I2:
+                case ElementType.U2:
+                    return "2";
+                case ElementType.I4:
+                case ElementType.U4:
+                case ElementType.R4:
+                    return "4";
+                case ElementType.I8:
+                case ElementType.U8:
+                case ElementType.R8:
+                    return "8";
+                case ElementType.String:
+                case ElementType.Ptr:
+                case ElementType.ByRef:
+                case ElementType.Class:
+                case ElementType.I:
+                case ElementType.U:
+                case ElementType.Object:
+                case ElementType.SZArray:
+                case ElementType.FnPtr:
+                    return "sizeof(intptr_t)";
+                default:
+                    throw new InvalidProgramException();
+            }
+        }
+
         public static string EscapeNamespaceName(string ns)
         {
             return ns;
