@@ -13,7 +13,7 @@ set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
 SET(CMAKE_C_COMPILER_WORKS 1)
 SET(CMAKE_CXX_COMPILER_WORKS 1)
 SET(CHINO_ARCH armv7-m)
-SET(CHINO_BOARD coco_l1)
+SET(CHINO_BOARD coco_aq0)
 
 add_compile_options(
     -Wno-multichar
@@ -24,5 +24,5 @@ add_compile_options(
     -flto
     -ffunction-sections
     -fdata-sections
-    -mrelax)
+    -mcpu=cortex-m3)
     

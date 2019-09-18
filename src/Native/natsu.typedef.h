@@ -82,9 +82,23 @@ struct static_holder
     }
 };
 
+template <class T>
+struct vtable_holder
+{
+    static const T value;
+
+    static const T &get()
+    {
+        return value;
+    }
+};
+
+template <class T>
+const T vtable_holder<T>::value;
+
 typedef struct _vtable
 {
-    virtual ~_vtable() = default;
+    virtual void dummy() const noexcept {}
 } vtable_t;
 
 enum object_attributes

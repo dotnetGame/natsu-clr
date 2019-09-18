@@ -107,7 +107,7 @@ gc_obj_ref<::System_Private_CorLib::System::Object> gc_alloc(const vtable_t &vta
 template <class T>
 gc_obj_ref<T> gc_new(size_t size)
 {
-    auto obj = gc_alloc(static_holder<typename T::VTable>::get(), size);
+    auto obj = gc_alloc(vtable_holder<typename T::VTable>::get(), size);
     return obj.template cast<T>();
 }
 
@@ -184,7 +184,7 @@ struct runtime_type_holder
     {
         using namespace ::System_Private_CorLib::System;
         static auto type = make_object<RuntimeType>(
-            reinterpret_cast<intptr_t>(&static_holder<typename T::VTable>::get()));
+            reinterpret_cast<intptr_t>(&vtable_holder<typename T::VTable>::get()));
         return type;
     }
 };
