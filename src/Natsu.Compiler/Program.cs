@@ -15,13 +15,13 @@ namespace Natsu.Compiler
         private static readonly string[] _modulePaths = new[]
         {
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Kernel.dll",
-            @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Core.dll",
-            @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.K210.dll",
-            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Private.CorLib.dll",
-            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.dll",
-            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Diagnostics.Debug.dll",
-            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.InteropServices.dll",
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), @".nuget\packages\bitfields\0.1.0\lib\netstandard1.0\BitFields.dll")
+            //@"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Core.dll",
+            //@"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.K210.dll",
+            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Private.CorLib.dll",
+            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.dll",
+            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Diagnostics.Debug.dll",
+            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.InteropServices.dll",
+            //Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), @".nuget\packages\bitfields\0.1.0\lib\netstandard1.0\BitFields.dll")
         };
 
         static void Main(string[] args)

@@ -8,17 +8,70 @@ namespace Chino.Kernel
     {
         static void Main()
         {
-            //var sb = new StringBuilder();
-            //sb.AppendLine("Hello Chino OS!");
-            //sb.AppendLine("Baka xiahuan!");
+            var terminal = new Terminal();
 
-            //Action action = () => Debug.WriteLine(sb.ToString());
-            //action();
-            //Debug.WriteLine(sb.ToString());
-            //byte i = 225;
-            Debug.WriteLine("Hello Chino OS!");
-            Debug.WriteLine("Used: " + Memory.MemoryManager.GetUsedMemorySize() + " Bytes");
-            Debug.WriteLine("Free: " + Memory.MemoryManager.GetFreeMemorySize() + " Bytes");
+            terminal.Foreground(TerminalColor.White)
+                .WriteLine("Hello Chino OS!");
+
+            terminal.Foreground(TerminalColor.White)
+                .Write("Used: ").Foreground(TerminalColor.Green).Write(Memory.MemoryManager.GetUsedMemorySize().ToString())
+                .Foreground(TerminalColor.White).WriteLine(" Bytes");
+            terminal.Foreground(TerminalColor.White)
+                .Write("Free: ").Foreground(TerminalColor.Green).Write(Memory.MemoryManager.GetFreeMemorySize().ToString())
+                .Foreground(TerminalColor.White).WriteLine(" Bytes");
+            terminal.WriteLine(string.Empty).Reset();
+
+            terminal.Ready();
+        }
+    }
+
+    enum TerminalColor
+    {
+        Black,
+        Red,
+        Green,
+        White
+    }
+
+    class Terminal
+    {
+        public Terminal Write(string message)
+        {
+            Debug.Write(message);
+            return this;
+        }
+
+        public Terminal WriteLine(string message)
+        {
+            Debug.WriteLine(message);
+            return this;
+        }
+
+        public Terminal Reset()
+        {
+            Debug.Write("\u001b[0m");
+            return this;
+        }
+
+        public Terminal Foreground(TerminalColor color)
+        {
+            string seq = color switch
+            {
+                TerminalColor.Black => "\u001b[30m",
+                TerminalColor.Red => "\u001b[31m",
+                TerminalColor.Green => "\u001b[32m",
+                TerminalColor.White => "\u001b[37m",
+                _ => string.Empty
+            };
+
+            Debug.Write(seq);
+            return this;
+        }
+
+        public Terminal Ready()
+        {
+            Debug.Write("$ ");
+            return this;
         }
     }
 }
