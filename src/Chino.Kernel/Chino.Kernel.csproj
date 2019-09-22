@@ -5,10 +5,16 @@
     <TargetFramework>netcoreapp3.0</TargetFramework>
     <OutputPath>$(SolutionDir)../out/bin/</OutputPath>
     <RootNamespace>Chino</RootNamespace>
+    <Platforms>AnyCPU;Emulator;KD233</Platforms>
   </PropertyGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(Platform)'=='Emulator'">
+    <ProjectReference Include="..\Chino.Chip.Emulator\Chino.Chip.Emulator.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(Platform)'=='KD233'">
     <ProjectReference Include="..\Chino.Chip.K210\Chino.Chip.K210.csproj" />
   </ItemGroup>
+
 
 </Project>

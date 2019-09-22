@@ -15,8 +15,9 @@ namespace Natsu.Compiler
         private static readonly string[] _modulePaths = new[]
         {
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Kernel.dll",
-            //@"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Core.dll",
-            //@"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.K210.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Core.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.K210.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.Emulator.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Private.CorLib.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Diagnostics.Debug.dll",

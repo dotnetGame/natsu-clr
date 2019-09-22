@@ -2,10 +2,6 @@
 #include <cmath>
 #include <cstring>
 
-#ifdef WIN32
-#include <Windows.h>
-#endif
-
 using namespace natsu;
 using namespace System_Private_CorLib;
 using namespace System_Private_CorLib::System;
@@ -58,35 +54,18 @@ void Buffer::_s_Memcpy(gc_ptr<Byte> dest, gc_ptr<Byte> src, Int32 len)
 
 void Debug::_s_WriteCore(gc_obj_ref<String> message)
 {
-#ifdef WIN32
-    assert(message);
-    WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE), &message->_firstChar, message->_stringLength, nullptr, nullptr);
-#else
     Chino_Kernel::Chino::Kernel::KernelDebug::_s_Write(message);
-#endif
 }
 
 void Debug::_s_WriteLineCore(gc_obj_ref<String> message)
 {
-#ifdef WIN32
-    static const char16_t new_line[] = u"\n";
-    assert(message);
-    WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE), &message->_firstChar, message->_stringLength, nullptr, nullptr);
-    WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE), new_line, 1, nullptr, nullptr);
-#else
     Chino_Kernel::Chino::Kernel::KernelDebug::_s_Write(message);
     Chino_Kernel::Chino::Kernel::KernelDebug::_s_Write(::System_Private_CorLib::System::Environment::_s_get_NewLine());
-#endif
 }
 
 void Debug::_s_FailCore(gc_obj_ref<String> message, gc_obj_ref<String> detailMessage)
 {
-#ifdef WIN32
-    assert(message);
-    WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE), &message->_firstChar, message->_stringLength, nullptr, nullptr);
-#else
     Chino_Kernel::Chino::Kernel::KernelDebug::_s_Write(message);
-#endif
 }
 
 void Buffer::_s_Memmove(gc_ptr<Byte> dest, gc_ptr<Byte> src, UInt64 len)

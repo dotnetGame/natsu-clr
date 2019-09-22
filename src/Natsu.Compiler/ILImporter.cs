@@ -208,8 +208,6 @@ namespace Natsu.Compiler
 
         private SpillSlot AddSpillSlot(StackEntry stackEntry)
         {
-            if (stackEntry.Type.Code == StackTypeCode.Runtime)
-                ;
             var slot = new SpillSlot { Name = "_s" + _spillSlots.Count.ToString(), Entry = stackEntry };
             _spillSlots.Add(slot);
             return slot;

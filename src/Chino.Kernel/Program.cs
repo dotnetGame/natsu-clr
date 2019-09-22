@@ -8,6 +8,8 @@ namespace Chino.Kernel
     {
         static void Main()
         {
+            ChipControl.Initialize();
+
             var terminal = new Terminal();
 
             terminal.Foreground(TerminalColor.White)
