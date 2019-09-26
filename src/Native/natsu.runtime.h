@@ -302,7 +302,7 @@ namespace stack
         template <class TTo>
         struct stack_to_impl<O, gc_obj_ref<TTo>>
         {
-            gc_obj_ref<TTo> operator()(const O &value) const noexcept
+            constexpr gc_obj_ref<TTo> operator()(const O &value) const noexcept
             {
                 return gc_obj_ref<TTo>(reinterpret_cast<TTo *>(value.value_));
             }
@@ -437,7 +437,7 @@ namespace stack
             {
                 using ::System_Private_CorLib::System::Object;
 
-                check_null_obj_ref(obj);
+                // check_null_obj_ref(obj);
                 auto box = stack_to<gc_obj_ref<Object>>(obj).template as<T>();
                 if (box)
                     return stack_from(gc_ref_from_ref(*box));
@@ -483,7 +483,7 @@ namespace stack
             {
                 using ::System_Private_CorLib::System::Object;
 
-                check_null_obj_ref(obj);
+                // check_null_obj_ref(obj);
                 auto box = stack_to<gc_obj_ref<Object>>(obj).template as<T>();
                 if (box)
                 {
@@ -555,7 +555,7 @@ namespace stack
         {
             O operator()(const O &obj) const noexcept
             {
-                check_null_obj_ref(obj);
+                // check_null_obj_ref(obj);
                 if (obj.header().vtable_as<typename T::VTable>())
                     return obj;
                 throw_invalid_cast_exception();
@@ -931,13 +931,11 @@ namespace ops
     inline value_type ldelem_##name(const stack::O &obj, stack::int32 index)                        \
     {                                                                                               \
         using ::System_Private_CorLib::System::SZArray_1;                                           \
-        check_null_obj_ref(obj);                                                                    \
         return stack_from(stack_to<gc_obj_ref<SZArray_1<type>>>(obj)->at((uint32_t)index.value_));  \
     }                                                                                               \
     inline value_type ldelem_##name(const stack::O &obj, stack::native_int index)                   \
     {                                                                                               \
         using ::System_Private_CorLib::System::SZArray_1;                                           \
-        check_null_obj_ref(obj);                                                                    \
         return stack_from(stack_to<gc_obj_ref<SZArray_1<type>>>(obj)->at((uintptr_t)index.value_)); \
     }
 
@@ -958,7 +956,6 @@ namespace ops
     {
         using ::System_Private_CorLib::System::Object;
         using ::System_Private_CorLib::System::SZArray_1;
-        check_null_obj_ref(obj);
         return stack_from(stack_to<gc_obj_ref<SZArray_1<gc_obj_ref<Object>>>>(obj)->at((uint32_t)index.value_));
     }
 
@@ -966,7 +963,6 @@ namespace ops
     {
         using ::System_Private_CorLib::System::Object;
         using ::System_Private_CorLib::System::SZArray_1;
-        check_null_obj_ref(obj);
         return stack_from(stack_to<gc_obj_ref<SZArray_1<gc_obj_ref<Object>>>>(obj)->at((uintptr_t)index.value_));
     }
 
@@ -975,7 +971,6 @@ namespace ops
     {
         using ::System_Private_CorLib::System::Object;
         using ::System_Private_CorLib::System::SZArray_1;
-        check_null_obj_ref(obj);
         return stack_from(stack_to<gc_obj_ref<SZArray_1<T>>>(obj)->at((uint32_t)index.value_));
     }
 
@@ -984,7 +979,6 @@ namespace ops
     {
         using ::System_Private_CorLib::System::Object;
         using ::System_Private_CorLib::System::SZArray_1;
-        check_null_obj_ref(obj);
         return stack_from(stack_to<gc_obj_ref<SZArray_1<T>>>(obj)->at((uintptr_t)index.value_));
     }
 
@@ -994,7 +988,6 @@ namespace ops
     inline void stelem_##name(const stack::O &obj, stack::int32 index, value_type value)                \
     {                                                                                                   \
         using ::System_Private_CorLib::System::SZArray_1;                                               \
-        check_null_obj_ref(obj);                                                                        \
         stack_to<gc_obj_ref<SZArray_1<type>>>(obj)->at(index.value_) = static_cast<cast>(value.value_); \
     }
 
@@ -1010,7 +1003,6 @@ namespace ops
     {
         using ::System_Private_CorLib::System::Object;
         using ::System_Private_CorLib::System::SZArray_1;
-        check_null_obj_ref(obj);
         stack_to<gc_obj_ref<SZArray_1<gc_obj_ref<Object>>>>(obj)->at(index.value_) = stack_to<gc_obj_ref<Object>>(value);
     }
 
@@ -1019,12 +1011,10 @@ namespace ops
 #define LDIND_IMPL(name, type, ret, cast)                                 \
     inline ret ldind_##name(stack::native_int addr)                       \
     {                                                                     \
-        check_null_obj_ref(addr);                                         \
         return static_cast<cast>(*reinterpret_cast<type *>(addr.value_)); \
     }                                                                     \
     inline ret ldind_##name(stack::Ref addr)                              \
     {                                                                     \
-        check_null_obj_ref(addr);                                         \
         return static_cast<cast>(*reinterpret_cast<type *>(addr.value_)); \
     }
 
@@ -1045,12 +1035,10 @@ namespace ops
 #define STIND_IMPL(name, type, value_type)                                        \
     inline void stind_##name(stack::native_int addr, value_type value)            \
     {                                                                             \
-        check_null_obj_ref(addr);                                                 \
         *reinterpret_cast<type *>(addr.value_) = static_cast<type>(value.value_); \
     }                                                                             \
     inline void stind_##name(stack::Ref addr, value_type value)                   \
     {                                                                             \
-        check_null_obj_ref(addr);                                                 \
         *reinterpret_cast<type *>(addr.value_) = static_cast<type>(value.value_); \
     }
 
@@ -1312,6 +1300,38 @@ gc_ref<T> unbox_exact(gc_obj_ref<::System_Private_CorLib::System::Object> value)
     auto box = value.cast<T>();
     return gc_ref_from_ref(*box);
 }
+
+template <size_t N>
+struct string_literal : public System_Private_CorLib::System::Object
+{
+    ::System_Private_CorLib::System::Int32 _stringLength;
+    ::System_Private_CorLib::System::Char _firstChar[N + 1];
+
+    constexpr string_literal(const char16_t *str)
+        : _stringLength((int32_t)N)
+    {
+        for (size_t i = 0; i < N; i++)
+            _firstChar[i] = str[i];
+        _firstChar[N] = 0;
+    }
+};
+
+template <class TObject, class TValue>
+struct static_object
+{
+    object_header header_;
+    TValue value_;
+
+    constexpr static_object(TValue value)
+        : header_({ OBJ_ATTR_NONE, &vtable_holder<typename TObject::VTable>::get() }), value_(value)
+    {
+    }
+
+    constexpr gc_obj_ref<TObject> get() const noexcept
+    {
+        return gc_obj_ref<TObject>(reinterpret_cast<TObject *>(const_cast<TValue *>(&value_)));
+    }
+};
 }
 
 namespace System_Private_CorLib

@@ -87,7 +87,7 @@ struct vtable_holder
 {
     static const T value;
 
-    static const T &get()
+    static constexpr const T &get()
     {
         return value;
     }
@@ -123,6 +123,7 @@ struct object_header
         return dynamic_cast<const TVTable *>(vtable_);
     }
 };
+
 template <class T>
 constexpr bool is_value_type_v = T::TypeInfo::IsValueType;
 
@@ -569,29 +570,25 @@ struct vtable_class : public TBase, public vtable_impl_t<TBase, TIFaces>...
 
 #define NATSU_PRIMITIVE_OPERATORS_IMPL
 
-#define NATSU_SZARRAY_IMPL                                 \
-    T &at(size_t index)                                    \
-    {                                                      \
-        if (index >= length())                             \
-            ::natsu::throw_index_out_of_range_exception(); \
-        return elements_[index];                           \
-    }                                                      \
-    ::natsu::gc_ref<T> ref_at(size_t index)                \
-    {                                                      \
-        if (index >= length())                             \
-            ::natsu::throw_index_out_of_range_exception(); \
-        return ::natsu::gc_ref_from_ref(elements_[index]); \
-    }                                                      \
-    T get(int index)                                       \
-    {                                                      \
-        return at(index);                                  \
-    }                                                      \
-    void set(int index, T value)                           \
-    {                                                      \
-        at(index) = value;                                 \
-    }                                                      \
-    uintptr_t length() const noexcept                      \
-    {                                                      \
-        return Length.m_value;                             \
-    }                                                      \
+#define NATSU_SZARRAY_IMPL                                                                \
+    constexpr T &at(size_t index)                                                         \
+    {                                                                                     \
+        return elements_[index];                                                          \
+    }                                                                                     \
+    constexpr ::natsu::gc_ref<T> ref_at(size_t index)                                     \
+    {                                                                                     \
+        return ::natsu::gc_ref_from_ref(elements_[index]);                                \
+    }                                                                                     \
+    constexpr T get(int index)                                                            \
+    {                                                                                     \
+        return at(index);                                                                 \
+    }                                                                                     \
+    constexpr void set(int index, T value)                                                \
+    {                                                                                     \
+        at(index) = value;                                                                \
+    }                                                                                     \
+    constexpr uintptr_t length() const noexcept                                           \
+    {                                                                                     \
+        return Length.m_value;                                                            \
+    }                                                                                     \
     T elements_[0];

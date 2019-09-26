@@ -13,12 +13,15 @@ namespace Natsu.Compiler
     {
         private BasicBlock _headBlock;
         private BlockGraph _blockGraph = new BlockGraph();
-        private readonly StreamWriter _writer;
+        private readonly TextWriter _writer;
         private readonly int _ident;
         private readonly MethodDef _method;
         private List<SpillSlot> _spillSlots = new List<SpillSlot>();
 
-        public ILImporter(MethodDef method, StreamWriter writer, int ident)
+        public List<string> UserStrings { get; set; }
+        public string ModuleName { get; set; }
+
+        public ILImporter(MethodDef method, TextWriter writer, int ident)
         {
             _method = method;
             _writer = writer;
@@ -215,7 +218,7 @@ namespace Natsu.Compiler
 
         private void WriteInstruction(TextWriter writer, Instruction op, EvaluationStack stack, int ident, BasicBlock block)
         {
-            var emitter = new OpEmitter { Method = _method, Op = op, Stack = stack, Ident = ident, Block = block, Writer = writer };
+            var emitter = new OpEmitter { ModuleName = ModuleName, UserStrings = UserStrings, Method = _method, Op = op, Stack = stack, Ident = ident, Block = block, Writer = writer };
             bool isSpecial = true;
 
             if (op.IsLdarg())
@@ -685,6 +688,8 @@ namespace Natsu.Compiler
         public BasicBlock Block { get; set; }
         public MethodDef Method { get; set; }
         public TextWriter Writer { get; set; }
+        public string ModuleName { get; set; }
+        public List<string> UserStrings { get; set; }
 
         // Unary
 
@@ -1032,7 +1037,8 @@ namespace Natsu.Compiler
         public void Ldstr()
         {
             var value = (string)Op.Operand;
-            Stack.Push(StackTypeCode.O, $"::natsu::stack_from(::natsu::load_string(uR\"NS({value})NS\"sv))");
+            Stack.Push(StackTypeCode.O, $"::natsu::stack_from(::{ModuleName}::user_string_{UserStrings.Count}.get())");
+            UserStrings.Add(value);
         }
 
         public void Ldsfld()
