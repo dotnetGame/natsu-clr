@@ -663,6 +663,9 @@ namespace Natsu.Compiler
                     case Code.Dup:
                         emitter.Dup();
                         break;
+                    case Code.Ldftn:
+                        emitter.Ldftn();
+                        break;
                     case Code.Pop:
                         stack.Pop();
                         break;
@@ -1234,7 +1237,7 @@ namespace Natsu.Compiler
             var type = (ITypeDefOrRef)Op.Operand;
             var index = Stack.Pop();
             var array = Stack.Pop();
-            Stack.Push(TypeUtils.GetStackType(type.ToTypeSig()), $"::natsu::ops::ldelem<{TypeUtils.EscapeVariableTypeName(type)}>({array.Expression}, {index.Expression})");
+            Stack.Push(TypeUtils.GetStackType(type.ToTypeSig()), $"::natsu::ops::ldelem<{TypeUtils.EscapeTypeName(type)}>({array.Expression}, {index.Expression})");
         }
 
         public void Stelem()
@@ -1243,7 +1246,7 @@ namespace Natsu.Compiler
             var value = Stack.Pop();
             var index = Stack.Pop();
             var array = Stack.Pop();
-            Writer.Ident(Ident).WriteLine($"::natsu::ops::stelem<{TypeUtils.EscapeVariableTypeName(type)}>({array.Expression}, {index.Expression}, {value.Expression});");
+            Writer.Ident(Ident).WriteLine($"::natsu::ops::stelem<{TypeUtils.EscapeTypeName(type)}>({array.Expression}, {index.Expression}, {value.Expression});");
         }
 
         public void Ldelema()
@@ -1270,6 +1273,38 @@ namespace Natsu.Compiler
         {
             var value = Stack.Peek();
             Stack.Push(value);
+        }
+
+        public void Ldftn()
+        {
+            var member = (IMethod)Op.Operand;
+            var method = member.MethodSig;
+            var para = new List<TypeSig>();
+            var parasCount = method.Params.Count;
+            for (int i = parasCount - 1; i >= 0; i--)
+                para.Add(method.Params[i]);
+
+            if (method.HasThis)
+                para.Add(TypeUtils.ThisType(member.DeclaringType));
+
+            var tGen = (member.DeclaringType as TypeSpec)?.TryGetGenericInstSig()?.GenericArguments.ToList()
+                ?? new List<TypeSig>();
+            var gen = (member as MethodSpec)?.GenericInstMethodSig;
+            para.Reverse();
+            string expr;
+            if (gen != null)
+            {
+                var genArgs = gen.GenericArguments;
+                tGen.AddRange(genArgs);
+                expr = $"{TypeUtils.EscapeTypeName(member.DeclaringType)}::{TypeUtils.EscapeMethodName(member)}<{string.Join(", ", gen.GenericArguments.Select(x => TypeUtils.EscapeTypeName(x)))}>";
+            }
+            else
+            {
+                expr = $"{ TypeUtils.EscapeTypeName(member.DeclaringType)}::{TypeUtils.EscapeMethodName(member)}";
+            }
+
+            var stackType = TypeUtils.GetStackType(method.RetType);
+            Stack.Push(StackTypeCode.NativeInt, $"::natsu::ops::ldftn({expr})");
         }
 
         public void Switch()

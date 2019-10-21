@@ -22,7 +22,6 @@ namespace Chino.Kernel
                 .Write("Free: ").Foreground(TerminalColor.Green).Write(Memory.MemoryManager.GetFreeMemorySize().ToString())
                 .Foreground(TerminalColor.White).WriteLine(" Bytes");
             terminal.WriteLine(string.Empty).Reset();
-
             terminal.Ready();
         }
     }

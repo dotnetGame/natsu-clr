@@ -16,17 +16,6 @@ namespace System
         // 1. Multicast delegate
         // 2. Secure/Wrapper delegate
         // 3. Inner delegate of secure delegate where the secure delegate security context is a collectible method
-        private object _invocationList;
-        private IntPtr _invocationCount;
-
-        internal bool IsUnmanagedFunctionPtr()
-        {
-            return (_invocationCount == (IntPtr)(-1));
-        }
-
-        internal bool InvocationListLogicallyNull()
-        {
-            return (_invocationList == null);
-        }
+        private Delegate[] _invocationList;
     }
 }

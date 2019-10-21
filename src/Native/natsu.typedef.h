@@ -570,25 +570,33 @@ struct vtable_class : public TBase, public vtable_impl_t<TBase, TIFaces>...
 
 #define NATSU_PRIMITIVE_OPERATORS_IMPL
 
-#define NATSU_SZARRAY_IMPL                                                                \
-    constexpr T &at(size_t index)                                                         \
-    {                                                                                     \
-        return elements_[index];                                                          \
-    }                                                                                     \
-    constexpr ::natsu::gc_ref<T> ref_at(size_t index)                                     \
-    {                                                                                     \
-        return ::natsu::gc_ref_from_ref(elements_[index]);                                \
-    }                                                                                     \
-    constexpr T get(int index)                                                            \
-    {                                                                                     \
-        return at(index);                                                                 \
-    }                                                                                     \
-    constexpr void set(int index, T value)                                                \
-    {                                                                                     \
-        at(index) = value;                                                                \
-    }                                                                                     \
-    constexpr uintptr_t length() const noexcept                                           \
-    {                                                                                     \
-        return Length.m_value;                                                            \
-    }                                                                                     \
-    T elements_[0];
+#define NATSU_SZARRAY_IMPL                                           \
+    constexpr ::natsu::variable_type_t<T> &at(size_t index)          \
+    {                                                                \
+        return elements_[index];                                     \
+    }                                                                \
+    constexpr ::natsu::variable_type_t<T> *begin()                   \
+    {                                                                \
+        return elements_;                                            \
+    }                                                                \
+    constexpr ::natsu::variable_type_t<T> *end()                     \
+    {                                                                \
+        return elements_ + length();                                 \
+    }                                                                \
+    constexpr auto ref_at(size_t index)                              \
+    {                                                                \
+        return ::natsu::gc_ref_from_ref(elements_[index]);           \
+    }                                                                \
+    constexpr ::natsu::variable_type_t<T> get(int index)             \
+    {                                                                \
+        return at(index);                                            \
+    }                                                                \
+    constexpr void set(int index, ::natsu::variable_type_t<T> value) \
+    {                                                                \
+        at(index) = value;                                           \
+    }                                                                \
+    constexpr uintptr_t length() const noexcept                      \
+    {                                                                \
+        return Length.m_value;                                       \
+    }                                                                \
+    ::natsu::variable_type_t<T> elements_[0];

@@ -4,4 +4,8 @@
     <TargetFramework>netcoreapp3.0</TargetFramework>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Chino.Core\Chino.Core.csproj" />
+  </ItemGroup>
+
 </Project>

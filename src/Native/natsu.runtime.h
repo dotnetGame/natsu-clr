@@ -956,14 +956,14 @@ namespace ops
     {
         using ::System_Private_CorLib::System::Object;
         using ::System_Private_CorLib::System::SZArray_1;
-        return stack_from(stack_to<gc_obj_ref<SZArray_1<gc_obj_ref<Object>>>>(obj)->at((uint32_t)index.value_));
+        return stack_from(stack_to<gc_obj_ref<SZArray_1<Object>>>(obj)->at((uint32_t)index.value_));
     }
 
     inline stack::O ldelem_ref(const stack::O &obj, stack::native_int index)
     {
         using ::System_Private_CorLib::System::Object;
         using ::System_Private_CorLib::System::SZArray_1;
-        return stack_from(stack_to<gc_obj_ref<SZArray_1<gc_obj_ref<Object>>>>(obj)->at((uintptr_t)index.value_));
+        return stack_from(stack_to<gc_obj_ref<SZArray_1<Object>>>(obj)->at((uintptr_t)index.value_));
     }
 
     template <class T>
@@ -1003,7 +1003,7 @@ namespace ops
     {
         using ::System_Private_CorLib::System::Object;
         using ::System_Private_CorLib::System::SZArray_1;
-        stack_to<gc_obj_ref<SZArray_1<gc_obj_ref<Object>>>>(obj)->at(index.value_) = stack_to<gc_obj_ref<Object>>(value);
+        stack_to<gc_obj_ref<SZArray_1<Object>>>(obj)->at(index.value_) = stack_to<gc_obj_ref<Object>>(value);
     }
 
 #undef STELEM_IMPL
@@ -1291,6 +1291,12 @@ namespace ops
     inline stack::native_int localloc(const stack::native_int &size)
     {
         return reinterpret_cast<intptr_t>(alloca(size.value_));
+    }
+
+    template<class T>
+    inline stack::native_int ldftn(T func)
+    {
+        return reinterpret_cast<intptr_t>(func);
     }
 }
 

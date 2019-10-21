@@ -16,12 +16,13 @@ namespace Natsu.Compiler
         {
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Kernel.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Core.dll",
-            @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.K210.dll",
+            //@"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.K210.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.Emulator.dll",
-            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Private.CorLib.dll",
-            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Private.CorLib.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Diagnostics.Debug.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.InteropServices.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Threading.dll",
             //Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), @".nuget\packages\bitfields\0.1.0\lib\netstandard1.0\BitFields.dll")
         };
 
@@ -693,7 +694,7 @@ namespace Natsu.Compiler
                     }
 
                     if (!method.IsAbstract && !method.IsInternalCall
-                        && method.HasBody)
+                        && (method.HasBody || method.IsRuntime))
                     {
                         WriteMethodBody(writer, ident, method);
                         writer.WriteLine();
@@ -725,7 +726,12 @@ namespace Natsu.Compiler
             WriteParameterList(writer, method.Parameters);
             writer.WriteLine(")");
             writer.Ident(ident).WriteLine("{");
-            WriteILBody(writer, ident + 1, method);
+            if (method.HasBody)
+                WriteILBody(writer, ident + 1, method);
+            else if (method.IsRuntime)
+                WriteRuntimeBody(writer, ident + 1, method);
+            else
+                throw new NotSupportedException();
             writer.Ident(ident).WriteLine("}");
             writer.Flush();
         }
@@ -821,37 +827,74 @@ namespace Natsu.Compiler
                 WriteLocal(local, writer, ident, method);
             }
 
-            //Console.WriteLine(method);
             var importer = new ILImporter(method, writer, ident) { UserStrings = _userStrings, ModuleName = TypeUtils.EscapeModuleName(_module.Assembly) };
             importer.ImportBlocks(body.Instructions);
             importer.Gencode();
         }
 
+        private void WriteRuntimeBody(TextWriter writer, int ident, MethodDef method)
+        {
+            if (method.DeclaringType.IsDelegate)
+            {
+                if (method.IsInstanceConstructor)
+                {
+                    writer.Ident(ident).WriteLine($"_this->_target = object;");
+                    writer.Ident(ident).WriteLine($"_this->_methodPtr = method;");
+                }
+                else if (method.Name == "Invoke")
+                {
+                    writer.Ident(ident).Write($"typedef {TypeUtils.EscapeVariableTypeName(method.ReturnType)}(*method_t)(::natsu::gc_obj_ref<::System_Private_CorLib::System::Object>");
+                    foreach (var param in method.Parameters.Skip(1))
+                        writer.Write(", " + TypeUtils.EscapeVariableTypeName(param.Type, hasGen: 1));
+                    writer.WriteLine(");");
+
+                    writer.Ident(ident).WriteLine($"if (!_this->_invocationList)");
+                    writer.Ident(ident).WriteLine("{");
+                    writer.Ident(ident + 1).Write($"return reinterpret_cast<method_t>((intptr_t)_this->_methodPtr)(_this->_target");
+                    foreach (var param in method.Parameters.Skip(1))
+                    {
+                        var paramName = param.IsHiddenThisParameter ? "_this" : param.ToString();
+                        writer.Write(", " + paramName);
+                    }
+                    writer.WriteLine($");");
+                    writer.Ident(ident).WriteLine("}");
+
+                    writer.Ident(ident).WriteLine($"else");
+                    writer.Ident(ident).WriteLine("{");
+                    if (method.HasReturnType)
+                        writer.Ident(ident + 1).WriteLine($"{TypeUtils.EscapeVariableTypeName(method.ReturnType)} result;");
+                    writer.Ident(ident + 1).WriteLine("for (auto d : *_this->_invocationList)");
+                    writer.Ident(ident + 1).WriteLine("{");
+                    writer.Ident(ident + 2).WriteLine($"auto typed_d = d.cast<{TypeUtils.EscapeTypeName(method.DeclaringType)}>();");
+                    if (method.HasReturnType)
+                        writer.Ident(ident + 2).Write($"result = reinterpret_cast<method_t>((intptr_t)typed_d->_methodPtr)(typed_d->_target");
+                    else
+                        writer.Ident(ident + 2).Write($"reinterpret_cast<method_t>((intptr_t)typed_d->_methodPtr)(typed_d->_target");
+                    foreach (var param in method.Parameters.Skip(1))
+                    {
+                        var paramName = param.IsHiddenThisParameter ? "_this" : param.ToString();
+                        writer.Write(", " + paramName);
+                    }
+                    writer.WriteLine($");");
+                    writer.Ident(ident + 1).WriteLine("}");
+                    if (method.HasReturnType)
+                        writer.Ident(ident + 1).WriteLine($"return result;");
+                    writer.Ident(ident).WriteLine("}");
+                }
+                else
+                {
+                    throw new NotSupportedException();
+                }
+            }
+            else
+            {
+                throw new NotSupportedException();
+            }
+        }
+
         private void WriteLocal(Local local, TextWriter writer, int ident, MethodDef method)
         {
             writer.Ident(ident).WriteLine($"{TypeUtils.EscapeVariableTypeName(local.Type)} _l{local.Index};");
-        }
-
-        private string ArithmeticExpression((TypeSig type, string expression) v1, (TypeSig type, string expression) v2, string op)
-        {
-            var e1 = v1.type.ElementType; uint i = 99; var s = i - 100;
-            var e2 = v2.type.ElementType;
-            if (e1 == ElementType.U4 && e2 == ElementType.I4)
-                return $"::natsu::integral_cast<::System_Private_CorLib::System::Int32>({v1.expression}) {op} {v2.expression}";
-            if (e1 == ElementType.U8 && e2 == ElementType.I8)
-                return $"::natsu::integral_cast<::System_Private_CorLib::System::Int64>({v1.expression}) {op} {v2.expression}";
-            return $"{v1.expression} {op} {v2.expression}";
-        }
-
-        private TypeSig GetIndirectType(TypeSig type)
-        {
-            var byRef = type.ToByRefSig();
-            if (byRef != null)
-                return byRef.Next;
-            var ptr = type.ToPtrSig();
-            if (ptr != null)
-                return ptr.Next;
-            throw new ArgumentException();
         }
 
         class TypeDesc
