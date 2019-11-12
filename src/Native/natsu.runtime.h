@@ -159,6 +159,13 @@ template <class T, class... TArgs>
     throw make_exception(make_object<T>(std::forward<TArgs>(args)...));
 }
 
+template <class T, class TCond, class... TArgs>
+void check_condition(TCond &&condition, TArgs &&... args)
+{
+    if (!condition)
+        throw make_exception(make_object<T>(std::forward<TArgs>(args)...));
+}
+
 inline void check_null_obj_ref(stack::O obj)
 {
     if (!obj.istrue())
@@ -1293,7 +1300,7 @@ namespace ops
         return reinterpret_cast<intptr_t>(alloca(size.value_));
     }
 
-    template<class T>
+    template <class T>
     inline stack::native_int ldftn(T func)
     {
         return reinterpret_cast<intptr_t>(func);

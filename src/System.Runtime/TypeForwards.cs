@@ -24,6 +24,8 @@ using System.Text;
 [assembly: TypeForwardedTo(typeof(IComparable))]
 [assembly: TypeForwardedTo(typeof(IEquatable<>))]
 [assembly: TypeForwardedTo(typeof(StringBuilder))]
+[assembly: TypeForwardedTo(typeof(Delegate))]
+[assembly: TypeForwardedTo(typeof(MulticastDelegate))]
 [assembly: TypeForwardedTo(typeof(EventArgs))]
 [assembly: TypeForwardedTo(typeof(EventHandler))]
 [assembly: TypeForwardedTo(typeof(EventHandler<>))]

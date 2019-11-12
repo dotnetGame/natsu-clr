@@ -18,7 +18,7 @@ namespace Natsu.Compiler
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Core.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.K210.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.Emulator.dll",
-            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Private.CorLib.dll",
+            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Private.CorLib.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Diagnostics.Debug.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.InteropServices.dll",

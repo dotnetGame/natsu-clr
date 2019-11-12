@@ -16,5 +16,14 @@ namespace System
         internal Delegate()
         {
         }
+
+        public static Delegate Combine(Delegate a, Delegate b)
+        {
+            if (a == null) return b;
+            if (b == null) return a;
+            return a.CombineImpl(b);
+        }
+
+        protected abstract Delegate CombineImpl(Delegate newDelegate);
     }
 }
