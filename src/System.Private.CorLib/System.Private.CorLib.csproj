@@ -12,6 +12,7 @@
     <AssemblyOriginatorKeyFile>$(SolutionDir)../tools/Open.snk</AssemblyOriginatorKeyFile>
     <AssemblyVersion>4.2.1.0</AssemblyVersion>
     <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
+    <Nullable>Enable</Nullable>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <NoWarn>1701;1702;0169</NoWarn>

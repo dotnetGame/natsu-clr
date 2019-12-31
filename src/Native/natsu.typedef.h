@@ -1,5 +1,6 @@
 // natsu clr runtime
 #pragma once
+#include <array>
 #include <cassert>
 #include <cstdint>
 #include <cstring>
@@ -66,6 +67,14 @@ inline constexpr double to_double(uint64_t value) noexcept
 inline constexpr int64_t to_int64(uint64_t value) noexcept
 {
     return static_cast<const int64_t &>(value);
+}
+
+template <class T, size_t N>
+constexpr T bit_init(std::array<uint8_t, N> value) noexcept
+{
+    T t;
+    std::memcpy(&t, value.data(), sizeof(t));
+    return t;
 }
 
 inline constexpr void nop() noexcept

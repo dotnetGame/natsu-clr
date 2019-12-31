@@ -493,6 +493,8 @@ namespace Natsu.Compiler
                 throw new ArgumentException("Invalid identifier");
 
             var sb = new StringBuilder();
+            if (char.IsDigit(name[0]))
+                sb.Append('_');
             foreach (var c in name)
             {
                 if (char.IsLetterOrDigit(c) || c == '_')

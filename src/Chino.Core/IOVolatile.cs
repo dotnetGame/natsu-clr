@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 
 namespace Chino
 {
-    public static class Volatile
+    public static class IOVolatile
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
         public static extern ref T As<T>(uint address) where T : unmanaged;

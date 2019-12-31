@@ -230,3 +230,22 @@ Double Math::_s_ModF(Double x, gc_ptr<Double> y)
 {
     return modf(x.m_value, &y->m_value);
 }
+
+gc_obj_ref<MulticastDelegate> MulticastDelegate::_s_CreateDelegateLike(gc_obj_ref<MulticastDelegate> delegate, gc_obj_ref<SZArray_1<Delegate>> invocationList)
+{
+    auto d_len = invocationList->length();
+    if (d_len == 0)
+    {
+        return null;
+    }
+    else if (d_len == 1)
+    {
+        return invocationList->get(0).cast<MulticastDelegate>();
+    }
+    else
+    {
+        auto d = gc_alloc(*delegate.header().vtable_, sizeof(MulticastDelegate)).cast<MulticastDelegate>();
+        d->_invocationList = invocationList;
+        return d;
+    }
+}

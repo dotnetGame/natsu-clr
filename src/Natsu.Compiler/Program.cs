@@ -18,7 +18,7 @@ namespace Natsu.Compiler
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Core.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.K210.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.Emulator.dll",
-            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Private.CorLib.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Private.CorLib.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Diagnostics.Debug.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.InteropServices.dll",
@@ -250,7 +250,6 @@ namespace Natsu.Compiler
                     case ElementType.ByRef:
                     case ElementType.Ptr:
                     case ElementType.CModReqd:
-                    case ElementType.GenericInst:
                     case ElementType.Object:
                     case ElementType.Class:
                         break;
@@ -280,6 +279,14 @@ namespace Natsu.Compiler
                     case ElementType.SZArray:
                         AddTypeRef(declareDesc, _szArrayType.TypeDef, force);
                         break;
+                    case ElementType.GenericInst:
+                        {
+                            var sig = cntSig.ToGenericInstSig();
+                            AddTypeRef(declareDesc, sig.GenericType, force);
+                            foreach (var arg in sig.GenericArguments)
+                                AddTypeRef(declareDesc, arg, force);
+                            break;
+                        }
                     default:
                         throw new NotSupportedException();
                 }
@@ -373,7 +380,10 @@ namespace Natsu.Compiler
                 writer.Ident(ident).Write($"template <{string.Join(", ", typeNames)}> ");
             }
 
-            writer.Ident(ident).Write($"struct {type.Name};");
+            if (type.TypeDef.IsExplicitLayout)
+                writer.Ident(ident).Write($"union {type.Name};");
+            else
+                writer.Ident(ident).Write($"struct {type.Name};");
 
             foreach (var ns in nss)
                 writer.Write(" }");
@@ -411,7 +421,10 @@ namespace Natsu.Compiler
                 writer.Ident(ident).WriteLine($"template <{string.Join(", ", typeNames)}> ");
             }
 
-            writer.Ident(ident).Write($"struct {type.Name}");
+            if (type.TypeDef.IsExplicitLayout)
+                writer.Ident(ident).Write($"union {type.Name}");
+            else
+                writer.Ident(ident).Write($"struct {type.Name}");
             if (!type.TypeDef.IsValueType)
             {
                 var baseType = GetBaseType(type.TypeDef);
@@ -600,8 +613,21 @@ namespace Natsu.Compiler
             string prefix = string.Empty;
             if (value.IsStatic && !isStatic)
                 prefix = "static ";
+            bool isExplicit = value.DeclaringType.IsExplicitLayout;
 
-            writer.Ident(ident).WriteLine($"{prefix}{TypeUtils.EscapeVariableTypeName(value.FieldType, value.DeclaringType)} {TypeUtils.EscapeIdentifier(value.Name)};");
+            writer.Ident(ident);
+            if (isExplicit)
+                writer.Write("struct { ");
+            if (value.FieldOffset is uint offset && offset != 0)
+                writer.Write($"uint8_t pad_{value.Rid}_[{offset}]; ");
+
+            writer.Write($"{prefix}{TypeUtils.EscapeVariableTypeName(value.FieldType, value.DeclaringType)} {TypeUtils.EscapeIdentifier(value.Name)}");
+            if (value.InitialValue != null)
+                writer.Write($" = natsu::bit_init<{TypeUtils.EscapeVariableTypeName(value.FieldType, value.DeclaringType)}, {value.InitialValue.Length}>({{{string.Join(", ", value.InitialValue)}}})");
+            writer.Write(';');
+            if (isExplicit)
+                writer.Write(" };");
+            writer.WriteLine();
         }
 
         private void WriteConstantStringField(StreamWriter writer, int ident, FieldDef value)

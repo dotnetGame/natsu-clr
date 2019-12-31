@@ -5,7 +5,7 @@ namespace Chino.Chip.K210.HAL.Serial
 {
     public class Uarths
     {
-        private static ref UarthsReg Reg => ref Volatile.As<UarthsReg>(RegisterMap.UARTHS_BASE_ADDR);
+        private static ref UarthsReg Reg => ref IOVolatile.As<UarthsReg>(RegisterMap.UARTHS_BASE_ADDR);
 
         public static void DebugWrite(string text)
         {
@@ -20,8 +20,8 @@ namespace Chino.Chip.K210.HAL.Serial
 
         private static void DebugWriteByte(byte value)
         {
-            while (Volatile.Read(ref Reg.txdata).full != 0) ;
-            Volatile.Write(ref Reg.txdata, new uarths_txdata { data = value });
+            while (IOVolatile.Read(ref Reg.txdata).full != 0) ;
+            IOVolatile.Write(ref Reg.txdata, new uarths_txdata { data = value });
         }
     }
 
