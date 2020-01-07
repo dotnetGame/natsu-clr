@@ -314,14 +314,17 @@ namespace Natsu.Compiler
             return name.Replace('.', '_');
         }
 
-        public static string EscapeMethodName(IMethod method)
+        public static string EscapeMethodName(IMethod method, bool hasExplicit = false)
         {
             if (method.Name == ".ctor")
                 return "_ctor";
             if (method.MethodSig.HasThis)
             {
                 var sb = new StringBuilder();
-                sb.Append(EscapeIdentifier(method.Name.String.Split('.').Last()));
+                if (hasExplicit)
+                    sb.Append(EscapeIdentifier(method.Name.String));
+                else
+                    sb.Append(EscapeIdentifier(method.Name.String.Split('.').Last()));
                 sb.Append("_");
 
                 for (int i = 0; i < method.MethodSig.Params.Count; i++)

@@ -29,5 +29,8 @@ namespace System.Collections.Generic
         /// </remarks>
         [MethodImpl(MethodImplOptions.InternalCall)]
         internal extern static Comparer<T> CreateDefaultComparer<T>();
+
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        internal extern static EqualityComparer<T> CreateDefaultEqualityComparer<T>();
     }
 }
