@@ -277,7 +277,8 @@ namespace Natsu.Compiler
                         AddTypeRef(declareDesc, cntSig.TryGetTypeDef(), force);
                         break;
                     case ElementType.SZArray:
-                        AddTypeRef(declareDesc, _szArrayType.TypeDef, force);
+                        if (_szArrayType != null)
+                            AddTypeRef(declareDesc, _szArrayType.TypeDef, force);
                         break;
                     case ElementType.GenericInst:
                         {

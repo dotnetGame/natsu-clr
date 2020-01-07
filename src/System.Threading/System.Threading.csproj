@@ -3,9 +3,9 @@
   <PropertyGroup>
     <TargetFramework>netcoreapp3.0</TargetFramework>
     <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
-    <OutputPath>$(SolutionDir)../out/bin/</OutputPath>
+    <OutputPath>$(SolutionDir)out/bin/</OutputPath>
     <SignAssembly>true</SignAssembly>
-    <AssemblyOriginatorKeyFile>$(SolutionDir)../tools/Open.snk</AssemblyOriginatorKeyFile>
+    <AssemblyOriginatorKeyFile>$(SolutionDir)tools/Open.snk</AssemblyOriginatorKeyFile>
     <AssemblyVersion>4.2.1.0</AssemblyVersion>
   </PropertyGroup>
 

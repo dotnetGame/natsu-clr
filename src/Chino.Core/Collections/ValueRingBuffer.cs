@@ -75,56 +75,55 @@ namespace Chino.Collections
 
         public int TryWrite(ReadOnlySpan<T> buffer)
         {
-            throw new NotImplementedException();
-            //Debug.Assert(buffer.Length > 0);
-            //int toWrite = buffer.Length;
-            //if (toWrite > 0)
-            //{
-            //    var pointers = GetPointers();
-            //    if (pointers.writePtr < pointers.readPtr)
-            //    {
-            //        var avail = pointers.writePtr - pointers.readPtr;
-            //        var canRead = Math.Min(toWrite, avail);
-            //        if (canRead > 0)
-            //        {
-            //            _buffer.AsSpan().Slice(pointers.readPtr, canRead).CopyTo(buffer);
-            //            Volatile.Write(ref _readPointer, pointers.readPtr + canRead);
-            //            return canRead;
-            //        }
-            //    }
-            //    else if (pointers.writePtr < pointers.readPtr)
-            //    {
-            //        // read tail
-            //        var avail = _buffer.Length - pointers.readPtr;
-            //        var canRead = Math.Min(toWrite, avail);
-            //        int read = 0;
-            //        if (canRead > 0)
-            //        {
-            //            _buffer.AsSpan().Slice(pointers.readPtr, canRead).CopyTo(buffer);
-            //            read += canRead;
-            //            toWrite -= canRead;
-            //        }
+            Debug.Assert(buffer.Length > 0);
+            int toWrite = buffer.Length;
+            if (toWrite > 0)
+            {
+                var pointers = GetPointers();
+                if (pointers.writePtr < pointers.readPtr)
+                {
+                    var avail = pointers.readPtr - pointers.writePtr;
+                    var canWrite = Math.Min(toWrite, avail);
+                    if (canWrite > 0)
+                    {
+                        buffer.Slice(0, canWrite).CopyTo(_buffer.AsSpan().Slice(pointers.writePtr));
+                        Volatile.Write(ref _writePointer, pointers.writePtr + canWrite);
+                        return canWrite;
+                    }
+                }
+                else if (pointers.writePtr >= pointers.readPtr)
+                {
+                    // write tail
+                    var avail = _buffer.Length - pointers.writePtr;
+                    var canWrite = Math.Min(toWrite, avail);
+                    int written = 0;
+                    if (canWrite > 0)
+                    {
+                        buffer.Slice(0, canWrite).CopyTo(_buffer.AsSpan().Slice(pointers.writePtr));
+                        written += canWrite;
+                        toWrite -= canWrite;
+                    }
 
-            //        avail = pointers.writePtr;
-            //        canRead = Math.Min(toWrite, avail);
-            //        if (canRead > 0)
-            //        {
-            //            _buffer.AsSpan().Slice(0, canRead).CopyTo(buffer.Slice(read));
-            //            read += canRead;
-            //            Volatile.Write(ref _readPointer, canRead);
-            //        }
-            //        else
-            //        {
-            //            var pos = pointers.readPtr + read;
-            //            if (pos == _buffer.Length) pos = 0;
-            //            Volatile.Write(ref _readPointer, pos);
-            //        }
+                    avail = pointers.writePtr;
+                    canWrite = Math.Min(toWrite, avail);
+                    if (canWrite > 0)
+                    {
+                        buffer.Slice(written, canWrite).CopyTo(_buffer);
+                        written += canWrite;
+                        Volatile.Write(ref _writePointer, canWrite);
+                    }
+                    else
+                    {
+                        var pos = pointers.writePtr + written;
+                        if (pos == _buffer.Length) pos = 0;
+                        Volatile.Write(ref _writePointer, pos);
+                    }
 
-            //        return read;
-            //    }
-            //}
+                    return written;
+                }
+            }
 
-            //return 0;
+            return 0;
         }
 
         private (int readPtr, int writePtr) GetPointers()

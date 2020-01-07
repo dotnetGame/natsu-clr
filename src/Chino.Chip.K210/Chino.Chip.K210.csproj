@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netcoreapp3.0</TargetFramework>
-    <OutputPath>$(SolutionDir)../out/bin/</OutputPath>
+    <OutputPath>$(SolutionDir)out/bin/</OutputPath>
   </PropertyGroup>
 
   <ItemGroup>

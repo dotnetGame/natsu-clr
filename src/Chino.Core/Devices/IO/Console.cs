@@ -9,11 +9,11 @@ namespace Chino.Devices.IO
     {
         public event EventHandler DataAvailable;
 
-        private readonly ValueRingBuffer<ConsoleEvent> _eventsBuffer;
+        protected ValueRingBuffer<ConsoleEvent> EventsBuffer;
 
         public Console()
         {
-            _eventsBuffer = new ValueRingBuffer<ConsoleEvent>(16);
+            EventsBuffer = new ValueRingBuffer<ConsoleEvent>(16);
         }
     }
 }

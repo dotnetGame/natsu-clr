@@ -11,6 +11,7 @@ using namespace System_Runtime::System;
 using namespace Chino_Chip_Emulator::Chino;
 using namespace Chino_Chip_Emulator::Chino::Chip::Emulator::HAL::IO;
 namespace wrl = Microsoft::WRL;
+namespace cio = Chino_Core::Chino::Devices::IO;
 
 namespace
 {
@@ -28,6 +29,7 @@ void ConsoleReadThread(void *arg)
         for (DWORD i = 0; i < input_read; i++)
         {
             auto &record = input_records[i];
+            cio::ConsoleEvent cevent;
             switch (record.EventType)
             {
             case KEY_EVENT:

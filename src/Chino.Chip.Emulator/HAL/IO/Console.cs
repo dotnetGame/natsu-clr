@@ -6,10 +6,8 @@ using System.Runtime.CompilerServices;
 
 namespace Chino.Chip.Emulator.HAL.IO
 {
-    public class Console : IConsole
+    public class Console : Chino.Devices.IO.Console, IConsole
     {
-        public event EventHandler DataAvailable;
-
         private UIntPtr _readThread;
 
         public void Install()

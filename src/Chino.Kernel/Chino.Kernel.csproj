@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>Library</OutputType>
     <TargetFramework>netcoreapp3.0</TargetFramework>
-    <OutputPath>$(SolutionDir)../out/bin/</OutputPath>
+    <OutputPath>$(SolutionDir)out/bin/</OutputPath>
     <RootNamespace>Chino</RootNamespace>
     <Platforms>AnyCPU;Emulator;KD233</Platforms>
   </PropertyGroup>

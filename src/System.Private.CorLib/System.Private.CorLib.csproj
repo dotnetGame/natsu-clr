@@ -9,7 +9,7 @@
     <RuntimeMetadataVersion>v4.0.30319</RuntimeMetadataVersion>
     <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
     <SignAssembly>true</SignAssembly>
-    <AssemblyOriginatorKeyFile>$(SolutionDir)../tools/Open.snk</AssemblyOriginatorKeyFile>
+    <AssemblyOriginatorKeyFile>$(SolutionDir)tools/Open.snk</AssemblyOriginatorKeyFile>
     <AssemblyVersion>4.2.1.0</AssemblyVersion>
     <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
     <Nullable>Enable</Nullable>
@@ -21,7 +21,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <NoWarn>1701;1702;0169</NoWarn>
     <DefineConstants>TRACE;BIT64</DefineConstants>
-    <OutputPath>$(SolutionDir)../out/bin/</OutputPath>
+    <OutputPath>$(SolutionDir)out/bin/</OutputPath>
   </PropertyGroup>
   <ItemGroup>
     <None Include="Resources\Strings.resx">

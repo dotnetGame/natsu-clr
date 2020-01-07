@@ -24,6 +24,9 @@ namespace System.Runtime.CompilerServices
         [MethodImpl(MethodImplOptions.InternalCall)]
         internal extern static bool IsReferenceOrContainsReferences<TTo>() where TTo : struct;
 
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        internal extern static int EnumCompareTo<T>(T x, T y) where T : struct;
+
         // Returns true iff the object has a component size;
         // i.e., is variable length like System.String or Array.
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
