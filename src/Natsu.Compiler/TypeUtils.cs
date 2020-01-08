@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -114,7 +115,8 @@ namespace Natsu.Compiler
 
         public static TypeSig ThisType(ITypeDefOrRef type)
         {
-            if (type.IsValueType)
+            var typeDef = type.ResolveTypeDef();
+            if (typeDef?.IsValueType ?? false || type.IsValueType)
                 return new ByRefSig(type.ToTypeSig());
             return type.ToTypeSig();
         }
@@ -314,7 +316,20 @@ namespace Natsu.Compiler
             return name.Replace('.', '_');
         }
 
-        public static string EscapeMethodName(IMethod method, bool hasExplicit = false)
+        public static string EscapeMethodParamsType(IMethod method)
+        {
+            var sb = new StringBuilder();
+            for (int i = 0; i < method.MethodSig.Params.Count; i++)
+            {
+                sb.Append(EscapeVariableTypeName(method.MethodSig.Params[i]));
+                if (i != method.MethodSig.Params.Count - 1)
+                    sb.Append(", ");
+            }
+
+            return sb.ToString();
+        }
+
+        public static string EscapeMethodName(IMethod method, bool hasParamType = true, bool hasExplicit = false)
         {
             if (method.Name == ".ctor")
                 return "_ctor";
@@ -325,25 +340,20 @@ namespace Natsu.Compiler
                     sb.Append(EscapeIdentifier(method.Name.String));
                 else
                     sb.Append(EscapeIdentifier(method.Name.String.Split('.').Last()));
-                sb.Append("_");
 
-                for (int i = 0; i < method.MethodSig.Params.Count; i++)
+                if (hasParamType)
                 {
-                    EscapeMethodTypeName(sb, method.MethodSig.Params[i]);
-                    if (i != method.MethodSig.Params.Count - 1)
-                        sb.Append("_");
+                    sb.Append("_");
+
+                    for (int i = 0; i < method.MethodSig.Params.Count; i++)
+                    {
+                        EscapeMethodTypeName(sb, method.MethodSig.Params[i]);
+                        if (i != method.MethodSig.Params.Count - 1)
+                            sb.Append("_");
+                    }
                 }
 
                 var name = EscapeIdentifier(sb.ToString());
-                if (name == "get_Current_" && method.MethodSig.RetType.ElementType == ElementType.Object)
-                    return "get_Current_O";
-                if (name == "GetEnumerator_")
-                {
-                    if (method.MethodSig.RetType.FullName.Contains("System.Collections.IEnumerator"))
-                        return "GetEnumerator_O";
-                    if (method.MethodSig.RetType.FullName.Contains("System.Collections.Generic.IEnumerator"))
-                        return "GetEnumerator_G";
-                }
 
                 return name;
             }
@@ -613,6 +623,72 @@ namespace Natsu.Compiler
                         throw new NotSupportedException(stackType.ToString());
                     return stackType.Name;
             }
+        }
+
+        public static string EscapeCSharpTypeName(string name)
+        {
+            return EscapeCSharpTypeNameCore(new StringReader(name));
+        }
+
+        private static string EscapeCSharpTypeNameCore(TextReader name)
+        {
+            var sb = new StringBuilder();
+            var genSb = new StringBuilder();
+            int count = 0;
+            while (name.Peek() != -1)
+            {
+                var c = (char)name.Peek();
+                if (c == '.')
+                {
+                    name.Read();
+                    sb.Append("::");
+                }
+                else if (c == '<')
+                {
+                    name.Read();
+                    count = 1;
+                    sb.Append("_");
+                    var nest = EscapeCSharpTypeNameCore(name);
+                    genSb.Append('<');
+                    genSb.Append(nest);
+                }
+                else if (c == ',')
+                {
+                    name.Read();
+                    if (count != 0)
+                    {
+                        count++;
+                        var nest = EscapeCSharpTypeNameCore(name);
+                        genSb.Append(", ");
+                        genSb.Append(nest);
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                else if (c == '>')
+                {
+                    if (count != 0)
+                    {
+                        name.Read();
+                        sb.Append(count);
+                        sb.Append(genSb);
+                        sb.Append('>');
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                else
+                {
+                    name.Read();
+                    sb.Append(c);
+                }
+            }
+
+            return sb.ToString();
         }
     }
 }

@@ -38,60 +38,32 @@ namespace Internal.Runtime.CompilerServices
         /// </summary>
         [Intrinsic]
         [NonVersionable]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void* AsPointer<T>(ref T value)
-        {
-            throw new PlatformNotSupportedException();
-
-            // ldarg.0
-            // conv.u
-            // ret
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.InternalCall)]
+        public static extern void* AsPointer<T>(ref T value);
 
         /// <summary>
         /// Returns the size of an object of the given type parameter.
         /// </summary>
         [Intrinsic]
         [NonVersionable]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int SizeOf<T>()
-        {
-#if CORECLR
-            typeof(T).ToString(); // Type token used by the actual method body
-#endif
-            throw new PlatformNotSupportedException();
-
-            // sizeof !!0
-            // ret
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.InternalCall)]
+        public static extern int SizeOf<T>();
 
         /// <summary>
         /// Casts the given object to the specified type, performs no dynamic type checking.
         /// </summary>
         [Intrinsic]
         [NonVersionable]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static T As<T>(object value) where T : class
-        {
-            throw new PlatformNotSupportedException();
-
-            // ldarg.0
-            // ret
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.InternalCall)]
+        public static extern T As<T>(object value) where T : class;
 
         /// <summary>
         /// Reinterprets the given reference as a reference to a value of type <typeparamref name="TTo"/>.
         /// </summary>
         [Intrinsic]
         [NonVersionable]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ref TTo As<TFrom, TTo>(ref TFrom source)
-        {
-            throw new PlatformNotSupportedException();
-
-            // ldarg.0
-            // ret
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.InternalCall)]
+        public static extern ref TTo As<TFrom, TTo>(ref TFrom source);
 
         /// <summary>
         /// Adds an element offset to the given reference.
@@ -157,7 +129,7 @@ namespace Internal.Runtime.CompilerServices
         /// </summary>
         [Intrinsic]
         [NonVersionable]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.InternalCall)]
         public static bool AreSame<T>(ref T left, ref T right)
         {
             throw new PlatformNotSupportedException();
@@ -177,16 +149,8 @@ namespace Internal.Runtime.CompilerServices
         /// </remarks>
         [Intrinsic]
         [NonVersionable]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool IsAddressGreaterThan<T>(ref T left, ref T right)
-        {
-            throw new PlatformNotSupportedException();
-
-            // ldarg.0
-            // ldarg.1
-            // cgt.un
-            // ret
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.InternalCall)]
+        public static extern bool IsAddressGreaterThan<T>(ref T left, ref T right);
 
         /// <summary>
         /// Determines whether the memory address referenced by <paramref name="left"/> is less than
@@ -197,16 +161,8 @@ namespace Internal.Runtime.CompilerServices
         /// </remarks>
         [Intrinsic]
         [NonVersionable]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool IsAddressLessThan<T>(ref T left, ref T right)
-        {
-            throw new PlatformNotSupportedException();
-
-            // ldarg.0
-            // ldarg.1
-            // clt.un
-            // ret
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.InternalCall)]
+        public static extern bool IsAddressLessThan<T>(ref T left, ref T right);
 
         /// <summary>
         /// Initializes a block of memory at the given location with a given initial value 
@@ -226,81 +182,40 @@ namespace Internal.Runtime.CompilerServices
         /// </summary>
         [Intrinsic]
         [NonVersionable]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static T ReadUnaligned<T>(void* source)
-        {
-#if CORECLR
-            typeof(T).ToString(); // Type token used by the actual method body
-            throw new PlatformNotSupportedException();
-#else
-            return Unsafe.As<byte, T>(ref *(byte*)source);
-#endif
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.InternalCall)]
+        public static extern T ReadUnaligned<T>(void* source);
 
         /// <summary>
         /// Reads a value of type <typeparamref name="T"/> from the given location.
         /// </summary>
         [Intrinsic]
         [NonVersionable]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static T ReadUnaligned<T>(ref byte source)
-        {
-#if CORECLR
-            typeof(T).ToString(); // Type token used by the actual method body
-            throw new PlatformNotSupportedException();
-#else
-            return Unsafe.As<byte, T>(ref source);
-#endif
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.InternalCall)]
+        public static extern T ReadUnaligned<T>(ref byte source);
 
         /// <summary>
         /// Writes a value of type <typeparamref name="T"/> to the given location.
         /// </summary>
         [Intrinsic]
         [NonVersionable]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void WriteUnaligned<T>(void* destination, T value)
-        {
-#if CORECLR
-            typeof(T).ToString(); // Type token used by the actual method body
-            throw new PlatformNotSupportedException();
-#else
-            Unsafe.As<byte, T>(ref *(byte*)destination) = value;
-#endif
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.InternalCall)]
+        public static extern void WriteUnaligned<T>(void* destination, T value);
 
         /// <summary>
         /// Writes a value of type <typeparamref name="T"/> to the given location.
         /// </summary>
         [Intrinsic]
         [NonVersionable]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void WriteUnaligned<T>(ref byte destination, T value)
-        {
-#if CORECLR
-            typeof(T).ToString(); // Type token used by the actual method body
-            throw new PlatformNotSupportedException();
-#else
-            Unsafe.As<byte, T>(ref destination) = value;
-#endif
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.InternalCall)]
+        public static extern void WriteUnaligned<T>(ref byte destination, T value);
 
         /// <summary>
         /// Adds an element offset to the given reference.
         /// </summary>
         [Intrinsic]
         [NonVersionable]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ref T AddByteOffset<T>(ref T source, IntPtr byteOffset)
-        {
-            // This method is implemented by the toolchain
-            throw new PlatformNotSupportedException();
-
-            // ldarg.0
-            // ldarg.1
-            // add
-            // ret
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.InternalCall)]
+        public static extern ref T AddByteOffset<T>(ref T source, IntPtr byteOffset);
 
         /// <summary>
         /// Reads a value of type <typeparamref name="T"/> from the given location.
@@ -362,21 +277,15 @@ namespace Internal.Runtime.CompilerServices
         /// </summary>
         [Intrinsic]
         [NonVersionable]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ref T AsRef<T>(in T source)
-        {
-            throw new PlatformNotSupportedException();
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.InternalCall)]
+        public static extern ref T AsRef<T>(in T source);
 
         /// <summary>
         /// Determines the byte offset from origin to target from the given references.
         /// </summary>
         [Intrinsic]
         [NonVersionable]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static IntPtr ByteOffset<T>(ref T origin, ref T target)
-        {
-            throw new PlatformNotSupportedException();
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.InternalCall)]
+        public static extern IntPtr ByteOffset<T>(ref T origin, ref T target);
     }
 }

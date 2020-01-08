@@ -94,7 +94,7 @@ struct static_holder
 template <class T>
 struct vtable_holder
 {
-    static const T value;
+    static const constexpr T value = T();
 
     static constexpr const T &get()
     {
@@ -102,12 +102,14 @@ struct vtable_holder
     }
 };
 
-template <class T>
-const T vtable_holder<T>::value;
-
 typedef struct _vtable
 {
     virtual void dummy() const noexcept {}
+
+    template <class TFunc>
+    constexpr void override_vfunc_impl(std::string_view name, TFunc func)
+    {
+    }
 } vtable_t;
 
 enum object_attributes
@@ -482,11 +484,20 @@ struct vtable_impl;
 template <class TBase, class TIFace>
 struct vtable_impl<TBase, TIFace, true>
 {
+    template <class TFunc>
+    constexpr void override_vfunc_impl(std::string_view name, TFunc func)
+    {
+    }
 };
 
 template <class TBase, class TIFace>
 struct vtable_impl<TBase, TIFace, false> : public TIFace
 {
+    template <class TFunc>
+    constexpr void override_vfunc_impl(std::string_view name, TFunc func)
+    {
+        TIFace::override_vfunc_impl(name, func);
+    }
 };
 
 template <class TBase, class TIFace>
@@ -495,6 +506,12 @@ using vtable_impl_t = vtable_impl<TBase, TIFace, std::is_base_of_v<TIFace, TBase
 template <class TBase, class... TIFaces>
 struct vtable_class : public TBase, public vtable_impl_t<TBase, TIFaces>...
 {
+    template <class TFunc>
+    constexpr void override_vfunc(std::string_view name, TFunc func)
+    {
+        TBase::override_vfunc_impl(name, func);
+        int ignore[] = { 0, (vtable_impl_t<TBase, TIFaces>::override_vfunc_impl(name, func), 0)... };
+    }
 };
 }
 

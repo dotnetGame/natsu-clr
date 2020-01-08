@@ -148,6 +148,21 @@ auto make_object(TArgs... args)
 }
 
 template <class T>
+auto make_object_uninit()
+{
+    if constexpr (is_value_type_v<T>)
+    {
+        T value;
+        return value;
+    }
+    else
+    {
+        auto value = gc_new<T>();
+        return value;
+    }
+}
+
+template <class T>
 natsu_exception make_exception(gc_obj_ref<T> exception)
 {
     return { std::move(exception) };
@@ -1356,8 +1371,108 @@ void System::ByReference_1<T>::_ctor(::natsu::gc_ref<System::ByReference_1<T>> _
 }
 
 template <class T>
-::natsu::gc_ref<::natsu::variable_type_t<T>> System::ByReference_1<T>::get_Value_(::natsu::gc_ref<System::ByReference_1<T>> _this)
+::natsu::gc_ref<::natsu::variable_type_t<T>> System::ByReference_1<T>::get_Value(::natsu::gc_ref<System::ByReference_1<T>> _this)
 {
     return ::natsu::gc_ref_from_ref(*reinterpret_cast<::natsu::variable_type_t<T> *>(static_cast<intptr_t>(_this->_value)));
+}
+
+template <class T>
+::natsu::gc_ptr<void> Internal::Runtime::CompilerServices::Unsafe::_s_AsPointer(::natsu::gc_ref<::natsu::variable_type_t<T>> value)
+{
+    return ::natsu::gc_ptr<void>(value.ptr_);
+}
+
+template <class T>
+::System_Private_CorLib::System::Int32 Internal::Runtime::CompilerServices::Unsafe::_s_SizeOf()
+{
+    return sizeof(T);
+}
+
+template <class T>
+::natsu::variable_type_t<T> Internal::Runtime::CompilerServices::Unsafe::_s_As(::natsu::gc_obj_ref<::System_Private_CorLib::System::Object> value)
+{
+    return ::natsu::gc_obj_ref<T>(reinterpret_cast<T *>(value.ptr_));
+}
+
+template <class TFrom, class TTo>
+::natsu::gc_ref<::natsu::variable_type_t<TTo>> Internal::Runtime::CompilerServices::Unsafe::_s_As(::natsu::gc_ref<::natsu::variable_type_t<TFrom>> source)
+{
+    return ::natsu::gc_ref_from_ref(*reinterpret_cast<::natsu::variable_type_t<TTo> *>(source.ptr_));
+}
+
+template <class T>
+::System_Private_CorLib::System::Boolean Internal::Runtime::CompilerServices::Unsafe::_s_AreSame(::natsu::gc_ref<::natsu::variable_type_t<T>> left, ::natsu::gc_ref<::natsu::variable_type_t<T>> right)
+{
+    return left.ptr_ == right.ptr_;
+}
+
+template <class T>
+::System_Private_CorLib::System::Boolean Internal::Runtime::CompilerServices::Unsafe::_s_IsAddressGreaterThan(::natsu::gc_ref<::natsu::variable_type_t<T>> left, ::natsu::gc_ref<::natsu::variable_type_t<T>> right)
+{
+    return left.ptr_ > right.ptr_;
+}
+
+template <class T>
+::System_Private_CorLib::System::Boolean Internal::Runtime::CompilerServices::Unsafe::_s_IsAddressLessThan(::natsu::gc_ref<::natsu::variable_type_t<T>> left, ::natsu::gc_ref<::natsu::variable_type_t<T>> right)
+{
+    return left.ptr_ < right.ptr_;
+}
+
+template <class T>
+::natsu::variable_type_t<T> Internal::Runtime::CompilerServices::Unsafe::_s_ReadUnaligned(::natsu::gc_ptr<void> source)
+{
+    auto obj = natsu::make_object_uninit<T>();
+    if constexpr (natsu::is_value_type_v<T>)
+        std::memcpy(&obj, source.ptr_, sizeof(T));
+    else
+        std::memcpy(obj.ptr_, source.ptr_, sizeof(T));
+    return obj;
+}
+
+template <class T>
+::natsu::variable_type_t<T> Internal::Runtime::CompilerServices::Unsafe::_s_ReadUnaligned(::natsu::gc_ref<::System_Private_CorLib::System::Byte> source)
+{
+    auto obj = natsu::make_object_uninit<T>();
+    if constexpr (natsu::is_value_type_v<T>)
+        std::memcpy(&obj, source.ptr_, sizeof(T));
+    else
+        std::memcpy(obj.ptr_, source.ptr_, sizeof(T));
+    return obj;
+}
+
+template <class T>
+void Internal::Runtime::CompilerServices::Unsafe::_s_WriteUnaligned(::natsu::gc_ptr<void> destination, ::natsu::variable_type_t<T> value)
+{
+    if constexpr (natsu::is_value_type_v<T>)
+        std::memcpy(destination.ptr_, &value, sizeof(T));
+    else
+        std::memcpy(destination.ptr_, value.ptr_, sizeof(T));
+}
+
+template <class T>
+void Internal::Runtime::CompilerServices::Unsafe::_s_WriteUnaligned(::natsu::gc_ref<::System_Private_CorLib::System::Byte> destination, ::natsu::variable_type_t<T> value)
+{
+    if constexpr (natsu::is_value_type_v<T>)
+        std::memcpy(destination.ptr_, &value, sizeof(T));
+    else
+        std::memcpy(destination.ptr_, value.ptr_, sizeof(T));
+}
+
+template <class T>
+::natsu::gc_ref<::natsu::variable_type_t<T>> Internal::Runtime::CompilerServices::Unsafe::_s_AddByteOffset(::natsu::gc_ref<::natsu::variable_type_t<T>> source, ::System_Private_CorLib::System::IntPtr byteOffset)
+{
+    return ::natsu::gc_ref<::natsu::variable_type_t<T>>(reinterpret_cast<uintptr_t>(source.ptr_) + reinterpret_cast<intptr_t>(byteOffset._value.ptr_));
+}
+
+template <class T>
+::natsu::gc_ref<::natsu::variable_type_t<T>> Internal::Runtime::CompilerServices::Unsafe::_s_AsRef(::natsu::gc_ref<::natsu::variable_type_t<T>> source)
+{
+    return source;
+}
+
+template <class T>
+::System_Private_CorLib::System::IntPtr Internal::Runtime::CompilerServices::Unsafe::_s_ByteOffset(::natsu::gc_ref<::natsu::variable_type_t<T>> origin, ::natsu::gc_ref<::natsu::variable_type_t<T>> target)
+{
+    return reinterpret_cast<intptr_t>(target.ptr_) - reinterpret_cast<intptr_t>(origin.ptr_);
 }
 }

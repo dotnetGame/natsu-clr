@@ -16,23 +16,24 @@ namespace Natsu.Compiler
         {
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Kernel.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Core.dll",
-            @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.K210.dll",
+            //@"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.K210.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.Emulator.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Private.CorLib.dll",
-            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Memory.dll",
-            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.dll",
-            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.Extensions.dll",
-            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Diagnostics.Debug.dll",
-            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.InteropServices.dll",
-            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Threading.dll",
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), @".nuget\packages\bitfields\0.1.0\lib\netstandard1.0\BitFields.dll")
+            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Memory.dll",
+            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.dll",
+            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.Extensions.dll",
+            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Diagnostics.Debug.dll",
+            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.InteropServices.dll",
+            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Threading.dll",
+            //Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), @".nuget\packages\bitfields\0.1.0\lib\netstandard1.0\BitFields.dll")
         };
 
         static void Main(string[] args)
         {
+            var ctx = ModuleDef.CreateModuleContext();
             foreach (var path in _modulePaths)
             {
-                var module = ModuleDefMD.Load(path);
+                var module = ModuleDefMD.Load(path, ctx);
                 var generator = new Generator(module);
                 generator.Generate();
             }
@@ -569,6 +570,9 @@ namespace Natsu.Compiler
             WriteVTableCtor(writer, type, ident + 1);
             writer.WriteLine();
 
+            WriteVTableOverrideImpl(writer, type, ident + 1);
+            writer.WriteLine();
+
             foreach (var method in type.TypeDef.Methods)
             {
                 if (!method.IsInstanceConstructor && !method.IsStatic)
@@ -653,7 +657,7 @@ namespace Natsu.Compiler
                 writer.Ident(ident).Write("static " + TypeUtils.EscapeVariableTypeName(method.ReturnType) + " ");
             else
                 writer.Ident(ident);
-            writer.Write(TypeUtils.EscapeMethodName(method, hasExplicit: true) + "(");
+            writer.Write(TypeUtils.EscapeMethodName(method, hasParamType: false, hasExplicit: true) + "(");
             WriteParameterList(writer, method.Parameters);
             writer.WriteLine($");");
         }
@@ -753,7 +757,7 @@ namespace Natsu.Compiler
             writer.Write(TypeUtils.EscapeTypeName(method.DeclaringType, hasModuleName: false));
             if (method.IsStaticConstructor)
                 writer.Write("::Static");
-            writer.Write("::" + TypeUtils.EscapeMethodName(method, hasExplicit: true) + "(");
+            writer.Write("::" + TypeUtils.EscapeMethodName(method, hasParamType: false, hasExplicit: true) + "(");
             WriteParameterList(writer, method.Parameters);
             writer.WriteLine(")");
             writer.Ident(ident).WriteLine("{");
@@ -805,21 +809,43 @@ namespace Natsu.Compiler
                     {
                         if (method.Name.Contains("."))
                         {
-                            var explict = method.Name.String;
-                            explict = explict.Substring(0, explict.LastIndexOf('.'));
-                            explict = explict.Replace(".", "::");
-                            writer.Ident(ident + 1).Write(explict);
-                            writer.Write("::VTable::");
-                            writer.Write(TypeUtils.EscapeMethodName(method));
-                            writer.Write(" = ");
-                            writer.WriteLine("_imp_" + TypeUtils.EscapeMethodName(method, hasExplicit: true) + ";");
+                            foreach (var ov in method.Overrides)
+                            {
+                                writer.Ident(ident + 1).Write(TypeUtils.EscapeTypeName(ov.MethodDeclaration.DeclaringType));
+                                writer.Write("::VTable::");
+                                writer.Write(TypeUtils.EscapeMethodName(ov.MethodDeclaration));
+                                writer.Write(" = ");
+                                writer.WriteLine("_imp_" + TypeUtils.EscapeMethodName(method, hasExplicit: true) + ";");
+                            }
                         }
                         else if (!method.IsNewSlot)
                         {
-                            writer.Ident(ident + 1).Write(TypeUtils.EscapeMethodName(method));
-                            writer.Write(" = ");
-                            writer.WriteLine("_imp_" + TypeUtils.EscapeMethodName(method) + ";");
+                            writer.Ident(ident + 1).Write("override_vfunc");
+                            writer.Write("(R\"NS(" + method.Name + ")NS\", ");
+                            writer.WriteLine("_imp_" + TypeUtils.EscapeMethodName(method) + ");");
                         }
+                    }
+                }
+            }
+
+            writer.Ident(ident).WriteLine("}");
+        }
+
+        private void WriteVTableOverrideImpl(StreamWriter writer, TypeDesc type, int ident)
+        {
+            writer.Ident(ident).WriteLine("template <class TFunc>");
+            writer.Ident(ident).WriteLine("constexpr void override_vfunc_impl(std::string_view name, TFunc func)");
+            writer.Ident(ident).WriteLine("{");
+
+            foreach (var method in type.TypeDef.Methods)
+            {
+                if (!method.IsInstanceConstructor && !method.IsStatic)
+                {
+                    if (method.IsVirtual && method.IsNewSlot && !method.Name.Contains("."))
+                    {
+                        writer.Ident(ident + 1).WriteLine($@"if (name == ""{method.Name}""sv)");
+                        writer.Ident(ident + 2).WriteLine($@"if constexpr (std::is_same_v<TFunc, decltype({TypeUtils.EscapeMethodName(method)})>)");
+                        writer.Ident(ident + 3).WriteLine(TypeUtils.EscapeMethodName(method) + " = func;");
                     }
                 }
             }
@@ -862,7 +888,7 @@ namespace Natsu.Compiler
             else
             {
                 writer.Ident(ident).Write(TypeUtils.EscapeVariableTypeName(method.ReturnType) + " ");
-                writer.Write(TypeUtils.EscapeMethodName(method) + "(");
+                writer.Write(TypeUtils.EscapeMethodName(method, hasParamType: true) + "(");
                 WriteParameterList(writer, method.Parameters, isVTable: true);
                 writer.WriteLine(") const;");
             }
@@ -891,7 +917,7 @@ namespace Natsu.Compiler
             writer.Write("::VTable::");
             if (method.IsVirtual)
                 writer.Write("_imp_");
-            writer.Write(TypeUtils.EscapeMethodName(method, hasExplicit: true) + "(");
+            writer.Write(TypeUtils.EscapeMethodName(method, hasParamType: true, hasExplicit: true) + "(");
             WriteParameterList(writer, method.Parameters, isVTable: true);
             if (method.IsVirtual)
                 writer.WriteLine(")");
@@ -906,7 +932,7 @@ namespace Natsu.Compiler
             {
                 writer.Ident(ident + 1).Write("return ");
                 writer.Write(TypeUtils.EscapeTypeName(method.DeclaringType));
-                writer.Write("::" + TypeUtils.EscapeMethodName(method, hasExplicit: true) + "(");
+                writer.Write("::" + TypeUtils.EscapeMethodName(method, hasParamType: false, hasExplicit: true) + "(");
                 WriteParameterList(writer, method.Parameters, hasType: false, isVTable: true);
                 writer.WriteLine(");");
             }

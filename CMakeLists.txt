@@ -22,6 +22,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 if (MSVC)
     add_definitions(/D_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS /DNOMINMAX /DUNICODE)
+    add_compile_options(/wd4102)
 else()
     add_compile_options(-Wno-multichar)
 endif()

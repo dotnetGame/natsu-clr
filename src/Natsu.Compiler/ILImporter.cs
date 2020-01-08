@@ -884,11 +884,11 @@ namespace Natsu.Compiler
             {
                 var genArgs = gen.GenericArguments;
                 tGen.AddRange(genArgs);
-                expr = $"{TypeUtils.EscapeTypeName(member.DeclaringType)}::{TypeUtils.EscapeMethodName(member)}<{string.Join(", ", gen.GenericArguments.Select(x => TypeUtils.EscapeTypeName(x)))}>({string.Join(", ", para.Select((x, i) => CastExpression(x.destType, x.src, genArgs)))})";
+                expr = $"{TypeUtils.EscapeTypeName(member.DeclaringType)}::{TypeUtils.EscapeMethodName(member, hasParamType: false)}<{string.Join(", ", gen.GenericArguments.Select(x => TypeUtils.EscapeTypeName(x)))}>({string.Join(", ", para.Select((x, i) => CastExpression(x.destType, x.src, genArgs)))})";
             }
             else
             {
-                expr = $"{ TypeUtils.EscapeTypeName(member.DeclaringType)}::{TypeUtils.EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src, tGen)))})";
+                expr = $"{ TypeUtils.EscapeTypeName(member.DeclaringType)}::{TypeUtils.EscapeMethodName(member, hasParamType: false)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src, tGen)))})";
             }
 
             var stackType = TypeUtils.GetStackType(method.RetType);

@@ -30,11 +30,14 @@ void ConsoleReadThread(void *arg)
         {
             auto &record = input_records[i];
             cio::ConsoleEvent cevent;
+
             switch (record.EventType)
             {
             case KEY_EVENT:
-                if (record.Event.KeyEvent.bKeyDown)
-                    putchar(record.Event.KeyEvent.uChar.UnicodeChar);
+                cevent._Type_k__BackingField = cio::ConsoleEventType::KeyEvent;
+                cevent._Key_k__BackingField._KeyDown_k__BackingField = record.Event.KeyEvent.bKeyDown;
+                cevent._Key_k__BackingField._Char_k__BackingField = record.Event.KeyEvent.uChar.UnicodeChar;
+                this_->OnReceive(this_, cevent);
                 break;
             default:
                 break;
@@ -44,7 +47,7 @@ void ConsoleReadThread(void *arg)
 }
 }
 
-void Console::InstallConsoleReadThread_(::natsu::gc_obj_ref<::Chino_Chip_Emulator::Chino::Chip::Emulator::HAL::IO::Console> _this)
+void Console::InstallConsoleReadThread(::natsu::gc_obj_ref<::Chino_Chip_Emulator::Chino::Chip::Emulator::HAL::IO::Console> _this)
 {
     auto thread = _beginthread(ConsoleReadThread, 0, _this.ptr_);
     assert(thread);
