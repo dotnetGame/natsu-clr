@@ -19,6 +19,7 @@ namespace Natsu.Compiler
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.K210.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.Emulator.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Private.CorLib.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Collections.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Memory.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.Extensions.dll",
@@ -93,6 +94,8 @@ namespace Natsu.Compiler
                 writer.WriteLine();
                 WriteTypeForwardDeclares(writer);
                 writer.WriteLine();
+                WriteAssemblyEmbeddedCode(_module.Assembly, writer);
+                writer.WriteLine();
                 WriteTypeDeclares(writer);
                 writer.WriteLine("}");
                 writer.WriteLine();
@@ -135,6 +138,14 @@ namespace Natsu.Compiler
 
                 writer.WriteLine();
                 writer.WriteLine(hBody.ToString());
+            }
+        }
+
+        private void WriteAssemblyEmbeddedCode(AssemblyDef assembly, StreamWriter writer)
+        {
+            foreach (var att in assembly.CustomAttributes.FindAll("Natsu.AssemblyEmbeddedCodeAttribute"))
+            {
+                writer.WriteLine(att.ConstructorArguments[0].Value);
             }
         }
 
@@ -371,7 +382,7 @@ namespace Natsu.Compiler
 
         private void WriteTypeForwardDeclare(StreamWriter writer, int ident, TypeDesc type)
         {
-            var nss = type.TypeDef.Namespace.String.Split('.', StringSplitOptions.RemoveEmptyEntries)
+            var nss = TypeUtils.GetNamespace(type.TypeDef).Split('.', StringSplitOptions.RemoveEmptyEntries)
                 .Select(TypeUtils.EscapeNamespaceName).ToList();
 
             writer.Ident(ident);
@@ -411,7 +422,7 @@ namespace Natsu.Compiler
         {
             bool hasStaticMember = false;
 
-            var nss = type.TypeDef.Namespace.String.Split('.', StringSplitOptions.RemoveEmptyEntries)
+            var nss = TypeUtils.GetNamespace(type.TypeDef).Split('.', StringSplitOptions.RemoveEmptyEntries)
                 .Select(TypeUtils.EscapeNamespaceName).ToList();
 
             writer.Ident(ident);
@@ -749,8 +760,10 @@ namespace Natsu.Compiler
             if (method.HasGenericParameters)
                 methodGens.AddRange(method.GenericParameters.Select(x => x.Name.String));
 
-            if (typeGens.Any() || methodGens.Any())
-                writer.WriteLine($"template <{string.Join(", ", typeGens.Concat(methodGens).Select(x => "class " + x))}>");
+            if (typeGens.Any())
+                writer.WriteLine($"template <{string.Join(", ", typeGens.Select(x => "class " + x))}>");
+            if (methodGens.Any())
+                writer.WriteLine($"template <{string.Join(", ", methodGens.Select(x => "class " + x))}>");
 
             if (!method.IsStaticConstructor)
                 writer.Write(TypeUtils.EscapeVariableTypeName(method.ReturnType) + " ");
@@ -909,8 +922,10 @@ namespace Natsu.Compiler
             if (method.HasGenericParameters)
                 methodGens.AddRange(method.GenericParameters.Select(x => x.Name.String));
 
-            if (typeGens.Any() || methodGens.Any())
-                writer.WriteLine($"template <{string.Join(", ", typeGens.Concat(methodGens).Select(x => "class " + x))}>");
+            if (typeGens.Any())
+                writer.WriteLine($"template <{string.Join(", ", typeGens.Select(x => "class " + x))}>");
+            if (methodGens.Any())
+                writer.WriteLine($"template <{string.Join(", ", methodGens.Select(x => "class " + x))}>");
 
             writer.Write(TypeUtils.EscapeVariableTypeName(method.ReturnType) + " ");
             writer.Write(TypeUtils.EscapeTypeName(method.DeclaringType, hasModuleName: false));

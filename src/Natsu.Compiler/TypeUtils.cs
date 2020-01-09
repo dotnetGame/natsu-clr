@@ -206,9 +206,17 @@ namespace Natsu.Compiler
                     {
                         var var = cntSig.ToGenericVar();
                         if (genArgs != null)
-                            EscapeTypeName(sb, genArgs[(int)var.Number]);
+                        {
+                            var sig = genArgs.OfType<GenericSig>().FirstOrDefault(x => x.Number == var.Number);
+                            if (sig != null)
+                                EscapeTypeName(sb, sig);
+                            else
+                                EscapeTypeName(sb, genArgs[(int)var.Number]);
+                        }
                         else
+                        {
                             sb.Append(var.GetName());
+                        }
                     }
                     break;
                 case ElementType.MVar:
@@ -286,7 +294,7 @@ namespace Natsu.Compiler
             var sb = new StringBuilder();
             if (hasModuleName)
                 sb.Append("::" + EscapeModuleName(type.DefinitionAssembly) + "::");
-            var nss = type.Namespace.Split('.', StringSplitOptions.RemoveEmptyEntries)
+            var nss = TypeUtils.GetNamespace(type).Split('.', StringSplitOptions.RemoveEmptyEntries)
                 .Select(EscapeNamespaceName).ToList();
             foreach (var ns in nss)
                 sb.Append($"{ns}::");
@@ -458,6 +466,22 @@ namespace Natsu.Compiler
                 default:
                     throw new NotSupportedException();
             }
+        }
+
+        public static string GetNamespace(ITypeDefOrRef type)
+        {
+            if (type is TypeDef typeDef)
+            {
+                if (typeDef.IsNested)
+                    return typeDef.DeclaringType.Namespace;
+            }
+            else if (type is TypeRef typeRef)
+            {
+                if (typeRef.IsNested)
+                    return typeRef.DeclaringType.Namespace;
+            }
+
+            return type.Namespace;
         }
 
         public static string GetTypeSize(ElementType elementType)

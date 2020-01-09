@@ -666,8 +666,14 @@ namespace Natsu.Compiler
                     case Code.Ldftn:
                         emitter.Ldftn();
                         break;
+                    case Code.Ldvirtftn:
+                        emitter.Ldvirtftn();
+                        break;
                     case Code.Pop:
                         stack.Pop();
+                        break;
+                    case Code.Sizeof:
+                        emitter.Sizeof();
                         break;
                     case Code.Constrained:
                         stack.Constrained = (ITypeDefOrRef)op.Operand;
@@ -908,6 +914,9 @@ namespace Natsu.Compiler
                 para.Add((method.Params[i], Stack.Pop()));
             para.Add((TypeUtils.ThisType(member.DeclaringType), Stack.Pop()));
 
+            var tGen = (member.DeclaringType as TypeSpec)?.TryGetGenericInstSig()?.GenericArguments.ToList()
+                ?? new List<TypeSig>();
+            var gen = (member as MethodSpec)?.GenericInstMethodSig;
             para.Reverse();
             string expr;
             if (Stack.Constrained != null)
@@ -915,13 +924,13 @@ namespace Natsu.Compiler
                 Stack.Push(StackTypeCode.O, $"::natsu::ops::box(*::natsu::stack_to<{TypeUtils.EscapeVariableTypeName(new ByRefSig(Stack.Constrained.ToTypeSig()))}>({para[0].src.Expression}))");
                 para[0] = (para[0].destType, Stack.Pop());
 
-                expr = $"{para[0].src.Expression}.header().template vtable_as<typename {TypeUtils.EscapeTypeName(member.DeclaringType)}::VTable>()->{TypeUtils.EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src)))})";
+                expr = $"{para[0].src.Expression}.header().template vtable_as<typename {TypeUtils.EscapeTypeName(member.DeclaringType)}::VTable>()->{TypeUtils.EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src, tGen)))})";
 
                 Stack.Constrained = null;
             }
             else
             {
-                expr = $"{para[0].src.Expression}.header().template vtable_as<typename {TypeUtils.EscapeTypeName(member.DeclaringType)}::VTable>()->{TypeUtils.EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src)))})";
+                expr = $"{para[0].src.Expression}.header().template vtable_as<typename {TypeUtils.EscapeTypeName(member.DeclaringType)}::VTable>()->{TypeUtils.EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src, tGen)))})";
             }
 
             var stackType = TypeUtils.GetStackType(method.RetType);
@@ -1047,7 +1056,7 @@ namespace Natsu.Compiler
         public void Ldsfld()
         {
             var field = (IField)Op.Operand;
-            string expr = Method.IsStaticConstructor && Method.DeclaringType == field.DeclaringType
+            string expr = Method.IsStaticConstructor && Method.DeclaringType == field.DeclaringType.Scope
                 ? TypeUtils.EscapeIdentifier(field.Name)
                 : "::natsu::static_holder<typename" + TypeUtils.EscapeTypeName(field.DeclaringType) + "::Static>::get()." + TypeUtils.EscapeIdentifier(field.Name);
             var fieldType = field.FieldSig.Type;
@@ -1086,9 +1095,11 @@ namespace Natsu.Compiler
 
         public void Stsfld()
         {
+            if (Method.IsStaticConstructor && Method.DeclaringType.Name.Contains("List"))
+                ;
             var value = Stack.Pop();
             var field = (IField)Op.Operand;
-            string expr = Method.IsStaticConstructor && Method.DeclaringType == field.DeclaringType
+            string expr = Method.IsStaticConstructor && Method.DeclaringType == field.DeclaringType.ScopeType
                 ? TypeUtils.EscapeIdentifier(field.Name)
                 : "::natsu::static_holder<typename" + TypeUtils.EscapeTypeName(field.DeclaringType) + "::Static>::get()." + TypeUtils.EscapeIdentifier(field.Name);
             var fieldType = field.FieldSig.Type;
@@ -1279,18 +1290,10 @@ namespace Natsu.Compiler
         {
             var member = (IMethod)Op.Operand;
             var method = member.MethodSig;
-            var para = new List<TypeSig>();
-            var parasCount = method.Params.Count;
-            for (int i = parasCount - 1; i >= 0; i--)
-                para.Add(method.Params[i]);
-
-            if (method.HasThis)
-                para.Add(TypeUtils.ThisType(member.DeclaringType));
-
             var tGen = (member.DeclaringType as TypeSpec)?.TryGetGenericInstSig()?.GenericArguments.ToList()
                 ?? new List<TypeSig>();
             var gen = (member as MethodSpec)?.GenericInstMethodSig;
-            para.Reverse();
+
             string expr;
             if (gen != null)
             {
@@ -1303,7 +1306,28 @@ namespace Natsu.Compiler
                 expr = $"{ TypeUtils.EscapeTypeName(member.DeclaringType)}::{TypeUtils.EscapeMethodName(member)}";
             }
 
-            var stackType = TypeUtils.GetStackType(method.RetType);
+            Stack.Push(StackTypeCode.NativeInt, $"::natsu::ops::ldftn({expr})");
+        }
+
+        public void Ldvirtftn()
+        {
+            var member = (IMethod)Op.Operand;
+            var method = member.MethodSig;
+            var tGen = (member.DeclaringType as TypeSpec)?.TryGetGenericInstSig()?.GenericArguments.ToList()
+                ?? new List<TypeSig>();
+            var gen = (member as MethodSpec)?.GenericInstMethodSig;
+
+            string expr;
+            if (gen != null)
+            {
+                throw new NotSupportedException();
+            }
+            else
+            {
+                var obj = Stack.Pop();
+                expr = $"{obj.Expression}.header().template vtable_as<typename {TypeUtils.EscapeTypeName(member.DeclaringType)}::VTable>()->{TypeUtils.EscapeMethodName(member)}";
+            }
+
             Stack.Push(StackTypeCode.NativeInt, $"::natsu::ops::ldftn({expr})");
         }
 
@@ -1321,6 +1345,12 @@ namespace Natsu.Compiler
             Writer.Ident(Ident + 1).WriteLine("default:");
             Writer.Ident(Ident + 2).WriteLine($"goto {ILUtils.GetFallthroughLabel(Method, Op, Block)};");
             Writer.Ident(Ident).WriteLine("}");
+        }
+
+        public void Sizeof()
+        {
+            var type = (ITypeDefOrRef)Op.Operand;
+            Stack.Push(StackTypeCode.Int32, $"::natsu::ops::Sizeof<{TypeUtils.EscapeTypeName(type)}>()");
         }
     }
 }

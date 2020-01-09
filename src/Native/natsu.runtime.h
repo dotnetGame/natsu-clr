@@ -1028,6 +1028,22 @@ namespace ops
         stack_to<gc_obj_ref<SZArray_1<Object>>>(obj)->at(index.value_) = stack_to<gc_obj_ref<Object>>(value);
     }
 
+    template <class T, class TStack>
+    void stelem(const stack::O &obj, stack::int32 index, TStack value)
+    {
+        using ::System_Private_CorLib::System::Object;
+        using ::System_Private_CorLib::System::SZArray_1;
+        stack_to<gc_obj_ref<SZArray_1<T>>>(obj)->at((uint32_t)index.value_) = stack_to<variable_type_t<T>>(value);
+    }
+
+    template <class T, class TStack>
+    void stelem(const stack::O &obj, stack::native_int index, TStack value)
+    {
+        using ::System_Private_CorLib::System::Object;
+        using ::System_Private_CorLib::System::SZArray_1;
+        stack_to<gc_obj_ref<SZArray_1<T>>>(obj)->at((uint32_t)index.value_) = stack_to<variable_type_t<T>>(value);
+    }
+
 #undef STELEM_IMPL
 
 #define LDIND_IMPL(name, type, ret, cast)                                 \
@@ -1316,9 +1332,15 @@ namespace ops
     }
 
     template <class T>
-    inline stack::native_int ldftn(T func)
+    stack::native_int ldftn(T func)
     {
         return reinterpret_cast<intptr_t>(func);
+    }
+
+    template <class T>
+    stack::int32 Sizeof()
+    {
+        return static_cast<int32_t>(sizeof(T));
     }
 }
 
@@ -1474,5 +1496,23 @@ template <class T>
 ::System_Private_CorLib::System::IntPtr Internal::Runtime::CompilerServices::Unsafe::_s_ByteOffset(::natsu::gc_ref<::natsu::variable_type_t<T>> origin, ::natsu::gc_ref<::natsu::variable_type_t<T>> target)
 {
     return reinterpret_cast<intptr_t>(target.ptr_) - reinterpret_cast<intptr_t>(origin.ptr_);
+}
+
+template <class T>
+::System_Private_CorLib::System::Boolean System::Runtime::CompilerServices::RuntimeHelpers::_s_IsReferenceOrContainsReferences()
+{
+    return true;
+}
+
+template <class T>
+::System_Private_CorLib::System::Boolean System::Runtime::CompilerServices::RuntimeHelpers::_s_IsBitwiseEquatable()
+{
+    return false;
+}
+
+template <class T>
+::natsu::gc_obj_ref<::System_Private_CorLib::System::Collections::Generic::EqualityComparer_1<T>> System::Collections::Generic::ComparerHelpers::_s_CreateDefaultEqualityComparer()
+{
+    return natsu::null;
 }
 }

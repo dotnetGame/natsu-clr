@@ -22,13 +22,16 @@ namespace System.Runtime.CompilerServices
             ref Unsafe.As<RawData>(obj).Data;
 
         [MethodImpl(MethodImplOptions.InternalCall)]
-        internal extern static bool IsReferenceOrContainsReferences<TTo>() where TTo : struct;
+        internal extern static bool IsReferenceOrContainsReferences<T>();
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         internal extern static int EnumCompareTo<T>(T x, T y) where T : struct;
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         internal extern static bool EnumEquals<T>(T x, T y) where T : struct;
+
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        internal extern static bool IsBitwiseEquatable<T>();
 
         // Returns true iff the object has a component size;
         // i.e., is variable length like System.String or Array.

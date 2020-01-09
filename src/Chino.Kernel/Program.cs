@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 
@@ -22,6 +23,12 @@ namespace Chino.Kernel
                 .Write("Free: ").Foreground(TerminalColor.Green).Write(Memory.MemoryManager.GetFreeMemorySize().ToString())
                 .Foreground(TerminalColor.White).WriteLine(" Bytes");
             terminal.WriteLine(string.Empty).Reset();
+
+            var l = new List<int> { 1, 2, 3 };
+            foreach (var item in l)
+                terminal.Write(item + ", ");
+
+            terminal.WriteLine(string.Empty);
             terminal.Ready();
         }
     }

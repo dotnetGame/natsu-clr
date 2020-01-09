@@ -6,6 +6,7 @@ using namespace natsu;
 using namespace System_Private_CorLib;
 using namespace System_Private_CorLib::System;
 using namespace System_Private_CorLib::System::Diagnostics;
+using namespace System_Private_CorLib::System::Runtime;
 using namespace System_Private_CorLib::System::Runtime::CompilerServices;
 
 Int32 Array::GetLength(gc_obj_ref<Array> _this, Int32 dimension)
@@ -45,6 +46,11 @@ Int32 Array::GetLowerBound(gc_obj_ref<Array> _this, Int32 dimension)
 void Array::_s_Copy(gc_obj_ref<Array> sourceArray, Int32 sourceIndex, gc_obj_ref<Array> destinationArray, Int32 destinationIndex, Int32 length, Boolean reliable)
 {
     throw_exception<InvalidOperationException>();
+}
+
+gc_ref<Byte> Array::_s_GetRawArrayGeometry(gc_obj_ref<Array> array, gc_ref<UInt32> numComponents, gc_ref<UInt32> elementSize, gc_ref<Int32> lowerBound, ::natsu::gc_ref<Boolean> containsGCPointers)
+{
+    throw_exception<NotImplementedException>();
 }
 
 void Buffer::_s_Memcpy(gc_ptr<Byte> dest, gc_ptr<Byte> src, Int32 len)
@@ -248,4 +254,9 @@ gc_obj_ref<MulticastDelegate> MulticastDelegate::_s_CreateDelegateLike(gc_obj_re
         d->_invocationList = invocationList;
         return d;
     }
+}
+
+void RuntimeImports::_s_RhZeroMemory(::natsu::gc_ptr<void> b, ::System_Private_CorLib::System::UInt64 byteLength)
+{
+    std::memset(b.ptr_, 0, byteLength.m_value);
 }

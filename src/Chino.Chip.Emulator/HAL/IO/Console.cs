@@ -19,7 +19,7 @@ namespace Chino.Chip.Emulator.HAL.IO
         private void OnReceive(ConsoleEvent e)
         {
             EventsBuffer.TryWrite(MemoryMarshal.CreateReadOnlySpan(ref e, 1));
-            if(e.Type== ConsoleEventType.KeyEvent)
+            if (e.Type == ConsoleEventType.KeyEvent)
             {
                 if (e.Key.KeyDown)
                     ChipControl.Write(e.Key.Char.ToString());

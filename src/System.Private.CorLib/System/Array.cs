@@ -1,5 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using Internal.Runtime.CompilerServices;
+#if BIT64
+using nuint = System.UInt64;
+#else
+using nuint = System.UInt32;
+#endif
 
 namespace System
 {
@@ -138,7 +145,324 @@ namespace System
         // 
         public object Clone()
         {
-            throw new NotImplementedException();
+            return MemberwiseClone();
+        }
+
+        public static int BinarySearch<T>(T[] array, T value)
+        {
+            if (array == null)
+                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
+            return BinarySearch<T>(array, 0, array.Length, value, null);
+        }
+
+        public static int BinarySearch<T>(T[] array, T value, System.Collections.Generic.IComparer<T>? comparer)
+        {
+            if (array == null)
+                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
+            return BinarySearch<T>(array, 0, array.Length, value, comparer);
+        }
+
+        public static int BinarySearch<T>(T[] array, int index, int length, T value)
+        {
+            return BinarySearch<T>(array, index, length, value, null);
+        }
+
+        public static int BinarySearch<T>(T[] array, int index, int length, T value, System.Collections.Generic.IComparer<T>? comparer)
+        {
+            if (array == null)
+                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
+            if (index < 0)
+                ThrowHelper.ThrowIndexArgumentOutOfRange_NeedNonNegNumException();
+            if (length < 0)
+                ThrowHelper.ThrowLengthArgumentOutOfRange_ArgumentOutOfRange_NeedNonNegNum();
+
+            if (array.Length - index < length)
+                ThrowHelper.ThrowArgumentException(ExceptionResource.Argument_InvalidOffLen);
+
+            return ArraySortHelper<T>.Default.BinarySearch(array, index, length, value, comparer);
+        }
+
+        public static int IndexOf<T>(T[] array, T value)
+        {
+            if (array == null)
+            {
+                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
+            }
+
+            return IndexOf(array, value, 0, array.Length);
+        }
+
+        public static int IndexOf<T>(T[] array, T value, int startIndex)
+        {
+            if (array == null)
+            {
+                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
+            }
+
+            return IndexOf(array, value, startIndex, array.Length - startIndex);
+        }
+
+        public static int IndexOf<T>(T[] array, T value, int startIndex, int count)
+        {
+            if (array == null)
+            {
+                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
+            }
+
+            if ((uint)startIndex > (uint)array.Length)
+            {
+                ThrowHelper.ThrowStartIndexArgumentOutOfRange_ArgumentOutOfRange_Index();
+            }
+
+            if ((uint)count > (uint)(array.Length - startIndex))
+            {
+                ThrowHelper.ThrowCountArgumentOutOfRange_ArgumentOutOfRange_Count();
+            }
+
+            if (RuntimeHelpers.IsBitwiseEquatable<T>())
+            {
+                if (Unsafe.SizeOf<T>() == sizeof(byte))
+                {
+                    int result = SpanHelpers.IndexOf(
+                        ref Unsafe.Add(ref array.GetRawSzArrayData(), startIndex),
+                        Unsafe.As<T, byte>(ref value),
+                        count);
+                    return (result >= 0 ? startIndex : 0) + result;
+                }
+                else if (Unsafe.SizeOf<T>() == sizeof(char))
+                {
+                    int result = SpanHelpers.IndexOf(
+                        ref Unsafe.Add(ref Unsafe.As<byte, char>(ref array.GetRawSzArrayData()), startIndex),
+                        Unsafe.As<T, char>(ref value),
+                        count);
+                    return (result >= 0 ? startIndex : 0) + result;
+                }
+                else if (Unsafe.SizeOf<T>() == sizeof(int))
+                {
+                    int result = SpanHelpers.IndexOf(
+                        ref Unsafe.Add(ref Unsafe.As<byte, int>(ref array.GetRawSzArrayData()), startIndex),
+                        Unsafe.As<T, int>(ref value),
+                        count);
+                    return (result >= 0 ? startIndex : 0) + result;
+                }
+                else if (Unsafe.SizeOf<T>() == sizeof(long))
+                {
+                    int result = SpanHelpers.IndexOf(
+                        ref Unsafe.Add(ref Unsafe.As<byte, long>(ref array.GetRawSzArrayData()), startIndex),
+                        Unsafe.As<T, long>(ref value),
+                        count);
+                    return (result >= 0 ? startIndex : 0) + result;
+                }
+            }
+
+            return EqualityComparer<T>.Default.IndexOf(array, value, startIndex, count);
+        }
+
+        public static void Sort<T>(T[] array)
+        {
+            if (array == null)
+                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
+            Sort<T>(array, 0, array.Length, null);
+        }
+
+        public static void Sort<T>(T[] array, System.Collections.Generic.IComparer<T>? comparer)
+        {
+            if (array == null)
+                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
+            Sort<T>(array, 0, array.Length, comparer);
+        }
+
+        public static void Sort<T>(T[] array, int index, int length, System.Collections.Generic.IComparer<T>? comparer)
+        {
+            if (array == null)
+                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
+            if (index < 0)
+                ThrowHelper.ThrowIndexArgumentOutOfRange_NeedNonNegNumException();
+            if (length < 0)
+                ThrowHelper.ThrowLengthArgumentOutOfRange_ArgumentOutOfRange_NeedNonNegNum();
+            if (array.Length - index < length)
+                ThrowHelper.ThrowArgumentException(ExceptionResource.Argument_InvalidOffLen);
+
+            if (length > 1)
+            {
+#if CORECLR
+                if (comparer == null || comparer == Comparer<T>.Default)
+                {
+                    if (TrySZSort(array, null, index, index + length - 1))
+                    {
+                        return;
+                    }
+                }
+#endif
+
+                ArraySortHelper<T>.Default.Sort(array, index, length, comparer);
+            }
+        }
+
+        // Sets length elements in array to 0 (or null for Object arrays), starting
+        // at index.
+        //
+        public static unsafe void Clear(Array array, int index, int length)
+        {
+            if (array == null)
+                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
+
+            ref byte p = ref GetRawArrayGeometry(array, out uint numComponents, out uint elementSize, out int lowerBound, out bool containsGCPointers);
+
+            int offset = index - lowerBound;
+
+            if (index < lowerBound || offset < 0 || length < 0 || (uint)(offset + length) > numComponents)
+                ThrowHelper.ThrowIndexOutOfRangeException();
+
+            ref byte ptr = ref Unsafe.AddByteOffset(ref p, (uint)offset * (nuint)elementSize);
+            nuint byteLength = (uint)length * (nuint)elementSize;
+
+            if (containsGCPointers)
+                SpanHelpers.ClearWithReferences(ref Unsafe.As<byte, IntPtr>(ref ptr), byteLength / (uint)sizeof(IntPtr));
+            else
+                SpanHelpers.ClearWithoutReferences(ref ptr, byteLength);
+        }
+
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        private static extern ref byte GetRawArrayGeometry(Array array, out uint numComponents, out uint elementSize, out int lowerBound, out bool containsGCPointers);
+
+
+        public static int LastIndexOf<T>(T[] array, T value)
+        {
+            if (array == null)
+            {
+                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
+            }
+
+            return LastIndexOf(array, value, array.Length - 1, array.Length);
+        }
+
+        public static int LastIndexOf<T>(T[] array, T value, int startIndex)
+        {
+            if (array == null)
+            {
+                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
+            }
+            // if array is empty and startIndex is 0, we need to pass 0 as count
+            return LastIndexOf(array, value, startIndex, (array.Length == 0) ? 0 : (startIndex + 1));
+        }
+
+        public static int LastIndexOf<T>(T[] array, T value, int startIndex, int count)
+        {
+            if (array == null)
+            {
+                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
+            }
+
+            if (array.Length == 0)
+            {
+                //
+                // Special case for 0 length List
+                // accept -1 and 0 as valid startIndex for compablility reason.
+                //
+                if (startIndex != -1 && startIndex != 0)
+                {
+                    ThrowHelper.ThrowStartIndexArgumentOutOfRange_ArgumentOutOfRange_Index();
+                }
+
+                // only 0 is a valid value for count if array is empty
+                if (count != 0)
+                {
+                    ThrowHelper.ThrowCountArgumentOutOfRange_ArgumentOutOfRange_Count();
+                }
+                return -1;
+            }
+
+            // Make sure we're not out of range
+            if ((uint)startIndex >= (uint)array.Length)
+            {
+                ThrowHelper.ThrowStartIndexArgumentOutOfRange_ArgumentOutOfRange_Index();
+            }
+
+            // 2nd have of this also catches when startIndex == MAXINT, so MAXINT - 0 + 1 == -1, which is < 0.
+            if (count < 0 || startIndex - count + 1 < 0)
+            {
+                ThrowHelper.ThrowCountArgumentOutOfRange_ArgumentOutOfRange_Count();
+            }
+
+            if (RuntimeHelpers.IsBitwiseEquatable<T>())
+            {
+                if (Unsafe.SizeOf<T>() == sizeof(byte))
+                {
+                    int endIndex = startIndex - count + 1;
+                    int result = SpanHelpers.LastIndexOf(
+                        ref Unsafe.Add(ref array.GetRawSzArrayData(), endIndex),
+                        Unsafe.As<T, byte>(ref value),
+                        count);
+
+                    return (result >= 0 ? endIndex : 0) + result;
+                }
+                else if (Unsafe.SizeOf<T>() == sizeof(char))
+                {
+                    int endIndex = startIndex - count + 1;
+                    int result = SpanHelpers.LastIndexOf(
+                        ref Unsafe.Add(ref Unsafe.As<byte, char>(ref array.GetRawSzArrayData()), endIndex),
+                        Unsafe.As<T, char>(ref value),
+                        count);
+
+                    return (result >= 0 ? endIndex : 0) + result;
+                }
+                else if (Unsafe.SizeOf<T>() == sizeof(int))
+                {
+                    int endIndex = startIndex - count + 1;
+                    int result = SpanHelpers.LastIndexOf(
+                        ref Unsafe.Add(ref Unsafe.As<byte, int>(ref array.GetRawSzArrayData()), endIndex),
+                        Unsafe.As<T, int>(ref value),
+                        count);
+
+                    return (result >= 0 ? endIndex : 0) + result;
+                }
+                else if (Unsafe.SizeOf<T>() == sizeof(long))
+                {
+                    int endIndex = startIndex - count + 1;
+                    int result = SpanHelpers.LastIndexOf(
+                        ref Unsafe.Add(ref Unsafe.As<byte, long>(ref array.GetRawSzArrayData()), endIndex),
+                        Unsafe.As<T, long>(ref value),
+                        count);
+
+                    return (result >= 0 ? endIndex : 0) + result;
+                }
+            }
+
+            return EqualityComparer<T>.Default.LastIndexOf(array, value, startIndex, count);
+        }
+
+        public static void Reverse<T>(T[] array)
+        {
+            if (array == null)
+                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
+            Reverse(array, 0, array.Length);
+        }
+
+        public static void Reverse<T>(T[] array, int index, int length)
+        {
+            if (array == null)
+                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
+            if (index < 0)
+                ThrowHelper.ThrowIndexArgumentOutOfRange_NeedNonNegNumException();
+            if (length < 0)
+                ThrowHelper.ThrowLengthArgumentOutOfRange_ArgumentOutOfRange_NeedNonNegNum();
+            if (array.Length - index < length)
+                ThrowHelper.ThrowArgumentException(ExceptionResource.Argument_InvalidOffLen);
+
+            if (length <= 1)
+                return;
+
+            ref T first = ref Unsafe.Add(ref Unsafe.As<byte, T>(ref array.GetRawSzArrayData()), index);
+            ref T last = ref Unsafe.Add(ref Unsafe.Add(ref first, length), -1);
+            do
+            {
+                T temp = first;
+                first = last;
+                last = temp;
+                first = ref Unsafe.Add(ref first, 1);
+                last = ref Unsafe.Add(ref last, -1);
+            } while (Unsafe.IsAddressLessThan(ref first, ref last));
         }
     }
 }
