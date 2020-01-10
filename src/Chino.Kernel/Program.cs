@@ -22,13 +22,18 @@ namespace Chino.Kernel
             terminal.Foreground(TerminalColor.White)
                 .Write("Free: ").Foreground(TerminalColor.Green).Write(Memory.MemoryManager.GetFreeMemorySize().ToString())
                 .Foreground(TerminalColor.White).WriteLine(" Bytes");
-            terminal.WriteLine(string.Empty).Reset();
+            terminal.WriteLine().Reset();
 
             var l = new List<int> { 1, 2, 3 };
             foreach (var item in l)
                 terminal.Write(item + ", ");
+            l.Clear();
+            terminal.WriteLine();
+            l.Add(4);
+            foreach (var item in l)
+                terminal.Write(item + ", ");
 
-            terminal.WriteLine(string.Empty);
+            terminal.WriteLine();
             terminal.Ready();
         }
     }
@@ -52,6 +57,12 @@ namespace Chino.Kernel
         public Terminal WriteLine(string message)
         {
             Debug.WriteLine(message);
+            return this;
+        }
+
+        public Terminal WriteLine()
+        {
+            Debug.WriteLine(string.Empty);
             return this;
         }
 

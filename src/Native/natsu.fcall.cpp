@@ -50,7 +50,11 @@ void Array::_s_Copy(gc_obj_ref<Array> sourceArray, Int32 sourceIndex, gc_obj_ref
 
 gc_ref<Byte> Array::_s_GetRawArrayGeometry(gc_obj_ref<Array> array, gc_ref<UInt32> numComponents, gc_ref<UInt32> elementSize, gc_ref<Int32> lowerBound, ::natsu::gc_ref<Boolean> containsGCPointers)
 {
-    throw_exception<NotImplementedException>();
+    *numComponents = (UInt32)Array::GetLength(array, 0);
+    *elementSize = array.header().vtable_->ElementSize;
+    *lowerBound = Array::GetLowerBound(array, 0);
+    *containsGCPointers = true;
+    return array.cast<RawSzArrayData>()->Data;
 }
 
 void Buffer::_s_Memcpy(gc_ptr<Byte> dest, gc_ptr<Byte> src, Int32 len)

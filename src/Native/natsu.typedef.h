@@ -104,6 +104,13 @@ struct vtable_holder
 
 typedef struct _vtable
 {
+    uint32_t ElementSize;
+
+    constexpr _vtable()
+        : ElementSize(0)
+    {
+    }
+
     virtual void dummy() const noexcept {}
 
     template <class TFunc>

@@ -18,8 +18,8 @@ namespace Natsu.Compiler
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Core.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.K210.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.Emulator.dll",
-            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Private.CorLib.dll",
-            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Collections.dll",
+            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Private.CorLib.dll",
+            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Collections.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Memory.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.Extensions.dll",
@@ -813,6 +813,8 @@ namespace Natsu.Compiler
 
             writer.Ident(ident).WriteLine("{");
 
+            WriteVTableTypeInfo(writer, type, ident + 1);
+            writer.WriteLine();
 
             foreach (var method in type.TypeDef.Methods)
             {
@@ -842,6 +844,15 @@ namespace Natsu.Compiler
             }
 
             writer.Ident(ident).WriteLine("}");
+        }
+
+        private void WriteVTableTypeInfo(StreamWriter writer, TypeDesc type, int ident)
+        {
+            // array
+            if (type.TypeDef.FullName == "System.SZArray`1")
+            {
+                writer.Ident(ident).WriteLine("ElementSize = sizeof(T);");
+            }
         }
 
         private void WriteVTableOverrideImpl(StreamWriter writer, TypeDesc type, int ident)
