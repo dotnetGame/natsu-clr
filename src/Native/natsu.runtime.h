@@ -1355,14 +1355,17 @@ template <size_t N>
 struct string_literal : public System_Private_CorLib::System::Object
 {
     ::System_Private_CorLib::System::Int32 _stringLength;
-    ::System_Private_CorLib::System::Char _firstChar[N + 1];
+    std::array<::System_Private_CorLib::System::Char, N + 1> _firstChar;
 
-    constexpr string_literal(const char16_t *str)
-        : _stringLength((int32_t)N)
+    constexpr string_literal(std::u16string_view str)
+        : _stringLength((int32_t)N), _firstChar(init_array(str, std::make_index_sequence<N>()))
     {
-        for (size_t i = 0; i < N; i++)
-            _firstChar[i] = str[i];
-        _firstChar[N] = 0;
+    }
+
+    template <size_t... I>
+    constexpr std::array<::System_Private_CorLib::System::Char, N + 1> init_array(std::u16string_view str, std::index_sequence<I...>)
+    {
+        return { str[I]..., 0 };
     }
 };
 

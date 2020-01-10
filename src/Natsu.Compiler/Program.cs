@@ -18,7 +18,7 @@ namespace Natsu.Compiler
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Core.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.K210.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.Emulator.dll",
-            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Private.CorLib.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Private.CorLib.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Collections.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Memory.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.dll",
@@ -153,7 +153,7 @@ namespace Natsu.Compiler
         {
             for (int i = 0; i < _userStrings.Count; i++)
             {
-                writer.Ident(1).WriteLine($"static const natsu::static_object<::System_Private_CorLib::System::String, natsu::string_literal<{_userStrings[i].Length}>> user_string_{i}(uR\"NS({_userStrings[i]})NS\");");
+                writer.Ident(1).WriteLine($"static const constexpr natsu::static_object<::System_Private_CorLib::System::String, natsu::string_literal<{_userStrings[i].Length}>> user_string_{i}(uR\"NS({_userStrings[i]})NS\"sv);");
             }
 
             writer.WriteLine();
