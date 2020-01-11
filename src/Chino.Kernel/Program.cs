@@ -11,7 +11,7 @@ namespace Chino.Kernel
         {
             ChipControl.Initialize();
 
-            var terminal = new Terminal();
+            var terminal = Terminal.Default;
 
             terminal.Foreground(TerminalColor.White)
                 .WriteLine("Hello Chino OS!");
@@ -48,6 +48,8 @@ namespace Chino.Kernel
 
     class Terminal
     {
+        public static Terminal Default { get; } = new Terminal();
+
         public Terminal Write(string message)
         {
             Debug.Write(message);

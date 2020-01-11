@@ -388,7 +388,7 @@ static void prvInsertBlockIntoFreeList(BlockLink_t *pBlockToInsert)
     }
 }
 
-using namespace System_Private_CorLib::System;
+using namespace System_Private_CoreLib::System;
 using namespace Chino_Kernel::Chino::Memory;
 using namespace natsu;
 
@@ -402,16 +402,16 @@ gc_obj_ref<Object> natsu::gc_alloc(const vtable_t &vtable, size_t size)
     return ptr;
 }
 
-Int32 MemoryManager::_s_GetUsedMemorySize()
+int32_t MemoryManager::_s_GetUsedMemorySize()
 {
 #if _WIN32
-    return (int32_t)(6 * 1024 * 1024 - freeBytesRemaining_);
+    return 6 * 1024 * 1024 - freeBytesRemaining_;
 #else
-    return (int32_t)(size_t(&_heap_end[0] - &_heap_start[0]) - freeBytesRemaining_);
+    return size_t(&_heap_end[0] - &_heap_start[0]) - freeBytesRemaining_;
 #endif
 }
 
-Int32 MemoryManager::_s_GetFreeMemorySize()
+int32_t MemoryManager::_s_GetFreeMemorySize()
 {
-    return (int32_t)freeBytesRemaining_;
+    return freeBytesRemaining_;
 }

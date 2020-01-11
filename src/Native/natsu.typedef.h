@@ -10,10 +10,24 @@
 
 using namespace std::string_view_literals;
 
-namespace System_Private_CorLib
+namespace System_Private_CoreLib
 {
 namespace System
 {
+    struct Boolean;
+    struct SByte;
+    struct Byte;
+    struct Char;
+    struct UInt16;
+    struct Int16;
+    struct UInt32;
+    struct Int32;
+    struct UInt64;
+    struct Int64;
+    struct Single;
+    struct Double;
+    struct UIntPtr;
+    struct IntPtr;
     struct Exception;
     struct String;
     struct Object;
@@ -143,10 +157,43 @@ struct object_header
 };
 
 template <class T>
-constexpr bool is_value_type_v = T::TypeInfo::IsValueType;
+struct to_clr_type
+{
+    using type = T;
+};
+
+#define DEFINE_TO_CLR_TYPE(src, dest)                       \
+    template <>                                             \
+    struct to_clr_type<src>                                 \
+    {                                                       \
+        using type = ::System_Private_CoreLib::System::dest; \
+    };
+
+DEFINE_TO_CLR_TYPE(bool, Boolean);
+DEFINE_TO_CLR_TYPE(int8_t, SByte);
+DEFINE_TO_CLR_TYPE(uint8_t, Byte);
+DEFINE_TO_CLR_TYPE(char16_t, Char);
+DEFINE_TO_CLR_TYPE(uint16_t, UInt16);
+DEFINE_TO_CLR_TYPE(int16_t, Int16);
+DEFINE_TO_CLR_TYPE(uint32_t, UInt32);
+DEFINE_TO_CLR_TYPE(int32_t, Int32);
+DEFINE_TO_CLR_TYPE(uint64_t, UInt64);
+DEFINE_TO_CLR_TYPE(int64_t, Int64);
+DEFINE_TO_CLR_TYPE(float, Single);
+DEFINE_TO_CLR_TYPE(double, Double);
+//DEFINE_TO_CLR_TYPE(uintptr_t, UIntPtr);
+//DEFINE_TO_CLR_TYPE(intptr_t, IntPtr);
+
+#undef DEFINE_TO_CLR_TYPE
 
 template <class T>
-constexpr bool is_enum_v = T::TypeInfo::IsEnum;
+using to_clr_type_t = typename to_clr_type<T>::type;
+
+template <class T>
+constexpr bool is_value_type_v = to_clr_type_t<T>::TypeInfo::IsValueType;
+
+template <class T>
+constexpr bool is_enum_v = to_clr_type_t<T>::TypeInfo::IsEnum;
 
 template <class T, bool IsValueType>
 struct variable_type;
@@ -200,11 +247,6 @@ struct gc_ref
     {
     }
 
-    explicit constexpr gc_ref(uintptr_t ptr) noexcept
-        : ptr_(reinterpret_cast<T *>(ptr))
-    {
-    }
-
     explicit constexpr operator bool() const noexcept
     {
         return true;
@@ -236,6 +278,12 @@ template <class T>
 gc_ref<T> gc_ref_from_ref(T &ref)
 {
     return gc_ref<T>(ref);
+}
+
+template <class T>
+gc_ref<T> gc_ref_from_addr(uintptr_t addr)
+{
+    return gc_ref<T>(*reinterpret_cast<T *>(addr));
 }
 
 template <class T>
@@ -418,7 +466,7 @@ struct gc_obj_ref
     {
         if (ptr_)
         {
-            auto vtable = header().template vtable_as<typename U::VTable>();
+            auto vtable = header().template vtable_as<typename natsu::to_clr_type_t<U>::VTable>();
             if (vtable)
                 return gc_obj_ref<U>(reinterpret_cast<U *>(ptr_));
         }
@@ -446,7 +494,7 @@ struct natsu_exception
     {
     }
 
-    gc_obj_ref<::System_Private_CorLib::System::Exception> exception_;
+    gc_obj_ref<::System_Private_CoreLib::System::Exception> exception_;
 };
 
 template <class T, class U>
@@ -520,6 +568,41 @@ struct vtable_class : public TBase, public vtable_impl_t<TBase, TIFaces>...
         int ignore[] = { 0, (vtable_impl_t<TBase, TIFaces>::override_vfunc_impl(name, func), 0)... };
     }
 };
+
+template <size_t N>
+struct string_literal
+{
+    int32_t _stringLength;
+    std::array<char16_t, N + 1> _firstChar;
+
+    constexpr string_literal(std::u16string_view str)
+        : _stringLength((int32_t)N), _firstChar(init_array(str, std::make_index_sequence<N>()))
+    {
+    }
+
+    template <size_t... I>
+    constexpr std::array<char16_t, N + 1> init_array(std::u16string_view str, std::index_sequence<I...>)
+    {
+        return { str[I]..., 0 };
+    }
+};
+
+template <class TObject, class TValue>
+struct static_object
+{
+    object_header header_;
+    TValue value_;
+
+    constexpr static_object(TValue value)
+        : header_({ OBJ_ATTR_NONE, &vtable_holder<typename TObject::VTable>::get() }), value_(value)
+    {
+    }
+
+    constexpr gc_obj_ref<TObject> get() const noexcept
+    {
+        return gc_obj_ref<TObject>(reinterpret_cast<TObject *>(const_cast<TValue *>(&value_)));
+    }
+};
 }
 
 #define NATSU_PRIMITIVE_IMPL_BYTE                     \
@@ -589,14 +672,20 @@ struct vtable_class : public TBase, public vtable_impl_t<TBase, TIFaces>...
     UIntPtr(uintptr_t value) : _value((uintptr_t)value) {} \
     operator uintptr_t() const noexcept { return (uintptr_t)_value; }
 
-#define NATSU_ENUM_IMPL_BYTE(name)                    \
-    name() = default;                                 \
-    constexpr name(uint8_t value) : value__(value) {} \
+#define NATSU_ENUM_IMPL_BYTE(name) \
+    name &operator=(int32_t value) \
+    {                              \
+        value__ = value;           \
+        return *this;              \
+    }                              \
     constexpr operator uint8_t() const noexcept { return value__; }
 
-#define NATSU_ENUM_IMPL_INT32(name)                   \
-    name() = default;                                 \
-    constexpr name(int32_t value) : value__(value) {} \
+#define NATSU_ENUM_IMPL_INT32(name) \
+    name &operator=(int32_t value)  \
+    {                               \
+        value__ = value;            \
+        return *this;               \
+    }                               \
     constexpr operator int32_t() const noexcept { return value__; }
 
 #define NATSU_OBJECT_IMPL
@@ -630,6 +719,6 @@ struct vtable_class : public TBase, public vtable_impl_t<TBase, TIFaces>...
     }                                                                \
     constexpr uintptr_t length() const noexcept                      \
     {                                                                \
-        return Length.m_value;                                       \
+        return Length;                                               \
     }                                                                \
     ::natsu::variable_type_t<T> elements_[0];

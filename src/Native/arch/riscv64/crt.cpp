@@ -172,6 +172,6 @@ extern "C"
 
 namespace __cxxabiv1
 {
-std::terminate_handler __terminate_handler = abort;
+//std::terminate_handler __terminate_handler = abort;
 }
 #endif

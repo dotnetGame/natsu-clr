@@ -3,61 +3,61 @@
 #include <cstring>
 
 using namespace natsu;
-using namespace System_Private_CorLib;
-using namespace System_Private_CorLib::System;
-using namespace System_Private_CorLib::System::Diagnostics;
-using namespace System_Private_CorLib::System::Runtime;
-using namespace System_Private_CorLib::System::Runtime::CompilerServices;
+using namespace System_Private_CoreLib;
+using namespace System_Private_CoreLib::System;
+using namespace System_Private_CoreLib::System::Diagnostics;
+using namespace System_Private_CoreLib::System::Runtime;
+using namespace System_Private_CoreLib::System::Runtime::CompilerServices;
 
-Int32 Array::GetLength(gc_obj_ref<Array> _this, Int32 dimension)
+int32_t Array::GetLength(gc_obj_ref<Array> _this, int32_t dimension)
 {
     if (dimension != 0)
         throw_exception<IndexOutOfRangeException>();
     return (intptr_t)_this.cast<RawSzArrayData>()->Count;
 }
 
-Int32 Array::get_Rank(gc_obj_ref<Array> _this)
+int32_t Array::get_Rank(gc_obj_ref<Array> _this)
 {
     return 1;
 }
 
-Int32 Array::get_Length(gc_obj_ref<Array> _this)
+int32_t Array::get_Length(gc_obj_ref<Array> _this)
 {
     return (intptr_t)_this.cast<RawSzArrayData>()->Count;
 }
 
-Int64 Array::get_LongLength(gc_obj_ref<Array> _this)
+int64_t Array::get_LongLength(gc_obj_ref<Array> _this)
 {
     return (intptr_t)_this.cast<RawSzArrayData>()->Count;
 }
 
-Int32 Array::GetUpperBound(gc_obj_ref<Array> _this, Int32 dimension)
+int32_t Array::GetUpperBound(gc_obj_ref<Array> _this, int32_t dimension)
 {
     return GetLength(_this, dimension);
 }
 
-Int32 Array::GetLowerBound(gc_obj_ref<Array> _this, Int32 dimension)
+int32_t Array::GetLowerBound(gc_obj_ref<Array> _this, int32_t dimension)
 {
     if (dimension != 0)
         throw_exception<IndexOutOfRangeException>();
     return 0;
 }
 
-void Array::_s_Copy(gc_obj_ref<Array> sourceArray, Int32 sourceIndex, gc_obj_ref<Array> destinationArray, Int32 destinationIndex, Int32 length, Boolean reliable)
+void Array::_s_Copy(gc_obj_ref<Array> sourceArray, int32_t sourceIndex, gc_obj_ref<Array> destinationArray, int32_t destinationIndex, int32_t length, bool reliable)
 {
     throw_exception<InvalidOperationException>();
 }
 
-gc_ref<Byte> Array::_s_GetRawArrayGeometry(gc_obj_ref<Array> array, gc_ref<UInt32> numComponents, gc_ref<UInt32> elementSize, gc_ref<Int32> lowerBound, ::natsu::gc_ref<Boolean> containsGCPointers)
+gc_ref<uint8_t> Array::_s_GetRawArrayGeometry(gc_obj_ref<Array> array, gc_ref<uint32_t> numComponents, gc_ref<uint32_t> elementSize, gc_ref<int32_t> lowerBound, ::natsu::gc_ref<bool> containsGCPointers)
 {
-    *numComponents = (UInt32)Array::GetLength(array, 0);
+    *numComponents = (uint32_t)Array::GetLength(array, 0);
     *elementSize = array.header().vtable_->ElementSize;
     *lowerBound = Array::GetLowerBound(array, 0);
     *containsGCPointers = true;
     return array.cast<RawSzArrayData>()->Data;
 }
 
-void Buffer::_s_Memcpy(gc_ptr<Byte> dest, gc_ptr<Byte> src, Int32 len)
+void Buffer::_s_Memcpy(gc_ptr<uint8_t> dest, gc_ptr<uint8_t> src, int32_t len)
 {
     std::memcpy(dest, src, len);
 }
@@ -70,7 +70,7 @@ void Debug::_s_WriteCore(gc_obj_ref<String> message)
 void Debug::_s_WriteLineCore(gc_obj_ref<String> message)
 {
     Chino_Kernel::Chino::Kernel::KernelDebug::_s_Write(message);
-    Chino_Kernel::Chino::Kernel::KernelDebug::_s_Write(::System_Private_CorLib::System::Environment::_s_get_NewLine());
+    Chino_Kernel::Chino::Kernel::KernelDebug::_s_Write(::System_Private_CoreLib::System::Environment::_s_get_NewLine());
 }
 
 void Debug::_s_FailCore(gc_obj_ref<String> message, gc_obj_ref<String> detailMessage)
@@ -78,7 +78,7 @@ void Debug::_s_FailCore(gc_obj_ref<String> message, gc_obj_ref<String> detailMes
     Chino_Kernel::Chino::Kernel::KernelDebug::_s_Write(message);
 }
 
-void Buffer::_s_Memmove(gc_ptr<Byte> dest, gc_ptr<Byte> src, UInt64 len)
+void Buffer::_s_Memmove(gc_ptr<uint8_t> dest, gc_ptr<uint8_t> src, uint64_t len)
 {
     std::memmove(dest, src, len);
 }
@@ -89,19 +89,19 @@ gc_obj_ref<Type> Object::GetType(::natsu::gc_obj_ref<Object> _this)
     return ::natsu::null;
 }
 
-Char String::get_Chars(gc_obj_ref<String> _this, Int32 index)
+char16_t String::get_Chars(gc_obj_ref<String> _this, int32_t index)
 {
     if ((uint32_t)index >= (uint32_t)_this->_stringLength)
         throw_exception<IndexOutOfRangeException>();
     return (&_this->_firstChar)[index];
 }
 
-Int32 String::get_Length(gc_obj_ref<String> _this)
+int32_t String::get_Length(gc_obj_ref<String> _this)
 {
     return _this->_stringLength;
 }
 
-gc_obj_ref<String> String::_s_FastAllocateString(Int32 length)
+gc_obj_ref<String> String::_s_FastAllocateString(int32_t length)
 {
     auto size = sizeof(String) + length * sizeof(Char);
     auto obj = natsu::gc_new<String>(size);
@@ -110,135 +110,135 @@ gc_obj_ref<String> String::_s_FastAllocateString(Int32 length)
     return obj;
 }
 
-Int32 String::_s_wcslen(gc_ptr<Char> ptr)
+int32_t String::_s_wcslen(gc_ptr<char16_t> ptr)
 {
-    std::u16string_view sv = reinterpret_cast<const char16_t *>(&ptr->m_value);
+    std::u16string_view sv(ptr);
     return (int32_t)sv.length();
 }
 
-Double Math::_s_Abs(Double value)
+double Math::_s_Abs(double value)
 {
-    return fabs(value.m_value);
+    return fabs(value);
 }
 
-Single Math::_s_Abs(Single value)
+float Math::_s_Abs(float value)
 {
-    return fabsf(value.m_value);
+    return fabsf(value);
 }
 
-Double Math::_s_Acos(Double value)
+double Math::_s_Acos(double value)
 {
-    return acos(value.m_value);
+    return acos(value);
 }
 
-Double Math::_s_Acosh(Double value)
+double Math::_s_Acosh(double value)
 {
-    return acosh(value.m_value);
+    return acosh(value);
 }
 
-Double Math::_s_Asin(Double value)
+double Math::_s_Asin(double value)
 {
-    return asin(value.m_value);
+    return asin(value);
 }
 
-Double Math::_s_Asinh(Double value)
+double Math::_s_Asinh(double value)
 {
-    return asinh(value.m_value);
+    return asinh(value);
 }
 
-Double Math::_s_Atan(Double value)
+double Math::_s_Atan(double value)
 {
-    return atan(value.m_value);
+    return atan(value);
 }
 
-Double Math::_s_Atan2(Double y, Double x)
+double Math::_s_Atan2(double y, double x)
 {
-    return atan2(y.m_value, x.m_value);
+    return atan2(y, x);
 }
 
-Double Math::_s_Atanh(Double value)
+double Math::_s_Atanh(double value)
 {
-    return atanh(value.m_value);
+    return atanh(value);
 }
 
-Double Math::_s_Cbrt(Double value)
+double Math::_s_Cbrt(double value)
 {
-    return cbrt(value.m_value);
+    return cbrt(value);
 }
 
-Double Math::_s_Ceiling(Double value)
+double Math::_s_Ceiling(double value)
 {
-    return ceil(value.m_value);
+    return ceil(value);
 }
 
-Double Math::_s_Cos(Double value)
+double Math::_s_Cos(double value)
 {
-    return cos(value.m_value);
+    return cos(value);
 }
 
-Double Math::_s_Cosh(Double value)
+double Math::_s_Cosh(double value)
 {
-    return cosh(value.m_value);
+    return cosh(value);
 }
 
-Double Math::_s_Exp(Double value)
+double Math::_s_Exp(double value)
 {
-    return exp(value.m_value);
+    return exp(value);
 }
 
-Double Math::_s_Floor(Double value)
+double Math::_s_Floor(double value)
 {
-    return floor(value.m_value);
+    return floor(value);
 }
 
-Double Math::_s_Log(Double value)
+double Math::_s_Log(double value)
 {
-    return log(value.m_value);
+    return log(value);
 }
 
-Double Math::_s_Log10(Double value)
+double Math::_s_Log10(double value)
 {
-    return log10(value.m_value);
+    return log10(value);
 }
 
-Double Math::_s_Pow(Double x, Double y)
+double Math::_s_Pow(double x, double y)
 {
-    return pow(x.m_value, y.m_value);
+    return pow(x, y);
 }
 
-Double Math::_s_Sin(Double value)
+double Math::_s_Sin(double value)
 {
-    return sin(value.m_value);
+    return sin(value);
 }
 
-Double Math::_s_Sinh(Double value)
+double Math::_s_Sinh(double value)
 {
-    return sinh(value.m_value);
+    return sinh(value);
 }
 
-Double Math::_s_Sqrt(Double value)
+double Math::_s_Sqrt(double value)
 {
-    return sqrt(value.m_value);
+    return sqrt(value);
 }
 
-Double Math::_s_Tan(Double value)
+double Math::_s_Tan(double value)
 {
-    return tan(value.m_value);
+    return tan(value);
 }
 
-Double Math::_s_Tanh(Double value)
+double Math::_s_Tanh(double value)
 {
-    return tanh(value.m_value);
+    return tanh(value);
 }
 
-Double Math::_s_FMod(Double x, Double y)
+double Math::_s_FMod(double x, double y)
 {
-    return fmod(x.m_value, y.m_value);
+    return fmod(x, y);
 }
 
-Double Math::_s_ModF(Double x, gc_ptr<Double> y)
+double Math::_s_ModF(double x, gc_ptr<double> y)
 {
-    return modf(x.m_value, &y->m_value);
+    return modf(x, y);
 }
 
 gc_obj_ref<MulticastDelegate> MulticastDelegate::_s_CreateDelegateLike(gc_obj_ref<MulticastDelegate> delegate, gc_obj_ref<SZArray_1<Delegate>> invocationList)
@@ -260,7 +260,7 @@ gc_obj_ref<MulticastDelegate> MulticastDelegate::_s_CreateDelegateLike(gc_obj_re
     }
 }
 
-void RuntimeImports::_s_RhZeroMemory(::natsu::gc_ptr<void> b, ::System_Private_CorLib::System::UInt64 byteLength)
+void RuntimeImports::_s_RhZeroMemory(::natsu::gc_ptr<void> b, uint64_t byteLength)
 {
-    std::memset(b.ptr_, 0, byteLength.m_value);
+    std::memset(b.ptr_, 0, byteLength);
 }

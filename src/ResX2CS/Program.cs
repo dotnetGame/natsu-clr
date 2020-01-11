@@ -9,10 +9,11 @@ namespace ResX2CS
     {
         static void Main(string[] args)
         {
-            var path = @"..\..\..\..\System.Private.CorLib\Resources\Strings.resx";
+            var assembly = "System.Collections";
+            var path = @"..\..\..\..\" + assembly + @"\Resources\Strings.resx";
             var xml = XDocument.Load(path);
             var datas = xml.Root.Nodes().OfType<XElement>().Where(x => x.Name == "data").ToList();
-            using (var cs = new StreamWriter(File.Open(@"..\..\..\..\System.Private.CorLib\Resources\Strings.Designer.cs", FileMode.Create)))
+            using (var cs = new StreamWriter(File.Open(@"..\..\..\..\" + assembly + @"\Resources\Strings.Designer.cs", FileMode.Create)))
             {
                 StreamWriter Ident(int n)
                 {

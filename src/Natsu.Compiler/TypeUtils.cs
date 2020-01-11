@@ -121,21 +121,21 @@ namespace Natsu.Compiler
             return type.ToTypeSig();
         }
 
-        public static string EscapeTypeName(TypeSig fieldType, TypeDef declaringType = null, int hasGen = 0, IList<TypeSig> genArgs = null)
+        public static string EscapeTypeName(TypeSig fieldType, TypeDef declaringType = null, int hasGen = 0, IList<TypeSig> genArgs = null, bool cppBasicType = false)
         {
             var sb = new StringBuilder();
-            EscapeTypeName(sb, fieldType, declaringType, hasGen, genArgs);
+            EscapeTypeName(sb, fieldType, declaringType, hasGen, genArgs, cppBasicType);
             return sb.ToString();
         }
 
         public static string EscapeVariableTypeName(TypeSig fieldType, TypeDef declaringType = null, int hasGen = 0, IList<TypeSig> genArgs = null)
         {
             if (IsValueType(fieldType))
-                return EscapeTypeName(fieldType, declaringType, hasGen, genArgs);
+                return EscapeTypeName(fieldType, declaringType, hasGen, genArgs, cppBasicType: true);
             else if (fieldType.IsGenericParameter)
-                return $"::natsu::variable_type_t<{EscapeTypeName(fieldType, declaringType, hasGen, genArgs)}>";
+                return $"::natsu::variable_type_t<{EscapeTypeName(fieldType, declaringType, hasGen, genArgs, cppBasicType: true)}>";
             else
-                return $"::natsu::gc_obj_ref<{EscapeTypeName(fieldType, declaringType, hasGen, genArgs)}>";
+                return $"::natsu::gc_obj_ref<{EscapeTypeName(fieldType, declaringType, hasGen, genArgs, cppBasicType: true)}>";
         }
 
         private static bool IsValueType(TypeSig type)
@@ -144,7 +144,7 @@ namespace Natsu.Compiler
             return type.IsValueType || type.IsByRef || type.IsPointer || (type.IsPinned && IsValueType(type.Next)) || (type.IsModifier && IsValueType(type.Next));
         }
 
-        public static void EscapeTypeName(StringBuilder sb, TypeSig cntSig, TypeDef declaringType = null, int hasGen = 0, IList<TypeSig> genArgs = null)
+        public static void EscapeTypeName(StringBuilder sb, TypeSig cntSig, TypeDef declaringType = null, int hasGen = 0, IList<TypeSig> genArgs = null, bool cppBasicType = false)
         {
             switch (cntSig.ElementType)
             {
@@ -173,7 +173,7 @@ namespace Natsu.Compiler
                                 if (declaringType != null && sig.TypeDef == declaringType)
                                     sb.Append(GetConstantTypeName(cntSig.ElementType));
                                 else
-                                    sb.Append(EscapeTypeName(sig.TypeDefOrRef, hasGen: hasGen-- > 0, genArgs: genArgs));
+                                    sb.Append(EscapeTypeName(sig.TypeDefOrRef, hasGen: hasGen-- > 0, genArgs: genArgs, cppBasicType: cppBasicType));
                                 break;
                             default:
                                 throw new NotSupportedException();
@@ -190,7 +190,7 @@ namespace Natsu.Compiler
                                 if (sig.IsPrimitive && declaringType != null && sig.TypeDef == declaringType)
                                     sb.Append(GetConstantTypeName(cntSig.ElementType));
                                 else
-                                    sb.Append(EscapeTypeName(sig.TypeDefOrRef, hasGen: hasGen-- > 0, genArgs: genArgs));
+                                    sb.Append(EscapeTypeName(sig.TypeDefOrRef, hasGen: hasGen-- > 0, genArgs: genArgs, cppBasicType: cppBasicType));
                                 break;
                             default:
                                 throw new NotSupportedException();
@@ -198,8 +198,8 @@ namespace Natsu.Compiler
                     }
                     break;
                 case ElementType.SZArray:
-                    sb.Append("::System_Private_CorLib::System::SZArray_1<");
-                    EscapeTypeName(sb, cntSig.Next, declaringType, genArgs: genArgs);
+                    sb.Append("::System_Private_CoreLib::System::SZArray_1<");
+                    EscapeTypeName(sb, cntSig.Next, declaringType, genArgs: genArgs, cppBasicType: true);
                     sb.Append(">");
                     break;
                 case ElementType.Var:
@@ -209,9 +209,9 @@ namespace Natsu.Compiler
                         {
                             var sig = genArgs.OfType<GenericSig>().FirstOrDefault(x => x.Number == var.Number);
                             if (sig != null)
-                                EscapeTypeName(sb, sig);
+                                EscapeTypeName(sb, sig, cppBasicType: true);
                             else
-                                EscapeTypeName(sb, genArgs[(int)var.Number]);
+                                EscapeTypeName(sb, genArgs[(int)var.Number], cppBasicType: true);
                         }
                         else
                         {
@@ -223,7 +223,7 @@ namespace Natsu.Compiler
                     {
                         var mvar = cntSig.ToGenericMVar();
                         if (genArgs != null)
-                            EscapeTypeName(sb, genArgs[(int)mvar.Number]);
+                            EscapeTypeName(sb, genArgs[(int)mvar.Number], cppBasicType: true);
                         else
                             sb.Append(mvar.GetName());
                     }
@@ -231,11 +231,11 @@ namespace Natsu.Compiler
                 case ElementType.GenericInst:
                     {
                         var sig = cntSig.ToGenericInstSig();
-                        sb.Append(EscapeTypeName(sig.GenericType.TypeDefOrRef, hasGen: false));
+                        sb.Append(EscapeTypeName(sig.GenericType.TypeDefOrRef, hasGen: false, cppBasicType: cppBasicType));
                         sb.Append("<");
                         for (int i = 0; i < sig.GenericArguments.Count; i++)
                         {
-                            EscapeTypeName(sb, sig.GenericArguments[i], null, genArgs: genArgs);
+                            EscapeTypeName(sb, sig.GenericArguments[i], null, genArgs: genArgs, cppBasicType: true);
                             if (i != sig.GenericArguments.Count - 1)
                                 sb.Append(", ");
                         }
@@ -253,19 +253,19 @@ namespace Natsu.Compiler
                     sb.Append(">");
                     break;
                 case ElementType.Pinned:
-                    EscapeTypeName(sb, cntSig.Next, declaringType, hasGen, genArgs);
+                    EscapeTypeName(sb, cntSig.Next, declaringType, hasGen, genArgs, cppBasicType: cppBasicType);
                     break;
                 case ElementType.CModReqd:
-                    EscapeTypeName(sb, cntSig.Next, declaringType, hasGen, genArgs);
+                    EscapeTypeName(sb, cntSig.Next, declaringType, hasGen, genArgs, cppBasicType: cppBasicType);
                     break;
                 default:
                     throw new NotSupportedException();
             }
         }
 
-        public static string EscapeTypeName(ITypeDefOrRef type, bool hasGen = true, bool hasModuleName = true, IList<TypeSig> genArgs = null)
+        public static string EscapeTypeName(ITypeDefOrRef type, bool hasGen = true, bool hasModuleName = true, IList<TypeSig> genArgs = null, bool cppBasicType = false)
         {
-            return EscapeTypeNameImpl(type, hasGen, hasModuleName, genArgs);
+            return EscapeTypeNameImpl(type, hasGen, hasModuleName, genArgs, cppBasicType);
         }
 
         public static string EscapeVariableTypeName(ITypeDefOrRef type, bool hasGen = true, bool hasModuleName = true, IList<TypeSig> genArgs = null)
@@ -284,16 +284,81 @@ namespace Natsu.Compiler
             return EscapeIdentifier(name.Split('.').Last());
         }
 
-        private static string EscapeTypeNameImpl(ITypeDefOrRef type, bool hasGen, bool hasModuleName, IList<TypeSig> genArgs = null)
+        public static bool IsCppBasicType(ITypeDefOrRef type)
+        {
+            switch (type.ToTypeSig().ElementType)
+            {
+                case ElementType.Boolean:
+                case ElementType.Char:
+                case ElementType.I1:
+                case ElementType.U1:
+                case ElementType.I2:
+                case ElementType.U2:
+                case ElementType.I4:
+                case ElementType.U4:
+                case ElementType.I8:
+                case ElementType.U8:
+                case ElementType.R4:
+                case ElementType.R8:
+                    return true;
+                    //case ElementType.I:
+                    //case ElementType.U:
+            }
+
+            return false;
+        }
+
+        private static string EscapeTypeNameImpl(ITypeDefOrRef type, bool hasGen, bool hasModuleName, IList<TypeSig> genArgs = null, bool cppBasicType = false)
         {
             if (type is TypeSpec typeSpec)
             {
-                return EscapeTypeName(typeSpec.TypeSig, null);
+                return EscapeTypeName(typeSpec.TypeSig, null, cppBasicType: cppBasicType);
+            }
+
+            if (cppBasicType && type.IsPrimitive)
+            {
+                switch (type.ToTypeSig().ElementType)
+                {
+                    case ElementType.Boolean:
+                        return "bool";
+                    case ElementType.Char:
+                        return "char16_t";
+                    case ElementType.I1:
+                        return "int8_t";
+                    case ElementType.U1:
+                        return "uint8_t";
+                    case ElementType.I2:
+                        return "int16_t";
+                    case ElementType.U2:
+                        return "uint16_t";
+                    case ElementType.I4:
+                        return "int32_t";
+                    case ElementType.U4:
+                        return "uint32_t";
+                    case ElementType.I8:
+                        return "int64_t";
+                    case ElementType.U8:
+                        return "uint64_t";
+                    case ElementType.R4:
+                        return "float";
+                    case ElementType.R8:
+                        return "double";
+                        //case ElementType.I:
+                        //    return "intptr_t";
+                        //case ElementType.U:
+                        //    return "uintptr_t";
+                }
             }
 
             var sb = new StringBuilder();
             if (hasModuleName)
-                sb.Append("::" + EscapeModuleName(type.DefinitionAssembly) + "::");
+            {
+                var moduleName = EscapeModuleName(type.DefinitionAssembly);
+                if (moduleName == "mscorlib")
+                    moduleName = "System_Private_CoreLib";
+                sb.Append("::" + moduleName + "::");
+            }
+
             var nss = TypeUtils.GetNamespace(type).Split('.', StringSplitOptions.RemoveEmptyEntries)
                 .Select(EscapeNamespaceName).ToList();
             foreach (var ns in nss)
@@ -572,7 +637,7 @@ namespace Natsu.Compiler
                 case ElementType.R8:
                     return "double";
                 case ElementType.String:
-                    return "::System_Private_CorLib::System::String";
+                    return "::System_Private_CoreLib::System::String";
                 case ElementType.I:
                     return "intptr_t";
                 case ElementType.U:

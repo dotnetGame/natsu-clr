@@ -1,10 +1,10 @@
-#include "System.Private.CorLib.h"
+#include "System.Private.CoreLib.h"
 
 using namespace natsu;
-using namespace System_Private_CorLib;
-using namespace System_Private_CorLib::System;
-using namespace System_Private_CorLib::System::Diagnostics;
-using namespace System_Private_CorLib::System::Globalization;
+using namespace System_Private_CoreLib;
+using namespace System_Private_CoreLib::System;
+using namespace System_Private_CoreLib::System::Diagnostics;
+using namespace System_Private_CoreLib::System::Globalization;
 
 // 12:4:4 index table of the Unicode cateogry data.
 static const uint16_t s_pCategoryLevel1Index[] = {
@@ -1234,7 +1234,7 @@ static const uint8_t s_pNumericValues[] = {
     0x00, 0x00, 0x00, 0x20, 0x5f, 0xa0, 0x02, 0x42, 0x00, 0x00, 0x00, 0xa2, 0x94, 0x1a, 0x6d, 0x42
 };
 
-Byte CharUnicodeInfo::_s_InternalGetCategoryValue(Int32 ch, Int32 offset)
+uint8_t CharUnicodeInfo::_s_InternalGetCategoryValue(int32_t ch, int32_t offset)
 {
     Debug::_s_Assert(ch >= 0 && ch <= 0x10ffff, load_string(u"ch is not in valid Unicode range."sv));
     // Get the level 2 item from the highest 12 bit (8 - 19) of ch.
@@ -1255,7 +1255,7 @@ Byte CharUnicodeInfo::_s_InternalGetCategoryValue(Int32 ch, Int32 offset)
     return (uc);
 }
 
-UInt16 CharUnicodeInfo::_s_InternalGetDigitValues(Int32 ch)
+uint16_t CharUnicodeInfo::_s_InternalGetDigitValues(int32_t ch)
 {
     Debug::_s_Assert(ch >= 0 && ch <= 0x10ffff, load_string(u"ch is not in valid Unicode range."sv));
     // Get the level 2 item from the highest 12 bit (8 - 19) of ch.
@@ -1268,7 +1268,7 @@ UInt16 CharUnicodeInfo::_s_InternalGetDigitValues(Int32 ch)
     return s_pDigitValues[pBytePtr[(ch & 0x000f)]];
 }
 
-Double CharUnicodeInfo::_s_InternalGetNumericValue(Int32 ch)
+double CharUnicodeInfo::_s_InternalGetNumericValue(int32_t ch)
 {
     Debug::_s_Assert(ch >= 0 && ch <= 0x10ffff, load_string(u"ch is not in valid Unicode range."sv));
     // Get the level 2 item from the highest 12 bit (8 - 19) of ch.

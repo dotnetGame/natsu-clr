@@ -1,4 +1,4 @@
-#include "System.Private.CorLib.h"
+#include "System.Private.CoreLib.h"
 
 #if _MSC_VER
 #include <intrin.h>
@@ -6,12 +6,12 @@
 #endif
 
 using namespace natsu;
-using namespace System_Private_CorLib;
-using namespace System_Private_CorLib::System;
-using namespace System_Private_CorLib::System::Threading;
-using namespace System_Private_CorLib::System::Runtime::CompilerServices;
+using namespace System_Private_CoreLib;
+using namespace System_Private_CoreLib::System;
+using namespace System_Private_CoreLib::System::Threading;
+using namespace System_Private_CoreLib::System::Runtime::CompilerServices;
 
-Int32 Interlocked::_s_Exchange(gc_ref<Int32> location1, Int32 value)
+int32_t Interlocked::_s_Exchange(gc_ref<int32_t> location1, int32_t value)
 {
 #if _MSC_VER
     return _InterlockedExchange(reinterpret_cast<volatile long *>(location1.ptr_), value);
@@ -20,7 +20,7 @@ Int32 Interlocked::_s_Exchange(gc_ref<Int32> location1, Int32 value)
 #endif
 }
 
-Int64 Interlocked::_s_Exchange(gc_ref<Int64> location1, Int64 value)
+int64_t Interlocked::_s_Exchange(gc_ref<int64_t> location1, int64_t value)
 {
 #if _MSC_VER
     return _InterlockedExchange64(reinterpret_cast<volatile int64_t *>(location1.ptr_), value);
@@ -29,7 +29,7 @@ Int64 Interlocked::_s_Exchange(gc_ref<Int64> location1, Int64 value)
 #endif
 }
 
-Int64 Interlocked::_s_CompareExchange(gc_ref<Int64> location1, Int64 value, Int64 comparand)
+int64_t Interlocked::_s_CompareExchange(gc_ref<int64_t> location1, int64_t value, int64_t comparand)
 {
 #if _MSC_VER
     return _InterlockedCompareExchange64(reinterpret_cast<volatile int64_t *>(location1.ptr_), value, comparand);
@@ -51,7 +51,7 @@ gc_obj_ref<Object> Interlocked::_s_CompareExchange(gc_ref<gc_obj_ref<Object>> lo
 #endif
 }
 
-Int32 Interlocked::_s_ExchangeAdd(gc_ref<Int32> location1, Int32 value)
+int32_t Interlocked::_s_ExchangeAdd(gc_ref<int32_t> location1, int32_t value)
 {
 #if _MSC_VER
     return _InterlockedExchangeAdd(reinterpret_cast<volatile long *>(location1.ptr_), value);
@@ -60,7 +60,7 @@ Int32 Interlocked::_s_ExchangeAdd(gc_ref<Int32> location1, Int32 value)
 #endif
 }
 
-Int64 Interlocked::_s_ExchangeAdd(gc_ref<Int64> location1, Int64 value)
+int64_t Interlocked::_s_ExchangeAdd(gc_ref<int64_t> location1, int64_t value)
 {
 #if _MSC_VER
     return _InterlockedExchangeAdd64(reinterpret_cast<volatile int64_t *>(location1.ptr_), value);

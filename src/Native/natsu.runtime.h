@@ -23,7 +23,7 @@ namespace stack
         constexpr int32(int32_t value)
             : value_(value) {}
 
-        constexpr bool istrue() const noexcept
+        constexpr operator bool() const noexcept
         {
             return value_;
         }
@@ -37,7 +37,7 @@ namespace stack
         constexpr int64(int64_t value)
             : value_(value) {}
 
-        constexpr bool istrue() const noexcept
+        constexpr operator bool() const noexcept
         {
             return value_;
         }
@@ -51,7 +51,7 @@ namespace stack
         constexpr native_int(intptr_t value)
             : value_(value) {}
 
-        constexpr bool istrue() const noexcept
+        constexpr operator bool() const noexcept
         {
             return value_;
         }
@@ -74,7 +74,7 @@ namespace stack
         constexpr Ref(uintptr_t value)
             : value_(value) {}
 
-        constexpr bool istrue() const noexcept
+        constexpr operator bool() const noexcept
         {
             return value_;
         }
@@ -88,7 +88,7 @@ namespace stack
         constexpr O(uintptr_t value)
             : value_(value) {}
 
-        constexpr bool istrue() const noexcept
+        constexpr operator bool() const noexcept
         {
             return value_;
         }
@@ -102,12 +102,12 @@ namespace stack
     static constexpr O null = 0;
 }
 
-gc_obj_ref<::System_Private_CorLib::System::Object> gc_alloc(const vtable_t &vtable, size_t size);
+gc_obj_ref<::System_Private_CoreLib::System::Object> gc_alloc(const vtable_t &vtable, size_t size);
 
 template <class T>
 gc_obj_ref<T> gc_new(size_t size)
 {
-    auto obj = gc_alloc(vtable_holder<typename T::VTable>::get(), size);
+    auto obj = gc_alloc(vtable_holder<typename to_clr_type_t<T>::VTable>::get(), size);
     return obj.template cast<T>();
 }
 
@@ -118,17 +118,17 @@ gc_obj_ref<T> gc_new()
 }
 
 template <class T>
-gc_obj_ref<::System_Private_CorLib::System::SZArray_1<T>> gc_new_array(stack::int32 length)
+gc_obj_ref<::System_Private_CoreLib::System::SZArray_1<T>> gc_new_array(stack::int32 length)
 {
-    using obj_t = ::System_Private_CorLib::System::SZArray_1<T>;
+    using obj_t = ::System_Private_CoreLib::System::SZArray_1<T>;
     auto size = sizeof(obj_t) + (size_t)length.value_ * sizeof(T);
     auto obj = gc_new<obj_t>(size);
     obj->Length = length.value_;
     return obj;
 }
 
-gc_obj_ref<::System_Private_CorLib::System::String> load_string(std::u16string_view string);
-std::u16string_view to_string_view(gc_obj_ref<::System_Private_CorLib::System::String> string);
+gc_obj_ref<::System_Private_CoreLib::System::String> load_string(std::u16string_view string);
+std::u16string_view to_string_view(gc_obj_ref<::System_Private_CoreLib::System::String> string);
 
 template <class T, class... TArgs>
 auto make_object(TArgs... args)
@@ -183,28 +183,28 @@ void check_condition(TCond &&condition, TArgs &&... args)
 
 inline void check_null_obj_ref(stack::O obj)
 {
-    if (!obj.istrue())
+    if (!obj)
         throw_null_ref_exception();
 }
 
 inline void check_null_obj_ref(stack::native_int addr)
 {
-    if (!addr.istrue())
+    if (!addr)
         throw_null_ref_exception();
 }
 
 inline void check_null_obj_ref(stack::Ref addr)
 {
-    if (!addr.istrue())
+    if (!addr)
         throw_null_ref_exception();
 }
 
 template <class T>
 struct runtime_type_holder
 {
-    static gc_obj_ref<::System_Private_CorLib::System::RuntimeType> get()
+    static gc_obj_ref<::System_Private_CoreLib::System::RuntimeType> get()
     {
-        using namespace ::System_Private_CorLib::System;
+        using namespace ::System_Private_CoreLib::System;
         static auto type = make_object<RuntimeType>(
             reinterpret_cast<intptr_t>(&vtable_holder<typename T::VTable>::get()));
         return type;
@@ -255,45 +255,45 @@ namespace stack
         };
 
         template <>
-        struct stack_from_impl<::System_Private_CorLib::System::IntPtr>
+        struct stack_from_impl<::System_Private_CoreLib::System::IntPtr>
         {
-            native_int operator()(const ::System_Private_CorLib::System::IntPtr &value) const noexcept
+            native_int operator()(const ::System_Private_CoreLib::System::IntPtr &value) const noexcept
             {
                 return (intptr_t) static_cast<uintptr_t>(value._value);
             }
         };
 
         template <>
-        struct stack_from_impl<::System_Private_CorLib::System::UIntPtr>
+        struct stack_from_impl<::System_Private_CoreLib::System::UIntPtr>
         {
-            native_int operator()(const ::System_Private_CorLib::System::UIntPtr &value) const noexcept
+            native_int operator()(const ::System_Private_CoreLib::System::UIntPtr &value) const noexcept
             {
                 return (intptr_t) static_cast<uintptr_t>(value._value);
             }
         };
 
-#define DEFINE_STACK_FROM_CAST(From, To, Med, Cast)                    \
-    template <>                                                        \
-    struct stack_from_impl<From>                                       \
-    {                                                                  \
-        To operator()(const From &value) const noexcept                \
-        {                                                              \
-            return static_cast<Cast>(static_cast<Med>(value.m_value)); \
-        }                                                              \
+#define DEFINE_STACK_FROM_CAST(From, To, Med, Cast)            \
+    template <>                                                \
+    struct stack_from_impl<From>                               \
+    {                                                          \
+        To operator()(const From &value) const noexcept        \
+        {                                                      \
+            return static_cast<Cast>(static_cast<Med>(value)); \
+        }                                                      \
     };
 
-        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::Boolean, int32, uint32_t, int32_t);
-        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::SByte, int32, int32_t, int32_t);
-        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::Byte, int32, uint32_t, int32_t);
-        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::Char, int32, uint32_t, int32_t);
-        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::Int16, int32, int32_t, int32_t);
-        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::UInt16, int32, uint32_t, int32_t);
-        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::Int32, int32, int32_t, int32_t);
-        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::UInt32, int32, uint32_t, int32_t);
-        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::Int64, int64, int64_t, int64_t);
-        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::UInt64, int64, uint64_t, int64_t);
-        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::Single, F, float, double);
-        DEFINE_STACK_FROM_CAST(::System_Private_CorLib::System::Double, F, double, double);
+        DEFINE_STACK_FROM_CAST(bool, int32, uint32_t, int32_t);
+        DEFINE_STACK_FROM_CAST(int8_t, int32, int32_t, int32_t);
+        DEFINE_STACK_FROM_CAST(uint8_t, int32, uint32_t, int32_t);
+        DEFINE_STACK_FROM_CAST(char16_t, int32, uint32_t, int32_t);
+        DEFINE_STACK_FROM_CAST(int16_t, int32, int32_t, int32_t);
+        DEFINE_STACK_FROM_CAST(uint16_t, int32, uint32_t, int32_t);
+        DEFINE_STACK_FROM_CAST(int32_t, int32, int32_t, int32_t);
+        DEFINE_STACK_FROM_CAST(uint32_t, int32, uint32_t, int32_t);
+        DEFINE_STACK_FROM_CAST(int64_t, int64, int64_t, int64_t);
+        DEFINE_STACK_FROM_CAST(uint64_t, int64, uint64_t, int64_t);
+        DEFINE_STACK_FROM_CAST(float, F, float, double);
+        DEFINE_STACK_FROM_CAST(double, F, double, double);
 
 #undef DEFINE_STACK_FROM_CAST
 
@@ -315,7 +315,7 @@ namespace stack
             TTo operator()(TFrom value)
             {
                 if constexpr (natsu::is_enum_v<TTo>)
-                    return static_cast<TTo>(value.value_);
+                    return TTo { static_cast<decltype(TTo::value__)>(value.value_) };
                 else
                     return value;
             }
@@ -384,33 +384,33 @@ namespace stack
             return static_cast<Med>(value.value_);      \
         }                                               \
     };
-        DEFINE_STACK_TO_CAST(int32, ::System_Private_CorLib::System::Boolean, bool);
-        DEFINE_STACK_TO_CAST(int32, ::System_Private_CorLib::System::SByte, int8_t);
-        DEFINE_STACK_TO_CAST(int32, ::System_Private_CorLib::System::Byte, uint8_t);
-        DEFINE_STACK_TO_CAST(int32, ::System_Private_CorLib::System::Char, char16_t);
-        DEFINE_STACK_TO_CAST(int32, ::System_Private_CorLib::System::Int16, int16_t);
-        DEFINE_STACK_TO_CAST(int32, ::System_Private_CorLib::System::UInt16, uint16_t);
-        DEFINE_STACK_TO_CAST(int32, ::System_Private_CorLib::System::Int32, int32_t);
-        DEFINE_STACK_TO_CAST(int32, ::System_Private_CorLib::System::UInt32, uint32_t);
-        DEFINE_STACK_TO_CAST(int32, ::System_Private_CorLib::System::IntPtr, intptr_t);
-        DEFINE_STACK_TO_CAST(int32, ::System_Private_CorLib::System::UIntPtr, uintptr_t);
+        DEFINE_STACK_TO_CAST(int32, bool, bool);
+        DEFINE_STACK_TO_CAST(int32, int8_t, int8_t);
+        DEFINE_STACK_TO_CAST(int32, uint8_t, uint8_t);
+        DEFINE_STACK_TO_CAST(int32, char16_t, char16_t);
+        DEFINE_STACK_TO_CAST(int32, int16_t, int16_t);
+        DEFINE_STACK_TO_CAST(int32, uint16_t, uint16_t);
+        DEFINE_STACK_TO_CAST(int32, int32_t, int32_t);
+        DEFINE_STACK_TO_CAST(int32, uint32_t, uint32_t);
+        DEFINE_STACK_TO_CAST(int32, ::System_Private_CoreLib::System::IntPtr, intptr_t);
+        DEFINE_STACK_TO_CAST(int32, ::System_Private_CoreLib::System::UIntPtr, uintptr_t);
 
-        DEFINE_STACK_TO_CAST(native_int, ::System_Private_CorLib::System::Boolean, bool);
-        DEFINE_STACK_TO_CAST(native_int, ::System_Private_CorLib::System::SByte, int8_t);
-        DEFINE_STACK_TO_CAST(native_int, ::System_Private_CorLib::System::Byte, uint8_t);
-        DEFINE_STACK_TO_CAST(native_int, ::System_Private_CorLib::System::Char, char16_t);
-        DEFINE_STACK_TO_CAST(native_int, ::System_Private_CorLib::System::Int16, int16_t);
-        DEFINE_STACK_TO_CAST(native_int, ::System_Private_CorLib::System::UInt16, uint16_t);
-        DEFINE_STACK_TO_CAST(native_int, ::System_Private_CorLib::System::Int32, int32_t);
-        DEFINE_STACK_TO_CAST(native_int, ::System_Private_CorLib::System::UInt32, uint32_t);
-        DEFINE_STACK_TO_CAST(native_int, ::System_Private_CorLib::System::IntPtr, intptr_t);
-        DEFINE_STACK_TO_CAST(native_int, ::System_Private_CorLib::System::UIntPtr, uintptr_t);
+        DEFINE_STACK_TO_CAST(native_int, bool, bool);
+        DEFINE_STACK_TO_CAST(native_int, int8_t, int8_t);
+        DEFINE_STACK_TO_CAST(native_int, uint8_t, uint8_t);
+        DEFINE_STACK_TO_CAST(native_int, char16_t, char16_t);
+        DEFINE_STACK_TO_CAST(native_int, int16_t, int16_t);
+        DEFINE_STACK_TO_CAST(native_int, uint16_t, uint16_t);
+        DEFINE_STACK_TO_CAST(native_int, int32_t, int32_t);
+        DEFINE_STACK_TO_CAST(native_int, uint32_t, uint32_t);
+        DEFINE_STACK_TO_CAST(native_int, ::System_Private_CoreLib::System::IntPtr, intptr_t);
+        DEFINE_STACK_TO_CAST(native_int, ::System_Private_CoreLib::System::UIntPtr, uintptr_t);
 
-        DEFINE_STACK_TO_CAST(int64, ::System_Private_CorLib::System::Int64, int64_t);
-        DEFINE_STACK_TO_CAST(int64, ::System_Private_CorLib::System::UInt64, uint64_t);
+        DEFINE_STACK_TO_CAST(int64, int64_t, int64_t);
+        DEFINE_STACK_TO_CAST(int64, uint64_t, uint64_t);
 
-        DEFINE_STACK_TO_CAST(F, ::System_Private_CorLib::System::Single, float);
-        DEFINE_STACK_TO_CAST(F, ::System_Private_CorLib::System::Double, double);
+        DEFINE_STACK_TO_CAST(F, float, float);
+        DEFINE_STACK_TO_CAST(F, double, double);
 
 #undef DEFINE_STACK_TO_CAST
 
@@ -435,9 +435,9 @@ namespace stack
         };
 
         template <class T>
-        struct box_impl<::System_Private_CorLib::System::Nullable_1<T>>
+        struct box_impl<::System_Private_CoreLib::System::Nullable_1<T>>
         {
-            O operator()(const ::System_Private_CorLib::System::Nullable_1<T> &value) const noexcept
+            O operator()(const ::System_Private_CoreLib::System::Nullable_1<T> &value) const noexcept
             {
                 if (value.hasValue)
                 {
@@ -457,7 +457,7 @@ namespace stack
         {
             Ref operator()(const O &obj)
             {
-                using ::System_Private_CorLib::System::Object;
+                using ::System_Private_CoreLib::System::Object;
 
                 // check_null_obj_ref(obj);
                 auto box = stack_to<gc_obj_ref<Object>>(obj).template as<T>();
@@ -469,14 +469,14 @@ namespace stack
         };
 
         template <class T>
-        struct unbox_impl<::System_Private_CorLib::System::Nullable_1<T>>
+        struct unbox_impl<::System_Private_CoreLib::System::Nullable_1<T>>
         {
             Ref operator()(const O &obj)
             {
-                using ::System_Private_CorLib::System::Nullable_1;
-                using ::System_Private_CorLib::System::Object;
+                using ::System_Private_CoreLib::System::Nullable_1;
+                using ::System_Private_CoreLib::System::Object;
 
-                if (obj.istrue())
+                if (obj)
                 {
                     auto box = stack_to<gc_obj_ref<Object>>(obj).template as<T>();
                     if (box)
@@ -503,7 +503,7 @@ namespace stack
         {
             auto operator()(const O &obj)
             {
-                using ::System_Private_CorLib::System::Object;
+                using ::System_Private_CoreLib::System::Object;
 
                 // check_null_obj_ref(obj);
                 auto box = stack_to<gc_obj_ref<Object>>(obj).template as<T>();
@@ -526,14 +526,14 @@ namespace stack
         };
 
         template <class T>
-        struct unbox_any_impl<::System_Private_CorLib::System::Nullable_1<T>>
+        struct unbox_any_impl<::System_Private_CoreLib::System::Nullable_1<T>>
         {
-            ::System_Private_CorLib::System::Nullable_1<T> operator()(const O &obj)
+            ::System_Private_CoreLib::System::Nullable_1<T> operator()(const O &obj)
             {
-                using ::System_Private_CorLib::System::Nullable_1;
-                using ::System_Private_CorLib::System::Object;
+                using ::System_Private_CoreLib::System::Nullable_1;
+                using ::System_Private_CoreLib::System::Object;
 
-                if (obj.istrue())
+                if (obj)
                 {
                     auto box = stack_to<gc_obj_ref<Object>>(obj).template as<T>();
                     if (box)
@@ -557,14 +557,14 @@ namespace stack
         {
             O operator()(const O &obj) const noexcept
             {
-                if (obj.istrue() && obj.header().vtable_as<typename T::VTable>())
+                if (obj && obj.header().vtable_as<typename natsu::to_clr_type_t<T>::VTable>())
                     return obj;
                 return null;
             }
         };
 
         template <class T>
-        struct isinst_impl<::System_Private_CorLib::System::Nullable_1<T>>
+        struct isinst_impl<::System_Private_CoreLib::System::Nullable_1<T>>
         {
             O operator()(const O &obj) const noexcept
             {
@@ -585,11 +585,11 @@ namespace stack
         };
 
         template <class T>
-        struct castclass_impl<::System_Private_CorLib::System::Nullable_1<T>>
+        struct castclass_impl<::System_Private_CoreLib::System::Nullable_1<T>>
         {
             O operator()(const O &obj) const noexcept
             {
-                if (obj.istrue())
+                if (obj)
                 {
                     if (obj.header().vtable_as<typename T::VTable>())
                         return obj;
@@ -882,9 +882,9 @@ namespace ops
             value._ctor(value, std::forward<TArgs>(args)...);
             return stack_from(value);
         }
-        else if constexpr (std::is_same_v<T, ::System_Private_CorLib::System::String>)
+        else if constexpr (std::is_same_v<T, ::System_Private_CoreLib::System::String>)
         {
-            auto value = ::System_Private_CorLib::System::String::_s_Ctor(std::forward<TArgs>(args)...);
+            auto value = ::System_Private_CoreLib::System::String::_s_Ctor(std::forward<TArgs>(args)...);
             return stack_from(value);
         }
         else
@@ -952,55 +952,55 @@ namespace ops
 #define LDELEM_IMPL(name, type, value_type)                                                         \
     inline value_type ldelem_##name(const stack::O &obj, stack::int32 index)                        \
     {                                                                                               \
-        using ::System_Private_CorLib::System::SZArray_1;                                           \
+        using ::System_Private_CoreLib::System::SZArray_1;                                           \
         return stack_from(stack_to<gc_obj_ref<SZArray_1<type>>>(obj)->at((uint32_t)index.value_));  \
     }                                                                                               \
     inline value_type ldelem_##name(const stack::O &obj, stack::native_int index)                   \
     {                                                                                               \
-        using ::System_Private_CorLib::System::SZArray_1;                                           \
+        using ::System_Private_CoreLib::System::SZArray_1;                                           \
         return stack_from(stack_to<gc_obj_ref<SZArray_1<type>>>(obj)->at((uintptr_t)index.value_)); \
     }
 
-    LDELEM_IMPL(i1, ::System_Private_CorLib::System::SByte, stack::int32);
-    LDELEM_IMPL(i2, ::System_Private_CorLib::System::Int16, stack::int32);
-    LDELEM_IMPL(i4, ::System_Private_CorLib::System::Int32, stack::int32);
-    LDELEM_IMPL(i8, ::System_Private_CorLib::System::Int64, stack::int64);
-    LDELEM_IMPL(r4, ::System_Private_CorLib::System::Single, stack::F);
-    LDELEM_IMPL(r8, ::System_Private_CorLib::System::Double, stack::F);
-    LDELEM_IMPL(i, ::System_Private_CorLib::System::IntPtr, stack::native_int);
-    LDELEM_IMPL(u1, ::System_Private_CorLib::System::Byte, stack::int32);
-    LDELEM_IMPL(u2, ::System_Private_CorLib::System::UInt16, stack::int32);
-    LDELEM_IMPL(u4, ::System_Private_CorLib::System::UInt32, stack::int32);
-    LDELEM_IMPL(u8, ::System_Private_CorLib::System::UInt64, stack::int64);
-    LDELEM_IMPL(u, ::System_Private_CorLib::System::UIntPtr, stack::native_int);
+    LDELEM_IMPL(i1, int8_t, stack::int32);
+    LDELEM_IMPL(i2, int16_t, stack::int32);
+    LDELEM_IMPL(i4, int32_t, stack::int32);
+    LDELEM_IMPL(i8, int64_t, stack::int64);
+    LDELEM_IMPL(r4, float, stack::F);
+    LDELEM_IMPL(r8, double, stack::F);
+    LDELEM_IMPL(i, ::System_Private_CoreLib::System::IntPtr, stack::native_int);
+    LDELEM_IMPL(u1, uint8_t, stack::int32);
+    LDELEM_IMPL(u2, uint16_t, stack::int32);
+    LDELEM_IMPL(u4, uint32_t, stack::int32);
+    LDELEM_IMPL(u8, uint64_t, stack::int64);
+    LDELEM_IMPL(u, ::System_Private_CoreLib::System::UIntPtr, stack::native_int);
 
     inline stack::O ldelem_ref(const stack::O &obj, stack::int32 index)
     {
-        using ::System_Private_CorLib::System::Object;
-        using ::System_Private_CorLib::System::SZArray_1;
+        using ::System_Private_CoreLib::System::Object;
+        using ::System_Private_CoreLib::System::SZArray_1;
         return stack_from(stack_to<gc_obj_ref<SZArray_1<Object>>>(obj)->at((uint32_t)index.value_));
     }
 
     inline stack::O ldelem_ref(const stack::O &obj, stack::native_int index)
     {
-        using ::System_Private_CorLib::System::Object;
-        using ::System_Private_CorLib::System::SZArray_1;
+        using ::System_Private_CoreLib::System::Object;
+        using ::System_Private_CoreLib::System::SZArray_1;
         return stack_from(stack_to<gc_obj_ref<SZArray_1<Object>>>(obj)->at((uintptr_t)index.value_));
     }
 
     template <class T>
     inline auto ldelem(const stack::O &obj, stack::int32 index)
     {
-        using ::System_Private_CorLib::System::Object;
-        using ::System_Private_CorLib::System::SZArray_1;
+        using ::System_Private_CoreLib::System::Object;
+        using ::System_Private_CoreLib::System::SZArray_1;
         return stack_from(stack_to<gc_obj_ref<SZArray_1<T>>>(obj)->at((uint32_t)index.value_));
     }
 
     template <class T>
     inline auto ldelem(const stack::O &obj, stack::native_int index)
     {
-        using ::System_Private_CorLib::System::Object;
-        using ::System_Private_CorLib::System::SZArray_1;
+        using ::System_Private_CoreLib::System::Object;
+        using ::System_Private_CoreLib::System::SZArray_1;
         return stack_from(stack_to<gc_obj_ref<SZArray_1<T>>>(obj)->at((uintptr_t)index.value_));
     }
 
@@ -1009,38 +1009,38 @@ namespace ops
 #define STELEM_IMPL(name, type, value_type, cast)                                                       \
     inline void stelem_##name(const stack::O &obj, stack::int32 index, value_type value)                \
     {                                                                                                   \
-        using ::System_Private_CorLib::System::SZArray_1;                                               \
+        using ::System_Private_CoreLib::System::SZArray_1;                                               \
         stack_to<gc_obj_ref<SZArray_1<type>>>(obj)->at(index.value_) = static_cast<cast>(value.value_); \
     }
 
-    STELEM_IMPL(i1, ::System_Private_CorLib::System::SByte, stack::int32, int8_t);
-    STELEM_IMPL(i2, ::System_Private_CorLib::System::Int16, stack::int32, int16_t);
-    STELEM_IMPL(i4, ::System_Private_CorLib::System::Int32, stack::int32, int32_t);
-    STELEM_IMPL(i8, ::System_Private_CorLib::System::Int64, stack::int64, int64_t);
-    STELEM_IMPL(r4, ::System_Private_CorLib::System::Single, stack::F, float);
-    STELEM_IMPL(r8, ::System_Private_CorLib::System::Double, stack::F, double);
-    STELEM_IMPL(i, ::System_Private_CorLib::System::IntPtr, stack::native_int, intptr_t);
+    STELEM_IMPL(i1, int8_t, stack::int32, int8_t);
+    STELEM_IMPL(i2, int16_t, stack::int32, int16_t);
+    STELEM_IMPL(i4, int32_t, stack::int32, int32_t);
+    STELEM_IMPL(i8, int64_t, stack::int64, int64_t);
+    STELEM_IMPL(r4, float, stack::F, float);
+    STELEM_IMPL(r8, double, stack::F, double);
+    STELEM_IMPL(i, ::System_Private_CoreLib::System::IntPtr, stack::native_int, intptr_t);
 
     inline void stelem_ref(const stack::O &obj, stack::int32 index, stack::O value)
     {
-        using ::System_Private_CorLib::System::Object;
-        using ::System_Private_CorLib::System::SZArray_1;
+        using ::System_Private_CoreLib::System::Object;
+        using ::System_Private_CoreLib::System::SZArray_1;
         stack_to<gc_obj_ref<SZArray_1<Object>>>(obj)->at(index.value_) = stack_to<gc_obj_ref<Object>>(value);
     }
 
     template <class T, class TStack>
     void stelem(const stack::O &obj, stack::int32 index, TStack value)
     {
-        using ::System_Private_CorLib::System::Object;
-        using ::System_Private_CorLib::System::SZArray_1;
+        using ::System_Private_CoreLib::System::Object;
+        using ::System_Private_CoreLib::System::SZArray_1;
         stack_to<gc_obj_ref<SZArray_1<T>>>(obj)->at((uint32_t)index.value_) = stack_to<variable_type_t<T>>(value);
     }
 
     template <class T, class TStack>
     void stelem(const stack::O &obj, stack::native_int index, TStack value)
     {
-        using ::System_Private_CorLib::System::Object;
-        using ::System_Private_CorLib::System::SZArray_1;
+        using ::System_Private_CoreLib::System::Object;
+        using ::System_Private_CoreLib::System::SZArray_1;
         stack_to<gc_obj_ref<SZArray_1<T>>>(obj)->at((uint32_t)index.value_) = stack_to<variable_type_t<T>>(value);
     }
 
@@ -1297,7 +1297,7 @@ namespace ops
     template <class T>
     stack::Ref ldelema(const stack::O &obj, stack::int32 index)
     {
-        using ::System_Private_CorLib::System::SZArray_1;
+        using ::System_Private_CoreLib::System::SZArray_1;
         return stack_from(stack_to<gc_obj_ref<SZArray_1<T>>>(obj)->ref_at(index.value_));
     }
 
@@ -1314,9 +1314,9 @@ namespace ops
     }
 
     template <class T>
-    ::System_Private_CorLib::System::RuntimeTypeHandle ldtoken_type()
+    ::System_Private_CoreLib::System::RuntimeTypeHandle ldtoken_type()
     {
-        return { runtime_type_holder<T>::get() };
+        return { runtime_type_holder<natsu::to_clr_type_t<T>>::get() };
     }
 
     [[noreturn]] void throw_(const stack::O &obj);
@@ -1345,49 +1345,14 @@ namespace ops
 }
 
 template <class T>
-gc_ref<T> unbox_exact(gc_obj_ref<::System_Private_CorLib::System::Object> value)
+gc_ref<T> unbox_exact(gc_obj_ref<::System_Private_CoreLib::System::Object> value)
 {
     auto box = value.cast<T>();
     return gc_ref_from_ref(*box);
 }
-
-template <size_t N>
-struct string_literal : public System_Private_CorLib::System::Object
-{
-    ::System_Private_CorLib::System::Int32 _stringLength;
-    std::array<::System_Private_CorLib::System::Char, N + 1> _firstChar;
-
-    constexpr string_literal(std::u16string_view str)
-        : _stringLength((int32_t)N), _firstChar(init_array(str, std::make_index_sequence<N>()))
-    {
-    }
-
-    template <size_t... I>
-    constexpr std::array<::System_Private_CorLib::System::Char, N + 1> init_array(std::u16string_view str, std::index_sequence<I...>)
-    {
-        return { str[I]..., 0 };
-    }
-};
-
-template <class TObject, class TValue>
-struct static_object
-{
-    object_header header_;
-    TValue value_;
-
-    constexpr static_object(TValue value)
-        : header_({ OBJ_ATTR_NONE, &vtable_holder<typename TObject::VTable>::get() }), value_(value)
-    {
-    }
-
-    constexpr gc_obj_ref<TObject> get() const noexcept
-    {
-        return gc_obj_ref<TObject>(reinterpret_cast<TObject *>(const_cast<TValue *>(&value_)));
-    }
-};
 }
 
-namespace System_Private_CorLib
+namespace System_Private_CoreLib
 {
 template <class T>
 void System::ByReference_1<T>::_ctor(::natsu::gc_ref<System::ByReference_1<T>> _this, ::natsu::gc_ref<::natsu::variable_type_t<T>> value)
@@ -1408,13 +1373,13 @@ template <class T>
 }
 
 template <class T>
-::System_Private_CorLib::System::Int32 Internal::Runtime::CompilerServices::Unsafe::_s_SizeOf()
+int32_t Internal::Runtime::CompilerServices::Unsafe::_s_SizeOf()
 {
     return sizeof(T);
 }
 
 template <class T>
-::natsu::variable_type_t<T> Internal::Runtime::CompilerServices::Unsafe::_s_As(::natsu::gc_obj_ref<::System_Private_CorLib::System::Object> value)
+::natsu::variable_type_t<T> Internal::Runtime::CompilerServices::Unsafe::_s_As(::natsu::gc_obj_ref<::System_Private_CoreLib::System::Object> value)
 {
     return ::natsu::gc_obj_ref<T>(reinterpret_cast<T *>(value.ptr_));
 }
@@ -1426,19 +1391,19 @@ template <class TFrom, class TTo>
 }
 
 template <class T>
-::System_Private_CorLib::System::Boolean Internal::Runtime::CompilerServices::Unsafe::_s_AreSame(::natsu::gc_ref<::natsu::variable_type_t<T>> left, ::natsu::gc_ref<::natsu::variable_type_t<T>> right)
+bool Internal::Runtime::CompilerServices::Unsafe::_s_AreSame(::natsu::gc_ref<::natsu::variable_type_t<T>> left, ::natsu::gc_ref<::natsu::variable_type_t<T>> right)
 {
     return left.ptr_ == right.ptr_;
 }
 
 template <class T>
-::System_Private_CorLib::System::Boolean Internal::Runtime::CompilerServices::Unsafe::_s_IsAddressGreaterThan(::natsu::gc_ref<::natsu::variable_type_t<T>> left, ::natsu::gc_ref<::natsu::variable_type_t<T>> right)
+bool Internal::Runtime::CompilerServices::Unsafe::_s_IsAddressGreaterThan(::natsu::gc_ref<::natsu::variable_type_t<T>> left, ::natsu::gc_ref<::natsu::variable_type_t<T>> right)
 {
     return left.ptr_ > right.ptr_;
 }
 
 template <class T>
-::System_Private_CorLib::System::Boolean Internal::Runtime::CompilerServices::Unsafe::_s_IsAddressLessThan(::natsu::gc_ref<::natsu::variable_type_t<T>> left, ::natsu::gc_ref<::natsu::variable_type_t<T>> right)
+bool Internal::Runtime::CompilerServices::Unsafe::_s_IsAddressLessThan(::natsu::gc_ref<::natsu::variable_type_t<T>> left, ::natsu::gc_ref<::natsu::variable_type_t<T>> right)
 {
     return left.ptr_ < right.ptr_;
 }
@@ -1455,7 +1420,7 @@ template <class T>
 }
 
 template <class T>
-::natsu::variable_type_t<T> Internal::Runtime::CompilerServices::Unsafe::_s_ReadUnaligned(::natsu::gc_ref<::System_Private_CorLib::System::Byte> source)
+::natsu::variable_type_t<T> Internal::Runtime::CompilerServices::Unsafe::_s_ReadUnaligned(::natsu::gc_ref<uint8_t> source)
 {
     auto obj = natsu::make_object_uninit<T>();
     if constexpr (natsu::is_value_type_v<T>)
@@ -1475,7 +1440,7 @@ void Internal::Runtime::CompilerServices::Unsafe::_s_WriteUnaligned(::natsu::gc_
 }
 
 template <class T>
-void Internal::Runtime::CompilerServices::Unsafe::_s_WriteUnaligned(::natsu::gc_ref<::System_Private_CorLib::System::Byte> destination, ::natsu::variable_type_t<T> value)
+void Internal::Runtime::CompilerServices::Unsafe::_s_WriteUnaligned(::natsu::gc_ref<uint8_t> destination, ::natsu::variable_type_t<T> value)
 {
     if constexpr (natsu::is_value_type_v<T>)
         std::memcpy(destination.ptr_, &value, sizeof(T));
@@ -1484,9 +1449,9 @@ void Internal::Runtime::CompilerServices::Unsafe::_s_WriteUnaligned(::natsu::gc_
 }
 
 template <class T>
-::natsu::gc_ref<::natsu::variable_type_t<T>> Internal::Runtime::CompilerServices::Unsafe::_s_AddByteOffset(::natsu::gc_ref<::natsu::variable_type_t<T>> source, ::System_Private_CorLib::System::IntPtr byteOffset)
+::natsu::gc_ref<::natsu::variable_type_t<T>> Internal::Runtime::CompilerServices::Unsafe::_s_AddByteOffset(::natsu::gc_ref<::natsu::variable_type_t<T>> source, ::System_Private_CoreLib::System::IntPtr byteOffset)
 {
-    return ::natsu::gc_ref<::natsu::variable_type_t<T>>(reinterpret_cast<uintptr_t>(source.ptr_) + reinterpret_cast<intptr_t>(byteOffset._value.ptr_));
+    return ::natsu::gc_ref_from_addr<::natsu::variable_type_t<T>>(reinterpret_cast<uintptr_t>(source.ptr_) + reinterpret_cast<intptr_t>(byteOffset._value.ptr_));
 }
 
 template <class T>
@@ -1496,25 +1461,25 @@ template <class T>
 }
 
 template <class T>
-::System_Private_CorLib::System::IntPtr Internal::Runtime::CompilerServices::Unsafe::_s_ByteOffset(::natsu::gc_ref<::natsu::variable_type_t<T>> origin, ::natsu::gc_ref<::natsu::variable_type_t<T>> target)
+System::IntPtr Internal::Runtime::CompilerServices::Unsafe::_s_ByteOffset(::natsu::gc_ref<::natsu::variable_type_t<T>> origin, ::natsu::gc_ref<::natsu::variable_type_t<T>> target)
 {
     return reinterpret_cast<intptr_t>(target.ptr_) - reinterpret_cast<intptr_t>(origin.ptr_);
 }
 
 template <class T>
-::System_Private_CorLib::System::Boolean System::Runtime::CompilerServices::RuntimeHelpers::_s_IsReferenceOrContainsReferences()
+bool System::Runtime::CompilerServices::RuntimeHelpers::_s_IsReferenceOrContainsReferences()
 {
     return true;
 }
 
 template <class T>
-::System_Private_CorLib::System::Boolean System::Runtime::CompilerServices::RuntimeHelpers::_s_IsBitwiseEquatable()
+bool System::Runtime::CompilerServices::RuntimeHelpers::_s_IsBitwiseEquatable()
 {
     return false;
 }
 
 template <class T>
-::natsu::gc_obj_ref<::System_Private_CorLib::System::Collections::Generic::EqualityComparer_1<T>> System::Collections::Generic::ComparerHelpers::_s_CreateDefaultEqualityComparer()
+::natsu::gc_obj_ref<System::Collections::Generic::EqualityComparer_1<T>> System::Collections::Generic::ComparerHelpers::_s_CreateDefaultEqualityComparer()
 {
     return natsu::null;
 }

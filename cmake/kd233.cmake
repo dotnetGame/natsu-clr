@@ -21,7 +21,6 @@ add_compile_options(
     -std=c++17
     -ffast-math
     -Os
-    -flto
     -ffunction-sections
     -fdata-sections
     -mcmodel=medany
