@@ -7,6 +7,7 @@ namespace Chino.Threading
 {
     public class Thread
     {
+        private IScheduler _scheduler;
         private readonly ThreadStart _start;
 
         public Thread(ThreadStart start)
