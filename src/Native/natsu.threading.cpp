@@ -2,7 +2,6 @@
 
 #if _MSC_VER
 #include <intrin.h>
-#include <Windows.h>
 #endif
 
 using namespace natsu;
@@ -66,12 +65,5 @@ int64_t Interlocked::_s_ExchangeAdd(gc_ref<int64_t> location1, int64_t value)
     return _InterlockedExchangeAdd64(reinterpret_cast<volatile int64_t *>(location1.ptr_), value);
 #else
     return __sync_fetch_and_add(reinterpret_cast<volatile int64_t *>(location1.ptr_), value);
-#endif
-}
-
-void Interlocked::_s__MemoryBarrierProcessWide()
-{
-#if _MSC_VER
-    FlushProcessWriteBuffers();
 #endif
 }

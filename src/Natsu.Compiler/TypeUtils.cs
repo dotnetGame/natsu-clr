@@ -256,8 +256,25 @@ namespace Natsu.Compiler
                     EscapeTypeName(sb, cntSig.Next, declaringType, hasGen, genArgs, cppBasicType: cppBasicType);
                     break;
                 case ElementType.CModReqd:
-                    EscapeTypeName(sb, cntSig.Next, declaringType, hasGen, genArgs, cppBasicType: cppBasicType);
-                    break;
+                    {
+                        var modifier = ((ModifierSig)cntSig).Modifier;
+                        var modName = modifier.FullName;
+                        if (modName == "System.Runtime.InteropServices.InAttribute")
+                        {
+                            EscapeTypeName(sb, cntSig.Next, declaringType, hasGen, genArgs, cppBasicType: cppBasicType);
+                        }
+                        else if(modName== "System.Runtime.CompilerServices.IsVolatile")
+                        {
+                            sb.Append("::natsu::clr_volatile<");
+                            EscapeTypeName(sb, cntSig.Next, declaringType, hasGen, genArgs, cppBasicType: cppBasicType);
+                            sb.Append(">");
+                        }
+                        else
+                        {
+                            EscapeTypeName(sb, cntSig.Next, declaringType, hasGen, genArgs, cppBasicType: cppBasicType);
+                        }
+                        break;
+                    }
                 default:
                     throw new NotSupportedException();
             }

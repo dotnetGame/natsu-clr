@@ -264,3 +264,8 @@ void RuntimeImports::_s_RhZeroMemory(::natsu::gc_ptr<void> b, uint64_t byteLengt
 {
     std::memset(b.ptr_, 0, byteLength);
 }
+
+void Environment::_s__Exit(int32_t exitCode)
+{
+    exit(exitCode);
+}

@@ -16,18 +16,18 @@ namespace Natsu.Compiler
         {
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Kernel.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Core.dll",
-            //@"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.K210.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.K210.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.Emulator.dll",
-            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Private.CoreLib.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Private.CoreLib.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Collections.dll",
-            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Memory.dll",
-            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.dll",
-            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.Extensions.dll",
-            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Diagnostics.Debug.dll",
-            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.InteropServices.dll",
-            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Threading.dll",
-            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Threading.Thread.dll",
-            //Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), @".nuget\packages\bitfields\0.1.0\lib\netstandard1.0\BitFields.dll")
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Memory.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.Extensions.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Diagnostics.Debug.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.InteropServices.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Threading.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Threading.Thread.dll",
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), @".nuget\packages\bitfields\0.1.0\lib\netstandard1.0\BitFields.dll")
         };
 
         static void Main(string[] args)
@@ -987,6 +987,11 @@ namespace Natsu.Compiler
             foreach (var local in body.Variables)
             {
                 WriteLocal(local, writer, ident, method);
+            }
+
+            if (body.ExceptionHandlers.Any())
+            {
+
             }
 
             var importer = new ILImporter(method, writer, ident) { UserStrings = _userStrings, ModuleName = TypeUtils.EscapeModuleName(_module.Assembly) };

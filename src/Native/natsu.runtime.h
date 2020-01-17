@@ -163,9 +163,9 @@ auto make_object_uninit()
 }
 
 template <class T>
-natsu_exception make_exception(gc_obj_ref<T> exception)
+clr_exception make_exception(gc_obj_ref<T> exception)
 {
-    return { std::move(exception) };
+    return { exception };
 }
 
 template <class T, class... TArgs>
@@ -251,6 +251,15 @@ namespace stack
             native_int operator()(const gc_ptr<T> &value) const noexcept
             {
                 return static_cast<intptr_t>(static_cast<uintptr_t>(value));
+            }
+        };
+
+        template <class T>
+        struct stack_from_impl<clr_volatile<T>>
+        {
+            auto operator()(const clr_volatile<T> &value) const noexcept
+            {
+                return stack_from(value.load());
             }
         };
 
@@ -372,6 +381,15 @@ namespace stack
             gc_ptr<TTo> operator()(const native_int &value) const noexcept
             {
                 return gc_ptr<TTo>(reinterpret_cast<TTo *>(value.value_));
+            }
+        };
+
+        template <class TFrom, class TTo>
+        struct stack_to_impl<TFrom, clr_volatile<TTo>>
+        {
+            TTo operator()(const TFrom &value) const noexcept
+            {
+                return stack_to_impl<TFrom, TTo>()(value);
             }
         };
 
@@ -952,12 +970,12 @@ namespace ops
 #define LDELEM_IMPL(name, type, value_type)                                                         \
     inline value_type ldelem_##name(const stack::O &obj, stack::int32 index)                        \
     {                                                                                               \
-        using ::System_Private_CoreLib::System::SZArray_1;                                           \
+        using ::System_Private_CoreLib::System::SZArray_1;                                          \
         return stack_from(stack_to<gc_obj_ref<SZArray_1<type>>>(obj)->at((uint32_t)index.value_));  \
     }                                                                                               \
     inline value_type ldelem_##name(const stack::O &obj, stack::native_int index)                   \
     {                                                                                               \
-        using ::System_Private_CoreLib::System::SZArray_1;                                           \
+        using ::System_Private_CoreLib::System::SZArray_1;                                          \
         return stack_from(stack_to<gc_obj_ref<SZArray_1<type>>>(obj)->at((uintptr_t)index.value_)); \
     }
 
@@ -1009,7 +1027,7 @@ namespace ops
 #define STELEM_IMPL(name, type, value_type, cast)                                                       \
     inline void stelem_##name(const stack::O &obj, stack::int32 index, value_type value)                \
     {                                                                                                   \
-        using ::System_Private_CoreLib::System::SZArray_1;                                               \
+        using ::System_Private_CoreLib::System::SZArray_1;                                              \
         stack_to<gc_obj_ref<SZArray_1<type>>>(obj)->at(index.value_) = static_cast<cast>(value.value_); \
     }
 

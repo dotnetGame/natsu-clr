@@ -1,6 +1,7 @@
 // natsu clr runtime
 #pragma once
 #include <array>
+#include <atomic>
 #include <cassert>
 #include <cstdint>
 #include <cstring>
@@ -48,7 +49,7 @@ struct gc_obj_ref;
 template <class T>
 struct gc_ref;
 
-struct natsu_exception;
+struct clr_exception;
 
 [[noreturn]] void throw_null_ref_exception();
 [[noreturn]] void throw_invalid_cast_exception();
@@ -162,10 +163,10 @@ struct to_clr_type
     using type = T;
 };
 
-#define DEFINE_TO_CLR_TYPE(src, dest)                       \
-    template <>                                             \
-    struct to_clr_type<src>                                 \
-    {                                                       \
+#define DEFINE_TO_CLR_TYPE(src, dest)                        \
+    template <>                                              \
+    struct to_clr_type<src>                                  \
+    {                                                        \
         using type = ::System_Private_CoreLib::System::dest; \
     };
 
@@ -486,10 +487,45 @@ struct gc_obj_ref
     }
 };
 
-struct natsu_exception
+template <class T>
+class clr_volatile
+{
+public:
+    using value_type = T;
+
+    clr_volatile() noexcept
+    {
+    }
+
+    clr_volatile(T value) noexcept
+        : value_(value)
+    {
+    }
+
+    clr_volatile(const clr_volatile<T> &other) noexcept
+        : value_(other.value_.load(std::memory_order_acquire))
+    {
+    }
+
+    clr_volatile &operator=(const T &other) noexcept
+    {
+        value_.store(other, std::memory_order_release);
+        return *this;
+    }
+
+    T load() const noexcept
+    {
+        return value_.load(std::memory_order_acquire);
+    }
+
+private:
+    std::atomic<T> value_;
+};
+
+struct clr_exception
 {
     template <class T>
-    natsu_exception(gc_obj_ref<T> &&exception)
+    clr_exception(gc_obj_ref<T> exception)
         : exception_(std::move(exception))
     {
     }

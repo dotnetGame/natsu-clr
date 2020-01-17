@@ -2,7 +2,7 @@
 
 namespace System
 {
-    public static class Environment
+    public static partial class Environment
     {
         public static string NewLine => "\n";
     }

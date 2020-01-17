@@ -133,6 +133,17 @@ namespace Natsu.Compiler
                 _headBlock = new BasicBlock { Id = 0 };
         }
 
+        public void ImportExceptionHandlers(IReadOnlyCollection<ExceptionHandler> exceptionHandlers)
+        {
+            foreach (var handler in exceptionHandlers)
+            {
+                foreach (var block in _blockGraph.Blocks.Values)
+                {
+                    var idx = block.Instructions.IndexOf(handler.TryStart);
+                }
+            }
+        }
+
         internal void Gencode()
         {
             var visited = new HashSet<BasicBlock>();
@@ -257,6 +268,9 @@ namespace Natsu.Compiler
                         break;
                     case Code.Ret:
                         emitter.Ret();
+                        break;
+                    case Code.Endfinally:
+                        emitter.Endfinally();
                         break;
                     case Code.Throw:
                         emitter.Throw();
@@ -963,6 +977,11 @@ namespace Natsu.Compiler
             }
         }
 
+        public void Endfinally()
+        {
+            Writer.Ident(Ident).WriteLine("return;");
+        }
+
         public void Throw()
         {
             var v1 = Stack.Pop();
@@ -1003,7 +1022,7 @@ namespace Natsu.Compiler
         public void Unary(string op)
         {
             var v1 = Stack.Pop();
-            Stack.Push(StackTypeCode.Int32, $"::natsu::ops::{op}_({v1.Expression})");
+            Stack.Push(v1.Type, $"::natsu::ops::{op}_({v1.Expression})");
         }
 
         public void Binary(string op)
