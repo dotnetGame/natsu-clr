@@ -6,5 +6,6 @@ namespace Chino.Threading
 {
     public interface IScheduler
     {
+        ulong TickCount { get; }
     }
 }

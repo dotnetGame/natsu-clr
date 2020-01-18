@@ -846,7 +846,7 @@ namespace Natsu.Compiler
                                 writer.WriteLine("_imp_" + TypeUtils.EscapeMethodName(method, hasExplicit: true) + ";");
                             }
                         }
-                        else if (!method.IsNewSlot)
+                        else if (!type.TypeDef.IsInterface)
                         {
                             writer.Ident(ident + 1).Write("base_t::override_vfunc");
                             writer.Write("(R\"NS(" + method.Name + ")NS\", ");
@@ -995,7 +995,8 @@ namespace Natsu.Compiler
             }
 
             var importer = new ILImporter(method, writer, ident) { UserStrings = _userStrings, ModuleName = TypeUtils.EscapeModuleName(_module.Assembly) };
-            importer.ImportBlocks(body.Instructions);
+            importer.ImportNormalBlocks();
+            importer.ImportExceptionBlocks();
             importer.Gencode();
         }
 

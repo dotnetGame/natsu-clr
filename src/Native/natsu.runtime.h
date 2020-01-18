@@ -3,6 +3,7 @@
 #include "natsu.typedef.h"
 #include <cmath>
 #include <limits>
+#include <utility>
 #if _MSC_VER
 #include <malloc.h>
 #else
@@ -210,6 +211,30 @@ struct runtime_type_holder
         return type;
     }
 };
+
+template <class TCall>
+class clr_finally
+{
+public:
+    clr_finally(TCall &&call)
+        : call_(std::forward<TCall>(call))
+    {
+    }
+
+    ~clr_finally()
+    {
+        call_();
+    }
+
+private:
+    TCall call_;
+};
+
+template <class TCall>
+clr_finally<TCall> make_finally(TCall &&call)
+{
+    return { std::forward<TCall>(call) };
+}
 
 template <class TFrom>
 auto stack_from(const TFrom &value);

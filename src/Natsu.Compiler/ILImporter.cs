@@ -17,6 +17,9 @@ namespace Natsu.Compiler
         private readonly int _ident;
         private readonly MethodDef _method;
         private List<SpillSlot> _spillSlots = new List<SpillSlot>();
+        private Dictionary<ExceptionHandler, ExceptionHandlerContext> _exceptions = new Dictionary<ExceptionHandler, ExceptionHandlerContext>();
+        private int _paramIndex;
+        private int _blockId;
 
         public List<string> UserStrings { get; set; }
         public string ModuleName { get; set; }
@@ -28,9 +31,36 @@ namespace Natsu.Compiler
             _ident = ident;
         }
 
-        public void ImportBlocks(IList<Instruction> instructions)
+        public void ImportNormalBlocks()
         {
-            int id = 0;
+            _headBlock = ImportBlocks(_method.Body.Instructions, _method.Body.Instructions.FirstOrDefault());
+        }
+
+        public void ImportExceptionBlocks()
+        {
+            foreach (var handler in _method.Body.ExceptionHandlers)
+            {
+                var ctx = new ExceptionHandlerContext
+                {
+                    Handler = handler,
+                    HeadBlock = ImportBlocks(_method.Body.Instructions, handler.HandlerStart)
+                };
+
+                _exceptions.Add(handler, ctx);
+            }
+        }
+
+        Instruction PrevInst(Instruction inst)
+        {
+            var instructions = _method.Body.Instructions;
+            var index = instructions.IndexOf(inst);
+            if (index == 0)
+                return null;
+            return instructions[index - 1];
+        }
+
+        private BasicBlock ImportBlocks(IList<Instruction> instructions, Instruction firstInst)
+        {
             Instruction NextInst(Instruction inst)
             {
                 var index = instructions.IndexOf(inst);
@@ -43,9 +73,8 @@ namespace Natsu.Compiler
             {
                 if (inst == null) return null;
 
-                var block = new BasicBlock { Id = id++, Parent = parent };
+                var block = new BasicBlock { Id = _blockId++, Parent = parent };
                 _blockGraph.Blocks.Add(inst, block);
-                Debug.Assert(id < 3000);
                 bool conti = true;
 
                 void AddNext(Instruction next)
@@ -104,6 +133,8 @@ namespace Natsu.Compiler
                             break;
                         case Code.Ret:
                         case Code.Throw:
+                        case Code.Endfinally:
+                        case Code.Endfilter:
                             block.Instructions.Add(inst);
                             conti = false;
                             break;
@@ -127,21 +158,10 @@ namespace Natsu.Compiler
                 return block;
             }
 
-            if (instructions.Count != 0)
-                _headBlock = ImportBlock(null, instructions[0]);
+            if (firstInst != null)
+                return ImportBlock(null, firstInst);
             else
-                _headBlock = new BasicBlock { Id = 0 };
-        }
-
-        public void ImportExceptionHandlers(IReadOnlyCollection<ExceptionHandler> exceptionHandlers)
-        {
-            foreach (var handler in exceptionHandlers)
-            {
-                foreach (var block in _blockGraph.Blocks.Values)
-                {
-                    var idx = block.Instructions.IndexOf(handler.TryStart);
-                }
-            }
+                return new BasicBlock { Id = 0 };
         }
 
         internal void Gencode()
@@ -154,32 +174,39 @@ namespace Natsu.Compiler
                 _writer.Ident(_ident).WriteLine($"{TypeUtils.EscapeStackTypeName(spill.Entry.Type)} {spill.Name};");
 
             visited.Clear();
-            VisitBlockText(_headBlock, visited);
+            VisitBlockText(_headBlock, _writer, visited);
         }
 
 
-        private void VisitBlockText(BasicBlock block, HashSet<BasicBlock> visited)
+        private void VisitBlockText(BasicBlock block, TextWriter writer, HashSet<BasicBlock> visited)
         {
-            visited.Add(block);
-            _writer.Write(block.Text);
-
-            foreach (var next in block.Next)
+            var blocks = new List<BasicBlock>();
+            void AddBlock(BasicBlock headBlock)
             {
-                if (!visited.Contains(next))
-                    VisitBlockText(next, visited);
+                visited.Add(headBlock);
+                blocks.Add(headBlock);
+                foreach (var next in headBlock.Next)
+                {
+                    if (!visited.Contains(next))
+                        AddBlock(next);
+                }
+            }
+
+            AddBlock(block);
+            foreach (var cntBlock in blocks.Where(x => x.Instructions.Any())
+                .OrderBy(x => x.Instructions[0].Offset))
+            {
+                writer.Write(cntBlock.Text);
             }
         }
 
-        private void VisitBlock(int ident, BasicBlock block, HashSet<BasicBlock> visited)
+        private void VisitBlock(int ident, BasicBlock block, HashSet<BasicBlock> visited, StringWriter writer = null, EvaluationStack stack = null)
         {
             visited.Add(block);
 
-            var writer = new StringWriter();
-
-            var stack = new EvaluationStack(writer, _ident + 1);
+            writer = writer ?? new StringWriter();
+            stack = stack ?? new EvaluationStack(writer, ident, _paramIndex);
             writer.WriteLine(ILUtils.GetLabel(_method, block.Id) + ":");
-
-            writer.Ident(ident).WriteLine("{");
 
             // import spills
             if (block.Parent != null)
@@ -193,7 +220,52 @@ namespace Natsu.Compiler
             {
                 var instW = new StringWriter();
                 stack.SetWriter(instW);
-                WriteInstruction(instW, op, stack, ident + 1, block);
+
+                var tryEnter = (from e in _exceptions
+                                where !e.Value.EnterProcessed && e.Key.TryStart == op
+                                select e).FirstOrDefault();
+                if (tryEnter.Key != null)
+                {
+                    EvaluationStack tryEnterStack = null;
+                    if (tryEnter.Key.HandlerType == ExceptionHandlerType.Finally)
+                    {
+                        if (_method.FullName.Contains("Concat"))
+                            ;
+                        instW.Ident(ident).WriteLine("{");
+                        ident += 1;
+                        stack.Ident = ident;
+                        instW.Ident(ident).WriteLine("auto _scope_finally = natsu::make_finally([&]{");
+                        VisitBlock(ident + 1, tryEnter.Value.HeadBlock, new HashSet<BasicBlock>(), stack: tryEnterStack);
+                        VisitBlockText(tryEnter.Value.HeadBlock, instW, visited);
+                        instW.Ident(ident).WriteLine("});");
+                        tryEnter.Value.EnterProcessed = true;
+                    }
+                    else if (tryEnter.Key.HandlerType == ExceptionHandlerType.Catch)
+                    {
+
+                    }
+                }
+
+                WriteInstruction(instW, op, stack, ident, block);
+
+                var tryExit = (from e in _exceptions
+                               where !e.Value.ExitProcessed && PrevInst(e.Key.TryEnd) == op
+                               select e).FirstOrDefault();
+                if (tryExit.Key != null)
+                {
+                    if (tryExit.Key.HandlerType == ExceptionHandlerType.Finally)
+                    {
+                        ident -= 1;
+                        stack.Ident = ident;
+                        instW.Ident(ident).WriteLine("}");
+                        tryExit.Value.ExitProcessed = true;
+                    }
+                    else if (tryExit.Key.HandlerType == ExceptionHandlerType.Catch)
+                    {
+
+                    }
+                }
+
                 instLines.Add(instW.ToString());
             }
 
@@ -204,14 +276,14 @@ namespace Natsu.Compiler
             while (block.Next.Count != 0 && !stack.Empty)
             {
                 var spill = AddSpillSlot(stack.Pop());
-                writer.Ident(ident + 1).WriteLine($"{spill.Name} = {spill.Entry.Expression};");
+                writer.Ident(ident).WriteLine($"{spill.Name} = {spill.Entry.Expression};");
                 block.Spills.Add(spill);
             }
 
             writer.Write(instLines.Last());
 
-            writer.Ident(ident).WriteLine("}");
             block.Text = writer.ToString();
+            _paramIndex = stack.ParamIndex;
 
             foreach (var next in block.Next)
             {
@@ -700,6 +772,14 @@ namespace Natsu.Compiler
                         throw new NotSupportedException(op.OpCode.Code.ToString());
                 }
             }
+        }
+
+        private class ExceptionHandlerContext
+        {
+            public ExceptionHandler Handler;
+            public bool EnterProcessed;
+            public bool ExitProcessed;
+            public BasicBlock HeadBlock;
         }
     }
 

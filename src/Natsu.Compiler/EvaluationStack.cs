@@ -43,16 +43,18 @@ namespace Natsu.Compiler
         private readonly Stack<StackEntry> _stackValues = new Stack<StackEntry>();
         private int _paramIndex = 0;
         private TextWriter _writer;
-        public int Ident { get; }
+        public int Ident { get; set; }
+        public int ParamIndex => _paramIndex;
 
         public ITypeDefOrRef Constrained { get; set; }
 
         public bool Empty => _stackValues.Count == 0;
 
-        public EvaluationStack(TextWriter writer, int ident)
+        public EvaluationStack(TextWriter writer, int ident, int paramIndex)
         {
             _writer = writer;
             Ident = ident;
+            _paramIndex = paramIndex;
         }
 
         public void SetWriter(TextWriter writer)
@@ -96,10 +98,9 @@ namespace Natsu.Compiler
 
         public EvaluationStack Clone(int identInc = 0)
         {
-            var stack = new EvaluationStack(_writer, Ident + identInc);
+            var stack = new EvaluationStack(_writer, Ident + identInc, _paramIndex);
             foreach (var value in _stackValues.Reverse())
                 stack._stackValues.Push(value);
-            stack._paramIndex = _paramIndex;
             return stack;
         }
     }

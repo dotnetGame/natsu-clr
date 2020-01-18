@@ -8,6 +8,7 @@ using namespace System_Private_CoreLib::System;
 using namespace System_Private_CoreLib::System::Diagnostics;
 using namespace System_Private_CoreLib::System::Runtime;
 using namespace System_Private_CoreLib::System::Runtime::CompilerServices;
+using namespace System_Private_CoreLib::System::Threading;
 
 int32_t Array::GetLength(gc_obj_ref<Array> _this, int32_t dimension)
 {
@@ -268,4 +269,77 @@ void RuntimeImports::_s_RhZeroMemory(::natsu::gc_ptr<void> b, uint64_t byteLengt
 void Environment::_s__Exit(int32_t exitCode)
 {
     exit(exitCode);
+}
+
+int32_t Environment::_s_get_TickCount()
+{
+    return (int32_t)_s_get_TickCount64();
+}
+
+int64_t Environment::_s_get_TickCount64()
+{
+    using namespace Chino_Core::Chino;
+    using namespace Chino_Core::Chino::Threading;
+
+    auto scheduler = SystemServices::_s_get_Scheduler().cast<Object>();
+    return (int64_t)scheduler.header().vtable_as<typename IScheduler::VTable>()->get_TickCount_(scheduler);
+}
+
+void Monitor::_s_Enter(gc_obj_ref<Object> obj)
+{
+}
+
+void Monitor::_s_ReliableEnter(gc_obj_ref<Object> obj, gc_ref<bool> lockTaken)
+{
+    *lockTaken = true;
+}
+
+void Monitor::_s_Exit(::natsu::gc_obj_ref<Object> obj)
+{
+}
+
+void Monitor::_s_ReliableEnterTimeout(gc_obj_ref<Object> obj, int32_t timeout, gc_ref<bool> lockTaken)
+{
+    *lockTaken = true;
+}
+
+bool Monitor::_s_IsEnteredNative(gc_obj_ref<Object> obj)
+{
+    return true;
+}
+
+bool Monitor::_s_ObjWait(bool exitContext, int32_t millisecondsTimeout, gc_obj_ref<Object> obj)
+{
+    return true;
+}
+
+void Monitor::_s_ObjPulse(gc_obj_ref<Object> obj)
+{
+}
+
+void Monitor::_s_ObjPulseAll(gc_obj_ref<Object> obj)
+{
+}
+
+int64_t Monitor::_s_GetLockContentionCount()
+{
+    return 0;
+}
+
+void Thread::_s_SleepInternal(int32_t millisecondsTimeout)
+{
+}
+
+void Thread::_s_SpinWaitInternal(int32_t iterations)
+{
+}
+
+bool Thread::_s_YieldInternal()
+{
+    return true;
+}
+
+int32_t Thread::_s_GetOptimalMaxSpinWaitsPerSpinIterationInternal()
+{
+    return 1;
 }

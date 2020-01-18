@@ -58,3 +58,4 @@ using System.Text;
 [assembly: TypeForwardedTo(typeof(ValueTuple<,,,,,,,>))]
 [assembly: TypeForwardedTo(typeof(Span<>))]
 [assembly: TypeForwardedTo(typeof(ReadOnlySpan<>))]
+[assembly: TypeForwardedTo(typeof(IDisposable))]

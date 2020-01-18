@@ -9,6 +9,7 @@ set(SRCS natsu.fcall.cpp
          natsu.gc.cpp
          natsu.unicode.cpp
          natsu.threading.cpp
+         chino.runtime.cpp
          main.cpp
          Generated/System.Private.CoreLib.cpp
          Generated/System.Collections.cpp
