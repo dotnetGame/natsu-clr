@@ -4,6 +4,7 @@
     <TargetFramework>netcoreapp3.0</TargetFramework>
     <OutputPath>$(SolutionDir)out/bin/</OutputPath>
     <RootNamespace>Chino</RootNamespace>
+    <Nullable>Enable</Nullable>
   </PropertyGroup>
 
 </Project>
