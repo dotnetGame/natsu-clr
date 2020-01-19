@@ -263,7 +263,7 @@ namespace Natsu.Compiler
                         {
                             EscapeTypeName(sb, cntSig.Next, declaringType, hasGen, genArgs, cppBasicType: cppBasicType);
                         }
-                        else if(modName== "System.Runtime.CompilerServices.IsVolatile")
+                        else if (modName == "System.Runtime.CompilerServices.IsVolatile")
                         {
                             sb.Append("::natsu::clr_volatile<");
                             EscapeTypeName(sb, cntSig.Next, declaringType, hasGen, genArgs, cppBasicType: cppBasicType);
@@ -677,13 +677,59 @@ namespace Natsu.Compiler
                 int i => i.ToString(),
                 ulong i => i.ToString() + "ULL",
                 long i => "::natsu::to_int64(0x" + Unsafe.As<long, ulong>(ref i).ToString("X") + ") /* " + i.ToString() + "*/",
-                float i => "::natsu::to_float(0x" + Unsafe.As<float, uint>(ref i).ToString("X") + ") /* " + i.ToString() + "*/",
-                double i => "::natsu::to_double(0x" + Unsafe.As<double, ulong>(ref i).ToString("X") + ") /* " + i.ToString() + "*/",
+                float i => EscapeFloat(i),
+                double i => EscapeFloat(i),
 
                 _ => throw new NotSupportedException("Unsupported constant")
             };
 
             return text;
+        }
+
+        private static string EscapeFloat(float v)
+        {
+            if (float.IsNaN(v))
+                return "std::numeric_limits<float>::quiet_NaN()";
+            else if (float.IsNegativeInfinity(v))
+                return "-std::numeric_limits<float>::infinity()";
+            else if (float.IsPositiveInfinity(v))
+                return "std::numeric_limits<float>::infinity()";
+            else if (v == float.MinValue)
+                return "std::numeric_limits<float>::lowest()";
+            else if (v == float.MaxValue)
+                return "std::numeric_limits<float>::max()";
+            else if (v == float.Epsilon)
+                return "std::numeric_limits<float>::denorm_min()";
+            else
+            {
+                var str = v.ToString("E");
+                if (str.Contains('.') || str.Contains('E'))
+                    return str + "F";
+                return str + ".F";
+            }
+        }
+
+        private static string EscapeFloat(double v)
+        {
+            if (double.IsNaN(v))
+                return "std::numeric_limits<double>::quiet_NaN()";
+            else if (double.IsNegativeInfinity(v))
+                return "-std::numeric_limits<double>::infinity()";
+            else if (double.IsPositiveInfinity(v))
+                return "std::numeric_limits<double>::infinity()";
+            else if (v == double.MinValue)
+                return "std::numeric_limits<double>::lowest()";
+            else if (v == double.MaxValue)
+                return "std::numeric_limits<double>::max()";
+            else if (v == double.Epsilon)
+                return "std::numeric_limits<double>::denorm_min()";
+            else
+            {
+                var str = v.ToString("E");
+                if (str.Contains('.') || str.Contains('E'))
+                    return str;
+                return str + ".";
+            }
         }
 
         public static IList<TypeSig> InstantiateGenericTypes(IList<TypeSig> types, IList<TypeSig> genericArguments)

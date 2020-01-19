@@ -58,4 +58,8 @@ using System.Text;
 [assembly: TypeForwardedTo(typeof(ValueTuple<,,,,,,,>))]
 [assembly: TypeForwardedTo(typeof(Span<>))]
 [assembly: TypeForwardedTo(typeof(ReadOnlySpan<>))]
+[assembly: TypeForwardedTo(typeof(TimeSpan))]
 [assembly: TypeForwardedTo(typeof(IDisposable))]
+[assembly: TypeForwardedTo(typeof(ArgumentException))]
+[assembly: TypeForwardedTo(typeof(ArgumentNullException))]
+[assembly: TypeForwardedTo(typeof(ArgumentOutOfRangeException))]

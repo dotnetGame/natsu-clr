@@ -1,6 +1,6 @@
 #include "Generated/Chino.Kernel.h"
 #include <algorithm>
-#if WIN32
+#ifdef WIN32
 #include <Windows.h>
 #endif
 
@@ -12,7 +12,7 @@ int main()
 {
     InitializeHeap();
     Program::_s_Main();
-#if WIN32
+#ifdef WIN32
     while (1)
         Sleep(0);
 #else

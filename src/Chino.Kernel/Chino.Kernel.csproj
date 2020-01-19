@@ -6,6 +6,7 @@
     <OutputPath>$(SolutionDir)out/bin/</OutputPath>
     <RootNamespace>Chino</RootNamespace>
     <Platforms>AnyCPU;Emulator;KD233</Platforms>
+    <Nullable>Enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(Platform)'=='Emulator'">
