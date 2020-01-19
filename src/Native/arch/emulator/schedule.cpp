@@ -13,14 +13,14 @@ using namespace Microsoft::WRL::Wrappers;
 namespace
 {
 bool g_interrupt_enabled = false;
-Event g_system_timer;
+TP_TIMER *g_system_timer;
 
 void resume_thread(ThreadContextArch &context)
 {
     ResumeThread((HANDLE)context.NativeHandle._value);
 }
 
-void system_timer_thunk(LPVOID lpArgToCompletionRoutine, DWORD dwTimerLowValue, DWORD dwTimerHighValue)
+void system_timer_thunk(PTP_CALLBACK_INSTANCE Instance, PVOID Context, PTP_TIMER Timer)
 {
 }
 }
@@ -46,15 +46,15 @@ void ChipControl::_s_StartSchedule(gc_ref<ThreadContextArch> context)
 {
     resume_thread(*context);
     _s_EnableInterrupt();
-    //ExitThread(0);
+    ExitThread(0);
 }
 
 void ChipControl::_s_SetupSystemTimer(TimeSpan timeSlice)
 {
-    g_system_timer.Attach(CreateWaitableTimer(nullptr, FALSE, nullptr));
-    THROW_WIN32_IF_NOT(g_system_timer.IsValid());
+    g_system_timer = CreateThreadpoolTimer(system_timer_thunk, nullptr, nullptr);
+    THROW_WIN32_IF_NOT(g_system_timer);
 
     LARGE_INTEGER due_time;
     due_time.QuadPart = TimeSpan::get_Ticks(timeSlice);
-    THROW_WIN32_IF_NOT(SetWaitableTimer(g_system_timer.Get(), &due_time, due_time.QuadPart, system_timer_thunk, nullptr, FALSE));
+    //THROW_WIN32_IF_NOT(SetWaitableTimer(g_system_timer.Get(), &due_time, due_time.QuadPart, system_timer_thunk, nullptr, FALSE));
 }
