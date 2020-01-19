@@ -32,5 +32,8 @@ namespace Chino
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         public static extern void SetupSystemTimer(TimeSpan timeSlice);
+
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        public static extern void RestoreContext(in ThreadContextArch context);
     }
 }

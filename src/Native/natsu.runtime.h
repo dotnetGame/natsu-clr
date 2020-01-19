@@ -3,6 +3,7 @@
 #include "natsu.typedef.h"
 #include <cmath>
 #include <limits>
+#include <optional>
 #include <utility>
 #if _MSC_VER
 #include <malloc.h>
@@ -221,13 +222,23 @@ public:
     {
     }
 
+    clr_finally(clr_finally &) = delete;
+    clr_finally &operator=(clr_finally &) = delete;
+
+    clr_finally(clr_finally &&other)
+        : call_(std::move(other.call_))
+    {
+        other.call_.reset();
+    }
+
     ~clr_finally()
     {
-        call_();
+        if (call_)
+            (*call_)();
     }
 
 private:
-    TCall call_;
+    std::optional<TCall> call_;
 };
 
 template <class TCall>

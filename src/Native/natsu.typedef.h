@@ -698,12 +698,16 @@ struct static_object
     UIntPtr(uintptr_t value) : _value((uintptr_t)value) {} \
     operator uintptr_t() const noexcept { return (uintptr_t)_value; }
 
-#define NATSU_ENUM_IMPL_BYTE(name) \
-    name &operator=(int32_t value) \
-    {                              \
-        value__ = value;           \
-        return *this;              \
-    }                              \
+#define NATSU_ENUM_IMPL_BYTE(name)  \
+    name &operator=(uint8_t value)  \
+    {                               \
+        value__ = value;            \
+        return *this;               \
+    }                               \
+    static name from(uint8_t value) \
+    {                               \
+        return name { value };      \
+    }                               \
     constexpr operator uint8_t() const noexcept { return value__; }
 
 #define NATSU_ENUM_IMPL_INT32(name) \
@@ -712,7 +716,23 @@ struct static_object
         value__ = value;            \
         return *this;               \
     }                               \
+    static name from(int32_t value) \
+    {                               \
+        return name { value };      \
+    }                               \
     constexpr operator int32_t() const noexcept { return value__; }
+
+#define NATSU_ENUM_IMPL_UINT32(name) \
+    name &operator=(uint32_t value)  \
+    {                                \
+        value__ = value;             \
+        return *this;                \
+    }                                \
+    static name from(uint32_t value) \
+    {                                \
+        return name { value };       \
+    }                                \
+    constexpr operator uint32_t() const noexcept { return value__; }
 
 #define NATSU_OBJECT_IMPL
 
