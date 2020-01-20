@@ -1230,6 +1230,15 @@ namespace ops
         return static_cast<cast>(static_cast<med_cast>(v1));                                           \
     }
 
+#define CONV_OVF_UN_IMPL(name, value_type, ret, pre_cast, med_cast, cast) \
+    inline ret conv_ovf_##name(value_type value)                          \
+    {                                                                     \
+        auto v1 = static_cast<pre_cast>(value.value_);                    \
+        if (v1 > std::numeric_limits<med_cast>::max())                    \
+            throw_overflow_exception();                                   \
+        return static_cast<cast>(static_cast<med_cast>(v1));              \
+    }
+
     CONV_OVF_IMPL(i1, stack::int32, stack::int32, int32_t, int8_t, int32_t);
     CONV_OVF_IMPL(i1, stack::int64, stack::int32, int64_t, int8_t, int32_t);
     CONV_OVF_IMPL(i1, stack::native_int, stack::int32, intptr_t, int8_t, int32_t);
@@ -1288,63 +1297,63 @@ namespace ops
     CONV_OVF_IMPL(u, stack::Ref, stack::native_int, intptr_t, uintptr_t, intptr_t);
     CONV_OVF_IMPL(u, stack::O, stack::native_int, intptr_t, uintptr_t, intptr_t);
 
-    CONV_OVF_IMPL(i1_un, stack::int32, stack::int32, uint32_t, int8_t, int32_t);
-    CONV_OVF_IMPL(i1_un, stack::int64, stack::int32, uint64_t, int8_t, int32_t);
-    CONV_OVF_IMPL(i1_un, stack::native_int, stack::int32, uintptr_t, int8_t, int32_t);
-    CONV_OVF_IMPL(i1_un, stack::F, stack::int32, double, int8_t, int32_t);
+    CONV_OVF_UN_IMPL(i1_un, stack::int32, stack::int32, uint32_t, int8_t, int32_t);
+    CONV_OVF_UN_IMPL(i1_un, stack::int64, stack::int32, uint64_t, int8_t, int32_t);
+    CONV_OVF_UN_IMPL(i1_un, stack::native_int, stack::int32, uintptr_t, int8_t, int32_t);
+    CONV_OVF_UN_IMPL(i1_un, stack::F, stack::int32, double, int8_t, int32_t);
 
-    CONV_OVF_IMPL(i2_un, stack::int32, stack::int32, uint32_t, int16_t, int32_t);
-    CONV_OVF_IMPL(i2_un, stack::int64, stack::int32, uint64_t, int16_t, int32_t);
-    CONV_OVF_IMPL(i2_un, stack::native_int, stack::int32, uintptr_t, int16_t, int32_t);
-    CONV_OVF_IMPL(i2_un, stack::F, stack::int32, double, int16_t, int32_t);
+    CONV_OVF_UN_IMPL(i2_un, stack::int32, stack::int32, uint32_t, int16_t, int32_t);
+    CONV_OVF_UN_IMPL(i2_un, stack::int64, stack::int32, uint64_t, int16_t, int32_t);
+    CONV_OVF_UN_IMPL(i2_un, stack::native_int, stack::int32, uintptr_t, int16_t, int32_t);
+    CONV_OVF_UN_IMPL(i2_un, stack::F, stack::int32, double, int16_t, int32_t);
 
-    CONV_OVF_IMPL(i4_un, stack::int32, stack::int32, uint32_t, int32_t, int32_t);
-    CONV_OVF_IMPL(i4_un, stack::int64, stack::int32, uint64_t, int32_t, int32_t);
-    CONV_OVF_IMPL(i4_un, stack::native_int, stack::int32, uintptr_t, int32_t, int32_t);
-    CONV_OVF_IMPL(i4_un, stack::F, stack::int32, double, int32_t, int32_t);
+    CONV_OVF_UN_IMPL(i4_un, stack::int32, stack::int32, uint32_t, int32_t, int32_t);
+    CONV_OVF_UN_IMPL(i4_un, stack::int64, stack::int32, uint64_t, int32_t, int32_t);
+    CONV_OVF_UN_IMPL(i4_un, stack::native_int, stack::int32, uintptr_t, int32_t, int32_t);
+    CONV_OVF_UN_IMPL(i4_un, stack::F, stack::int32, double, int32_t, int32_t);
 
-    CONV_OVF_IMPL(i8_un, stack::int32, stack::int64, uint32_t, int64_t, int64_t);
-    CONV_OVF_IMPL(i8_un, stack::int64, stack::int64, uint64_t, int64_t, int64_t);
-    CONV_OVF_IMPL(i8_un, stack::native_int, stack::int64, uintptr_t, int64_t, int64_t);
-    CONV_OVF_IMPL(i8_un, stack::F, stack::int64, double, int64_t, int64_t);
-    CONV_OVF_IMPL(i8_un, stack::Ref, stack::int64, uintptr_t, int64_t, int64_t);
-    CONV_OVF_IMPL(i8_un, stack::O, stack::int64, uintptr_t, int64_t, int64_t);
+    CONV_OVF_UN_IMPL(i8_un, stack::int32, stack::int64, uint32_t, int64_t, int64_t);
+    CONV_OVF_UN_IMPL(i8_un, stack::int64, stack::int64, uint64_t, int64_t, int64_t);
+    CONV_OVF_UN_IMPL(i8_un, stack::native_int, stack::int64, uintptr_t, int64_t, int64_t);
+    CONV_OVF_UN_IMPL(i8_un, stack::F, stack::int64, double, int64_t, int64_t);
+    CONV_OVF_UN_IMPL(i8_un, stack::Ref, stack::int64, uintptr_t, int64_t, int64_t);
+    CONV_OVF_UN_IMPL(i8_un, stack::O, stack::int64, uintptr_t, int64_t, int64_t);
 
-    CONV_OVF_IMPL(i_un, stack::int32, stack::native_int, uint32_t, intptr_t, intptr_t);
-    CONV_OVF_IMPL(i_un, stack::int64, stack::native_int, uint64_t, intptr_t, intptr_t);
-    CONV_OVF_IMPL(i_un, stack::native_int, stack::native_int, uintptr_t, intptr_t, intptr_t);
-    CONV_OVF_IMPL(i_un, stack::F, stack::native_int, double, intptr_t, intptr_t);
-    CONV_OVF_IMPL(i_un, stack::Ref, stack::native_int, uintptr_t, intptr_t, intptr_t);
-    CONV_OVF_IMPL(i_un, stack::O, stack::native_int, uintptr_t, intptr_t, intptr_t);
+    CONV_OVF_UN_IMPL(i_un, stack::int32, stack::native_int, uint32_t, intptr_t, intptr_t);
+    CONV_OVF_UN_IMPL(i_un, stack::int64, stack::native_int, uint64_t, intptr_t, intptr_t);
+    CONV_OVF_UN_IMPL(i_un, stack::native_int, stack::native_int, uintptr_t, intptr_t, intptr_t);
+    CONV_OVF_UN_IMPL(i_un, stack::F, stack::native_int, double, intptr_t, intptr_t);
+    CONV_OVF_UN_IMPL(i_un, stack::Ref, stack::native_int, uintptr_t, intptr_t, intptr_t);
+    CONV_OVF_UN_IMPL(i_un, stack::O, stack::native_int, uintptr_t, intptr_t, intptr_t);
 
-    CONV_OVF_IMPL(u1_un, stack::int32, stack::int32, uint32_t, uint8_t, int32_t);
-    CONV_OVF_IMPL(u1_un, stack::int64, stack::int32, uint64_t, uint8_t, int32_t);
-    CONV_OVF_IMPL(u1_un, stack::native_int, stack::int32, uintptr_t, uint8_t, int32_t);
-    CONV_OVF_IMPL(u1_un, stack::F, stack::int32, double, uint8_t, int32_t);
+    CONV_OVF_UN_IMPL(u1_un, stack::int32, stack::int32, uint32_t, uint8_t, int32_t);
+    CONV_OVF_UN_IMPL(u1_un, stack::int64, stack::int32, uint64_t, uint8_t, int32_t);
+    CONV_OVF_UN_IMPL(u1_un, stack::native_int, stack::int32, uintptr_t, uint8_t, int32_t);
+    CONV_OVF_UN_IMPL(u1_un, stack::F, stack::int32, double, uint8_t, int32_t);
 
-    CONV_OVF_IMPL(u2_un, stack::int32, stack::int32, uint32_t, uint16_t, int32_t);
-    CONV_OVF_IMPL(u2_un, stack::int64, stack::int32, uint64_t, uint16_t, int32_t);
-    CONV_OVF_IMPL(u2_un, stack::native_int, stack::int32, uintptr_t, uint16_t, int32_t);
-    CONV_OVF_IMPL(u2_un, stack::F, stack::int32, double, uint16_t, int32_t);
+    CONV_OVF_UN_IMPL(u2_un, stack::int32, stack::int32, uint32_t, uint16_t, int32_t);
+    CONV_OVF_UN_IMPL(u2_un, stack::int64, stack::int32, uint64_t, uint16_t, int32_t);
+    CONV_OVF_UN_IMPL(u2_un, stack::native_int, stack::int32, uintptr_t, uint16_t, int32_t);
+    CONV_OVF_UN_IMPL(u2_un, stack::F, stack::int32, double, uint16_t, int32_t);
 
-    CONV_OVF_IMPL(u4_un, stack::int32, stack::int32, uint32_t, uint32_t, int32_t);
-    CONV_OVF_IMPL(u4_un, stack::int64, stack::int32, uint64_t, uint32_t, int32_t);
-    CONV_OVF_IMPL(u4_un, stack::native_int, stack::int32, uintptr_t, uint32_t, int32_t);
-    CONV_OVF_IMPL(u4_un, stack::F, stack::int32, double, uint32_t, int32_t);
+    CONV_OVF_UN_IMPL(u4_un, stack::int32, stack::int32, uint32_t, uint32_t, int32_t);
+    CONV_OVF_UN_IMPL(u4_un, stack::int64, stack::int32, uint64_t, uint32_t, int32_t);
+    CONV_OVF_UN_IMPL(u4_un, stack::native_int, stack::int32, uintptr_t, uint32_t, int32_t);
+    CONV_OVF_UN_IMPL(u4_un, stack::F, stack::int32, double, uint32_t, int32_t);
 
-    CONV_OVF_IMPL(u8_un, stack::int32, stack::int64, uint32_t, uint64_t, int64_t);
-    CONV_OVF_IMPL(u8_un, stack::int64, stack::int64, uint64_t, uint64_t, int64_t);
-    CONV_OVF_IMPL(u8_un, stack::native_int, stack::int64, uintptr_t, uint64_t, int64_t);
-    CONV_OVF_IMPL(u8_un, stack::F, stack::int64, double, uint64_t, int64_t);
-    CONV_OVF_IMPL(u8_un, stack::Ref, stack::int64, uintptr_t, uint64_t, int64_t);
-    CONV_OVF_IMPL(u8_un, stack::O, stack::int64, uintptr_t, uint64_t, int64_t);
+    CONV_OVF_UN_IMPL(u8_un, stack::int32, stack::int64, uint32_t, uint64_t, int64_t);
+    CONV_OVF_UN_IMPL(u8_un, stack::int64, stack::int64, uint64_t, uint64_t, int64_t);
+    CONV_OVF_UN_IMPL(u8_un, stack::native_int, stack::int64, uintptr_t, uint64_t, int64_t);
+    CONV_OVF_UN_IMPL(u8_un, stack::F, stack::int64, double, uint64_t, int64_t);
+    CONV_OVF_UN_IMPL(u8_un, stack::Ref, stack::int64, uintptr_t, uint64_t, int64_t);
+    CONV_OVF_UN_IMPL(u8_un, stack::O, stack::int64, uintptr_t, uint64_t, int64_t);
 
-    CONV_OVF_IMPL(u_un, stack::int32, stack::native_int, uint32_t, uintptr_t, intptr_t);
-    CONV_OVF_IMPL(u_un, stack::int64, stack::native_int, uint64_t, uintptr_t, intptr_t);
-    CONV_OVF_IMPL(u_un, stack::native_int, stack::native_int, uintptr_t, uintptr_t, intptr_t);
-    CONV_OVF_IMPL(u_un, stack::F, stack::native_int, double, uintptr_t, intptr_t);
-    CONV_OVF_IMPL(u_un, stack::Ref, stack::native_int, uintptr_t, uintptr_t, intptr_t);
-    CONV_OVF_IMPL(u_un, stack::O, stack::native_int, uintptr_t, uintptr_t, intptr_t);
+    CONV_OVF_UN_IMPL(u_un, stack::int32, stack::native_int, uint32_t, uintptr_t, intptr_t);
+    CONV_OVF_UN_IMPL(u_un, stack::int64, stack::native_int, uint64_t, uintptr_t, intptr_t);
+    CONV_OVF_UN_IMPL(u_un, stack::native_int, stack::native_int, uintptr_t, uintptr_t, intptr_t);
+    CONV_OVF_UN_IMPL(u_un, stack::F, stack::native_int, double, uintptr_t, intptr_t);
+    CONV_OVF_UN_IMPL(u_un, stack::Ref, stack::native_int, uintptr_t, uintptr_t, intptr_t);
+    CONV_OVF_UN_IMPL(u_un, stack::O, stack::native_int, uintptr_t, uintptr_t, intptr_t);
 
 #undef CONV_OVF_IMPL
 

@@ -1155,7 +1155,7 @@ namespace Natsu.Compiler
         public void Ldsfld()
         {
             var field = (IField)Op.Operand;
-            string expr = Method.IsStaticConstructor && Method.DeclaringType == field.DeclaringType.Scope
+            string expr = Method.IsStaticConstructor && TypeUtils.IsSameType(Method.DeclaringType, field.DeclaringType)
                 ? TypeUtils.EscapeIdentifier(field.Name)
                 : "::natsu::static_holder<typename" + TypeUtils.EscapeTypeName(field.DeclaringType) + "::Static>::get()." + TypeUtils.EscapeIdentifier(field.Name);
             var fieldType = field.FieldSig.Type;
@@ -1193,7 +1193,7 @@ namespace Natsu.Compiler
         public void Ldsflda()
         {
             var field = (IField)Op.Operand;
-            string expr = Method.IsStaticConstructor && Method.DeclaringType == field.DeclaringType
+            string expr = Method.IsStaticConstructor && TypeUtils.IsSameType(Method.DeclaringType, field.DeclaringType)
                 ? TypeUtils.EscapeIdentifier(field.Name)
                 : "::natsu::static_holder<typename" + TypeUtils.EscapeTypeName(field.DeclaringType) + "::Static>::get()." + TypeUtils.EscapeIdentifier(field.Name);
             Stack.Push(StackTypeCode.Ref, $"::natsu::ops::ref({expr})");
@@ -1205,7 +1205,7 @@ namespace Natsu.Compiler
                 ;
             var value = Stack.Pop();
             var field = (IField)Op.Operand;
-            string expr = Method.IsStaticConstructor && Method.DeclaringType == field.DeclaringType.ScopeType
+            string expr = Method.IsStaticConstructor && TypeUtils.IsSameType(Method.DeclaringType, field.DeclaringType)
                 ? TypeUtils.EscapeIdentifier(field.Name)
                 : "::natsu::static_holder<typename" + TypeUtils.EscapeTypeName(field.DeclaringType) + "::Static>::get()." + TypeUtils.EscapeIdentifier(field.Name);
             var fieldType = field.FieldSig.Type;

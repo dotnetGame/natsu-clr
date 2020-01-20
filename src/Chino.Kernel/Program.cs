@@ -38,7 +38,15 @@ namespace Chino.Kernel
                       terminal.Write(item + ", ");
 
                   terminal.WriteLine();
-                  terminal.Ready();
+                  //terminal.Ready();
+
+                  var sw = new Stopwatch();
+                  sw.Start();
+                  int sum = 0;
+                  for (int i = 0; i < 10000; i++)
+                      sum += i;
+                  sw.Stop();
+                  terminal.WriteLine($"Benchmark: {sw.ElapsedMilliseconds.ToString()} ms");
               });
 
             systemThread.Description = "System";

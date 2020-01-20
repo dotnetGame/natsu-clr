@@ -1,4 +1,5 @@
 #include "System.Private.CoreLib.h"
+#include "System.Runtime.Extensions.h"
 #include "win_utils.h"
 #include <Windows.h>
 #include <algorithm>
@@ -7,6 +8,7 @@
 
 using namespace natsu;
 using namespace System_Private_CoreLib::System;
+using namespace System_Runtime_Extensions::System::Diagnostics;
 
 int32_t Environment::_s_GetProcessorCount()
 {
@@ -30,4 +32,18 @@ int32_t Environment::_s_GetProcessorCount()
     }
 
     return logical_core_count;
+}
+
+int64_t Stopwatch::_s_QueryPerformanceFrequency()
+{
+    int64_t value;
+    THROW_WIN32_IF_NOT(QueryPerformanceFrequency(reinterpret_cast<LARGE_INTEGER *>(&value)));
+    return value;
+}
+
+int64_t Stopwatch::_s_QueryPerformanceCounter()
+{
+    int64_t value;
+    THROW_WIN32_IF_NOT(QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER *>(&value)));
+    return value;
 }

@@ -22,7 +22,7 @@ namespace Natsu.Compiler
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Collections.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Memory.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.dll",
-            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.Extensions.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.Extensions.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Diagnostics.Debug.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.InteropServices.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Threading.dll",

@@ -852,5 +852,10 @@ namespace Natsu.Compiler
 
             return sb.ToString();
         }
+
+        public static bool IsSameType(ITypeDefOrRef type1, ITypeDefOrRef type2)
+        {
+            return type1 == type2 || type1 == type2.Scope;
+        }
     }
 }
