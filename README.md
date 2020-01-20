@@ -29,13 +29,21 @@ natsu-clr
 ## Supported CLR Features
 ## 支持的 CLR 特性
 - Array
-- Span
 - Delegate
+- Exceptions
+- Generic
+- Explicit interface implementation
 - Unsafe
 - Internal Call
 - Unicode
+- Span
 - Volatile and Interlocked
 - Thread
+
+## Currently unsupported features
+## 当前不支持的特性
+- Garbage Collection
+- Reflection
 
 ## Roadmap
 - [ ] Full support of standard libraries (Wellcome contributors!)
