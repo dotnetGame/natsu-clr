@@ -9,6 +9,8 @@ namespace Chino
 {
     public static class ChipControl
     {
+        public static TimeSpan DefaultTimeSlice => TimeSpan.FromMilliseconds(100);
+
         [MethodImpl(MethodImplOptions.InternalCall)]
         public static extern void Initialize();
 
@@ -20,6 +22,9 @@ namespace Chino
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         public static extern UIntPtr DisableInterrupt();
+
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        public static extern void SetThreadDescription(ref ThreadContextArch arch, string value);
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         public static extern void RestoreInterrupt(UIntPtr state);
@@ -35,5 +40,8 @@ namespace Chino
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         public static extern void RestoreContext(in ThreadContextArch context);
+
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        public static extern void RaiseCoreNotification();
     }
 }

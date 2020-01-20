@@ -1,18 +1,33 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 using ThreadStart = System.Threading.ThreadStart;
 
 namespace Chino.Threading
 {
     public class Thread : IThread
     {
-        private Scheduler _scheduler;
         private readonly ThreadStart _start;
+        private object? _startArg;
 
         public ThreadContext Context;
+        public volatile Scheduler? Scheduler;
 
         public LinkedListNode<ThreadScheduleEntry> ScheduleEntry { get; }
+
+        public int ExitCode { get; private set; }
+
+        private string? _description;
+        public string? Description
+        {
+            get => _description;
+            set
+            {
+                _description = value;
+                ChipControl.SetThreadDescription(ref Context.Arch, value);
+            }
+        }
 
         public Thread(ThreadStart start)
         {
@@ -22,14 +37,22 @@ namespace Chino.Threading
             ChipControl.InitializeThreadContext(ref Context.Arch, this);
         }
 
-        public void Start(object? arg)
+        public void Start(object? arg = null)
         {
+            _startArg = arg;
+            KernelServices.Scheduler.StartThread(this);
         }
 
-        private static int ThreadMainThunk(Thread thread)
+        public void Exit(int exitCode)
+        {
+            ExitCode = exitCode;
+            Scheduler?.KillThread(this);
+        }
+
+        private static void ThreadMainThunk(Thread thread)
         {
             thread._start();
-            return 0;
+            thread.Exit(0);
         }
     }
 }

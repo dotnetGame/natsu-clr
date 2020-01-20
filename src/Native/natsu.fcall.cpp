@@ -1,6 +1,9 @@
 #include "Chino.Kernel.h"
 #include <cmath>
 #include <cstring>
+#ifdef WIN32
+#include <Windows.h>
+#endif
 
 using namespace natsu;
 using namespace System_Private_CoreLib;
@@ -77,6 +80,9 @@ void Debug::_s_WriteLineCore(gc_obj_ref<String> message)
 void Debug::_s_FailCore(gc_obj_ref<String> message, gc_obj_ref<String> detailMessage)
 {
     Chino_Kernel::Chino::Kernel::KernelDebug::_s_Write(message);
+#ifdef WIN32
+    DebugBreak();
+#endif
 }
 
 void Buffer::_s_Memmove(gc_ptr<uint8_t> dest, gc_ptr<uint8_t> src, uint64_t len)

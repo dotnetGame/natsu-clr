@@ -10,14 +10,28 @@ namespace Chino.Threading
     public enum SystemIRQ : uint
     {
         SystemTick,
+        CoreNotification,
         COUNT
     }
 
-    public delegate void SystemIRQHandler(SystemIRQ irq, in ThreadContextArch context);
+    public class DPC
+    {
+        public object? Argument;
+        public DPCHandler Callback;
+    }
+
+    public delegate ref ThreadContextArch DPCHandler(object? argument, ref ThreadContextArch context);
+    public delegate ref ThreadContextArch SystemIRQHandler(SystemIRQ irq, ref ThreadContextArch context);
 
     public class IRQDispatcher
     {
         private readonly SystemIRQHandler?[] _systemIRQHandlers = new SystemIRQHandler?[(int)SystemIRQ.COUNT];
+        private readonly LinkedList<DPC> _dpcs = new LinkedList<DPC>();
+
+        public IRQDispatcher()
+        {
+            RegisterSystemIRQ(SystemIRQ.CoreNotification, OnCoreNotification);
+        }
 
         public void RegisterSystemIRQ(SystemIRQ irq, SystemIRQHandler? handler)
         {
@@ -25,21 +39,44 @@ namespace Chino.Threading
             Volatile.Write(ref _systemIRQHandlers[(int)irq], handler);
         }
 
-        internal void DispatchSystemIRQ(SystemIRQ irq, in ThreadContextArch context)
+        public void RegisterDPC(LinkedListNode<DPC> dpc)
+        {
+            using (ProcessorCriticalSection.Acquire())
+            {
+                _dpcs.AddLast(dpc);
+            }
+
+            ChipControl.RaiseCoreNotification();
+        }
+
+        internal void DispatchSystemIRQ(SystemIRQ irq, ref ThreadContextArch context)
         {
             Debug.Assert(irq < SystemIRQ.COUNT);
             var handler = Volatile.Read(ref _systemIRQHandlers[(int)irq]);
             if (handler != null)
-                handler(irq, context);
+                context = ref handler(irq, ref context);
             else
                 UnhandledIRQ(irq);
 
-            ExitIRQHandler();
+            ExitIRQHandler(context);
         }
 
-        private void ExitIRQHandler()
+        private void ExitIRQHandler(in ThreadContextArch context)
         {
-            ChipControl.RestoreContext(KernelServices.Scheduler.SelectedThread.Value.Thread.Context.Arch);
+            ChipControl.RestoreContext(context);
+        }
+
+        private ref ThreadContextArch OnCoreNotification(SystemIRQ irq, ref ThreadContextArch context)
+        {
+            while (_dpcs.Count != 0)
+            {
+                var item = _dpcs.First;
+                _dpcs.RemoveFirst();
+
+                context = ref item!.Value.Callback(item.Value.Argument, ref context);
+            }
+
+            return ref context;
         }
 
         private void UnhandledIRQ(SystemIRQ irq)

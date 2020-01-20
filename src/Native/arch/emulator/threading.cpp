@@ -15,7 +15,8 @@ namespace
 uint32_t __stdcall thread_main_thunk(void *arg)
 {
     gc_obj_ref<Thread> thread(reinterpret_cast<Thread *>(arg));
-    return Thread::_s_ThreadMainThunk(thread);
+    Thread::_s_ThreadMainThunk(thread);
+    return Thread::get_ExitCode(thread);
 }
 }
 

@@ -18,10 +18,10 @@ namespace Natsu.Compiler
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Core.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.K210.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.Emulator.dll",
-            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Private.CoreLib.dll",
+            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Private.CoreLib.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Collections.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Memory.dll",
-            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.dll",
+            //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.Extensions.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Diagnostics.Debug.dll",
             //@"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.InteropServices.dll",
@@ -1051,10 +1051,11 @@ namespace Natsu.Compiler
                 }
                 else if (method.Name == "BeginInvoke")
                 {
-                    writer.Ident(ident).WriteLine($"return natsu::null;");
+                    writer.Ident(ident).WriteLine($"::natsu::pure_call();");
                 }
                 else if (method.Name == "EndInvoke")
                 {
+                    writer.Ident(ident).WriteLine($"::natsu::pure_call();");
                 }
                 else
                 {

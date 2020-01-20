@@ -13,34 +13,36 @@ namespace Chino.Kernel
             KernelServices.Initialize();
 
             var scheduler = KernelServices.Scheduler;
-            scheduler.CreateThread(() =>
-            {
-                var terminal = Terminal.Default;
+            var systemThread = scheduler.CreateThread(() =>
+              {
+                  var terminal = Terminal.Default;
 
-                terminal.Foreground(TerminalColor.White)
-                    .WriteLine("Hello Chino OS!");
+                  terminal.Foreground(TerminalColor.White)
+                      .WriteLine("Hello Chino OS!");
 
-                terminal.Foreground(TerminalColor.White)
-                    .Write("Used: ").Foreground(TerminalColor.Green).Write(Memory.MemoryManager.GetUsedMemorySize().ToString())
-                    .Foreground(TerminalColor.White).WriteLine(" Bytes");
-                terminal.Foreground(TerminalColor.White)
-                    .Write("Free: ").Foreground(TerminalColor.Green).Write(Memory.MemoryManager.GetFreeMemorySize().ToString())
-                    .Foreground(TerminalColor.White).WriteLine(" Bytes");
-                terminal.WriteLine().Reset();
+                  terminal.Foreground(TerminalColor.White)
+                      .Write("Used: ").Foreground(TerminalColor.Green).Write(Memory.MemoryManager.GetUsedMemorySize().ToString())
+                      .Foreground(TerminalColor.White).WriteLine(" Bytes");
+                  terminal.Foreground(TerminalColor.White)
+                      .Write("Free: ").Foreground(TerminalColor.Green).Write(Memory.MemoryManager.GetFreeMemorySize().ToString())
+                      .Foreground(TerminalColor.White).WriteLine(" Bytes");
+                  terminal.WriteLine().Reset();
 
-                var l = new List<int> { 1, 2, 3 };
-                foreach (var item in l)
-                    terminal.Write(item + ", ");
-                l.Clear();
-                terminal.WriteLine();
-                l.Add(4);
-                foreach (var item in l)
-                    terminal.Write(item + ", ");
+                  var l = new List<int> { 1, 2, 3 };
+                  foreach (var item in l)
+                      terminal.Write(item + ", ");
+                  l.Clear();
+                  terminal.WriteLine();
+                  l.Add(4);
+                  foreach (var item in l)
+                      terminal.Write(item + ", ");
 
-                terminal.WriteLine();
-                terminal.Ready();
-            });
+                  terminal.WriteLine();
+                  terminal.Ready();
+              });
 
+            systemThread.Description = "System";
+            systemThread.Start();
             scheduler.Start();
         }
     }

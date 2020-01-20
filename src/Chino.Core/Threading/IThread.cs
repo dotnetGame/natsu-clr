@@ -6,5 +6,6 @@ namespace Chino.Threading
 {
     public interface IThread
     {
+        public string? Description { get; set; }
     }
 }

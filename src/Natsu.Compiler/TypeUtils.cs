@@ -130,6 +130,16 @@ namespace Natsu.Compiler
 
         public static string EscapeVariableTypeName(TypeSig fieldType, TypeDef declaringType = null, int hasGen = 0, IList<TypeSig> genArgs = null)
         {
+            if (fieldType.ElementType == ElementType.CModReqd)
+            {
+                var modifier = ((ModifierSig)fieldType).Modifier;
+                var modName = modifier.FullName;
+                if (modName == "System.Runtime.CompilerServices.IsVolatile")
+                {
+                    return $"::natsu::clr_volatile<{EscapeVariableTypeName(fieldType.Next, declaringType, hasGen, genArgs)}>";
+                }
+            }
+
             if (IsValueType(fieldType))
                 return EscapeTypeName(fieldType, declaringType, hasGen, genArgs, cppBasicType: true);
             else if (fieldType.IsGenericParameter)

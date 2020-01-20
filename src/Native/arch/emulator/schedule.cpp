@@ -6,6 +6,7 @@
 
 using namespace natsu;
 using namespace System_Runtime::System;
+using namespace System_Threading::System::Threading;
 using namespace Chino_Kernel::Chino;
 using namespace Chino_Kernel::Chino::Threading;
 using namespace Chino_Chip_Emulator::Chino;
@@ -17,22 +18,26 @@ namespace
 std::atomic<bool> g_interrupt_enabled(false);
 CRITICAL_SECTION g_interrupt_cs;
 Event g_interrupt_enabled_event(CreateEvent(nullptr, TRUE, FALSE, nullptr));
-TP_TIMER *g_system_timer;
+HANDLE g_system_timer;
+TimeSpan g_time_slice;
 
 Semaphore g_interrupt_count(CreateSemaphore(nullptr, 0, 10240, nullptr));
 std::atomic<bool> g_system_timer_int(false);
+std::atomic<bool> g_core_notifi_int(false);
 
 void suspend_thread(ThreadContextArch &context)
 {
+    //printf("S (%d)\n", (int)GetThreadId(context.NativeHandle._value));
     auto handle = (HANDLE)context.NativeHandle._value;
-    SuspendThread(handle);
+    THROW_WIN32_IF_NOT(SuspendThread(handle) != DWORD(-1));
     CONTEXT c { CONTEXT_ALL };
     THROW_WIN32_IF_NOT(GetThreadContext(handle, &c));
 }
 
 void resume_thread(ThreadContextArch &context)
 {
-    ResumeThread((HANDLE)context.NativeHandle._value);
+    //printf("R (%d)\n", (int)GetThreadId(context.NativeHandle._value));
+    THROW_WIN32_IF_NOT(ResumeThread((HANDLE)context.NativeHandle._value) != (DWORD)(-1));
 }
 
 void notify_interrupt()
@@ -40,10 +45,23 @@ void notify_interrupt()
     THROW_WIN32_IF_NOT(ReleaseSemaphore(g_interrupt_count.Get(), 1, NULL));
 }
 
-void system_timer_thunk(PTP_CALLBACK_INSTANCE Instance, PVOID Context, PTP_TIMER Timer)
+void system_timer_main(void *arg)
 {
-    g_system_timer_int.store(true, std::memory_order_relaxed);
-    notify_interrupt();
+    g_system_timer = CreateWaitableTimer(nullptr, FALSE, nullptr);
+    THROW_WIN32_IF_NOT(g_system_timer != INVALID_HANDLE_VALUE);
+
+    LARGE_INTEGER due_time;
+    due_time.QuadPart = TimeSpan::get_Ticks(g_time_slice);
+    THROW_WIN32_IF_NOT(SetWaitableTimer(g_system_timer, &due_time, (DWORD)TimeSpan::get_TotalMilliseconds(g_time_slice), nullptr, nullptr, FALSE));
+
+    while (true)
+    {
+        if (WaitForSingleObject(g_system_timer, INFINITE) == WAIT_ABANDONED)
+            break;
+
+        g_system_timer_int.store(true, std::memory_order_relaxed);
+        notify_interrupt();
+    }
 }
 
 void interrupt_sender_main(void *arg)
@@ -61,7 +79,7 @@ void interrupt_sender_main(void *arg)
 
                 ThreadContextArch context;
                 // Suspend running thread
-                auto running_thread_entry = KernelServices::_s_get_Scheduler()->_runningThread;
+                auto running_thread_entry = Scheduler::get_RunningThread(KernelServices::_s_get_Scheduler());
                 if (running_thread_entry)
                 {
                     auto running_thread = running_thread_entry->item->_Thread_k__BackingField;
@@ -153,14 +171,25 @@ void ChipControl::_s_StartSchedule(gc_ref<ThreadContextArch> context)
 
 void ChipControl::_s_SetupSystemTimer(TimeSpan timeSlice)
 {
-    FILETIME due_time = ticks_to_filetime(TimeSpan::get_Ticks(timeSlice));
-    g_system_timer = CreateThreadpoolTimer(system_timer_thunk, nullptr, nullptr);
-    THROW_WIN32_IF_NOT(g_system_timer);
-    SetThreadpoolTimer(g_system_timer, &due_time, (DWORD)TimeSpan::get_TotalMilliseconds(timeSlice), 0);
+    g_time_slice = timeSlice;
+    auto systimer_thrd = _beginthread(system_timer_main, 0, nullptr);
+    assert(systimer_thrd);
+    THROW_IF_FAILED(SetThreadDescription((HANDLE)systimer_thrd, L"System Timer"));
 }
 
 void ChipControl::_s_RestoreContext(gc_ref<ThreadContextArch> context)
 {
     // Run selected thread
     resume_thread(*context);
+}
+
+void ChipControl::_s_RaiseCoreNotification()
+{
+    g_core_notifi_int.store(true, std::memory_order_relaxed);
+    notify_interrupt();
+}
+
+void ChipControl::_s_SetThreadDescription(gc_ref<ThreadContextArch> arch, gc_obj_ref<String> value)
+{
+    THROW_IF_FAILED(SetThreadDescription(arch->NativeHandle._value, reinterpret_cast<PCWSTR>(&value->_firstChar)));
 }
