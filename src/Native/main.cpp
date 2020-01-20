@@ -12,12 +12,9 @@ int main()
 {
     InitializeHeap();
     Program::_s_Main();
-#ifdef WIN32
-    while (1)
-        Sleep(0);
-#else
+
+    // Should not reach here
     while (1)
         ;
-#endif
     return 0;
 }
