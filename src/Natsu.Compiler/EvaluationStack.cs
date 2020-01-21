@@ -50,6 +50,8 @@ namespace Natsu.Compiler
 
         public bool Empty => _stackValues.Count == 0;
 
+        public int Count => _stackValues.Count;
+
         public EvaluationStack(TextWriter writer, int ident, int paramIndex)
         {
             _writer = writer;
@@ -107,6 +109,8 @@ namespace Natsu.Compiler
 
     class SpillSlot
     {
+        public int Index { get; set; }
+
         public string Name { get; set; }
 
         public StackEntry Entry { get; set; }

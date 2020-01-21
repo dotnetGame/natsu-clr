@@ -19,6 +19,8 @@ using System.Threading;
 [assembly: TypeForwardedTo(typeof(UInt64))]
 [assembly: TypeForwardedTo(typeof(IntPtr))]
 [assembly: TypeForwardedTo(typeof(UIntPtr))]
+[assembly: TypeForwardedTo(typeof(Single))]
+[assembly: TypeForwardedTo(typeof(Double))]
 [assembly: TypeForwardedTo(typeof(String))]
 [assembly: TypeForwardedTo(typeof(Nullable))]
 [assembly: TypeForwardedTo(typeof(Nullable<>))]

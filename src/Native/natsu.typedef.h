@@ -591,6 +591,8 @@ struct vtable_class : public TBase, public vtable_impl_t<TBase, TIFaces>...
     constexpr void override_vfunc(std::string_view name, TFunc func)
     {
         TBase::override_vfunc_impl(name, func);
+        if constexpr (!std::is_same_v<TBase, vtable_t>)
+            TBase::override_vfunc(name, func);
         int ignore[] = { 0, (vtable_impl_t<TBase, TIFaces>::override_vfunc_impl(name, func), 0)... };
     }
 };

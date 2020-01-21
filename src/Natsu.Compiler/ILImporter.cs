@@ -277,10 +277,11 @@ namespace Natsu.Compiler
             foreach (var instLine in instLines.Take(instLines.Count - 1))
                 writer.Write(instLine);
 
+            int slotIndex = 0;
             // export spills
             while (block.Next.Count != 0 && !stack.Empty)
             {
-                var spill = AddSpillSlot(stack.Pop(), block);
+                var spill = AddSpillSlot(slotIndex++, stack.Pop(), block);
                 writer.Ident(ident).WriteLine($"{spill.Name} = {spill.Entry.Expression};");
                 block.Spills.Add(spill);
             }
@@ -297,19 +298,19 @@ namespace Natsu.Compiler
             }
         }
 
-        private SpillSlot AddSpillSlot(StackEntry stackEntry, BasicBlock block)
+        private SpillSlot AddSpillSlot(int index, StackEntry stackEntry, BasicBlock block)
         {
             if (block.Next != null)
             {
                 foreach (var slot in _spillSlots)
                 {
-                    if (slot.Next != block.Next)
+                    if (slot.Next != block.Next && slot.Index == index)
                     {
                         foreach (var next in slot.Next)
                         {
                             if (block.Next.Contains(next))
                             {
-                                var newSlot = new SpillSlot { Name = slot.Name, Entry = stackEntry, Next = block.Next };
+                                var newSlot = new SpillSlot { Index = slot.Index, Name = slot.Name, Entry = stackEntry, Next = block.Next };
                                 _spillSlots.Add(newSlot);
                                 return newSlot;
                             }
@@ -319,7 +320,7 @@ namespace Natsu.Compiler
             }
 
             {
-                var slot = new SpillSlot { Name = "_s" + _nextSpillSlot++.ToString(), Entry = stackEntry, Next = block.Next };
+                var slot = new SpillSlot { Index = index, Name = "_s" + _nextSpillSlot++.ToString(), Entry = stackEntry, Next = block.Next };
                 _spillSlots.Add(slot);
                 return slot;
             }

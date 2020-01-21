@@ -14,11 +14,11 @@ namespace Chino.Services
 
         public void Run()
         {
-            int i = 0;
+            float i = 0;
             while (true)
             {
+                Terminal.Default.WriteLine("Tick " + i++);
                 KernelServices.Scheduler.DelayCurrentThread(TimeSpan.FromSeconds(1));
-                Terminal.Default.WriteLine("Tick " + i++.ToString());
             }
         }
     }

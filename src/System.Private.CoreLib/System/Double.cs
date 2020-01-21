@@ -12,15 +12,21 @@
 **
 ===========================================================*/
 
+using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+
 using Internal.Runtime.CompilerServices;
 
 namespace System
 {
-    public struct Double
+    [Serializable]
+    [StructLayout(LayoutKind.Sequential)]
+    [TypeForwardedFrom("mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089")]
+    public readonly struct Double : IComparable, IFormattable, IComparable<double>, IEquatable<double>, ISpanFormattable
     {
-        private double m_value; // Do not rename (binary serialization)
+        private readonly double m_value; // Do not rename (binary serialization)
 
         //
         // Public Constants
@@ -38,12 +44,35 @@ namespace System
         // We use this explicit definition to avoid the confusion between 0.0 and -0.0.
         internal const double NegativeZero = -0.0;
 
+        //
+        // Constants for manipulating the private bit-representation
+        //
+
+        internal const ulong SignMask = 0x8000_0000_0000_0000;
+        internal const int SignShift = 63;
+        internal const int ShiftedSignMask = (int)(SignMask >> SignShift);
+
+        internal const ulong ExponentMask = 0x7FF0_0000_0000_0000;
+        internal const int ExponentShift = 52;
+        internal const int ShiftedExponentMask = (int)(ExponentMask >> ExponentShift);
+
+        internal const ulong SignificandMask = 0x000F_FFFF_FFFF_FFFF;
+
+        internal const byte MinSign = 0;
+        internal const byte MaxSign = 1;
+
+        internal const ushort MinExponent = 0x0000;
+        internal const ushort MaxExponent = 0x07FF;
+
+        internal const ulong MinSignificand = 0x0000_0000_0000_0000;
+        internal const ulong MaxSignificand = 0x000F_FFFF_FFFF_FFFF;
+
         /// <summary>Determines whether the specified value is finite (zero, subnormal, or normal).</summary>
         [NonVersionable]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe bool IsFinite(double d)
         {
-            var bits = BitConverter.DoubleToInt64Bits(d);
+            long bits = BitConverter.DoubleToInt64Bits(d);
             return (bits & 0x7FFFFFFFFFFFFFFF) < 0x7FF0000000000000;
         }
 
@@ -52,7 +81,7 @@ namespace System
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe bool IsInfinity(double d)
         {
-            var bits = BitConverter.DoubleToInt64Bits(d);
+            long bits = BitConverter.DoubleToInt64Bits(d);
             return (bits & 0x7FFFFFFFFFFFFFFF) == 0x7FF0000000000000;
         }
 
@@ -61,7 +90,7 @@ namespace System
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe bool IsNaN(double d)
         {
-            var bits = BitConverter.DoubleToInt64Bits(d);
+            long bits = BitConverter.DoubleToInt64Bits(d);
             return (bits & 0x7FFFFFFFFFFFFFFF) > 0x7FF0000000000000;
         }
 
@@ -86,7 +115,7 @@ namespace System
         // This is probably not worth inlining, it has branches and should be rarely called
         public static unsafe bool IsNormal(double d)
         {
-            var bits = BitConverter.DoubleToInt64Bits(d);
+            long bits = BitConverter.DoubleToInt64Bits(d);
             bits &= 0x7FFFFFFFFFFFFFFF;
             return (bits < 0x7FF0000000000000) && (bits != 0) && ((bits & 0x7FF0000000000000) != 0);
         }
@@ -104,9 +133,19 @@ namespace System
         // This is probably not worth inlining, it has branches and should be rarely called
         public static unsafe bool IsSubnormal(double d)
         {
-            var bits = BitConverter.DoubleToInt64Bits(d);
+            long bits = BitConverter.DoubleToInt64Bits(d);
             bits &= 0x7FFFFFFFFFFFFFFF;
             return (bits < 0x7FF0000000000000) && (bits != 0) && ((bits & 0x7FF0000000000000) == 0);
+        }
+
+        internal static int ExtractExponentFromBits(ulong bits)
+        {
+            return (int)(bits >> ExponentShift) & ShiftedExponentMask;
+        }
+
+        internal static ulong ExtractSignificandFromBits(ulong bits)
+        {
+            return bits & SignificandMask;
         }
 
         // Compares this object to another object, returning an instance of System.Relation.
@@ -116,15 +155,15 @@ namespace System
         //
         // Returns a value less than zero if this  object
         //
-        public int CompareTo(object value)
+        public int CompareTo(object? value)
         {
             if (value == null)
             {
                 return 1;
             }
-            if (value is double)
+
+            if (value is double d)
             {
-                double d = (double)value;
                 if (m_value < d) return -1;
                 if (m_value > d) return 1;
                 if (m_value == d) return 0;
@@ -135,6 +174,7 @@ namespace System
                 else
                     return 1;
             }
+
             throw new ArgumentException(SR.Arg_MustBeDouble);
         }
 
@@ -153,7 +193,7 @@ namespace System
 
         // True if obj is another Double with the same value as the current instance.  This is
         // a method of object equality, that only returns true if obj is also a double.
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             if (!(obj is double))
             {
@@ -169,40 +209,22 @@ namespace System
         }
 
         [NonVersionable]
-        public static bool operator ==(double left, double right)
-        {
-            return left == right;
-        }
+        public static bool operator ==(double left, double right) => left == right;
 
         [NonVersionable]
-        public static bool operator !=(double left, double right)
-        {
-            return left != right;
-        }
+        public static bool operator !=(double left, double right) => left != right;
 
         [NonVersionable]
-        public static bool operator <(double left, double right)
-        {
-            return left < right;
-        }
+        public static bool operator <(double left, double right) => left < right;
 
         [NonVersionable]
-        public static bool operator >(double left, double right)
-        {
-            return left > right;
-        }
+        public static bool operator >(double left, double right) => left > right;
 
         [NonVersionable]
-        public static bool operator <=(double left, double right)
-        {
-            return left <= right;
-        }
+        public static bool operator <=(double left, double right) => left <= right;
 
         [NonVersionable]
-        public static bool operator >=(double left, double right)
-        {
-            return left >= right;
-        }
+        public static bool operator >=(double left, double right) => left >= right;
 
         public bool Equals(double obj)
         {
@@ -213,13 +235,12 @@ namespace System
             return IsNaN(obj) && IsNaN(m_value);
         }
 
-        //The hashcode for a double is the absolute value of the integer representation
-        //of that double.
-        //
+        // The hashcode for a double is the absolute value of the integer representation
+        // of that double.
         [MethodImpl(MethodImplOptions.AggressiveInlining)] // 64-bit constants make the IL unusually large that makes the inliner to reject the method
         public override int GetHashCode()
         {
-            var bits = Unsafe.As<double, long>(ref Unsafe.AsRef(in m_value));
+            long bits = Unsafe.As<double, long>(ref Unsafe.AsRef(in m_value));
 
             // Optimized check for IsNan() || IsZero()
             if (((bits - 1) & 0x7FFFFFFFFFFFFFFF) >= 0x7FF0000000000000)
@@ -229,6 +250,122 @@ namespace System
             }
 
             return unchecked((int)bits) ^ ((int)(bits >> 32));
+        }
+
+        public override string ToString()
+        {
+            return Number.FormatDouble(m_value, null, NumberFormatInfo.CurrentInfo);
+        }
+
+        public string ToString(string? format)
+        {
+            return Number.FormatDouble(m_value, format, NumberFormatInfo.CurrentInfo);
+        }
+
+        public string ToString(IFormatProvider? provider)
+        {
+            return Number.FormatDouble(m_value, null, NumberFormatInfo.GetInstance(provider));
+        }
+
+        public string ToString(string? format, IFormatProvider? provider)
+        {
+            return Number.FormatDouble(m_value, format, NumberFormatInfo.GetInstance(provider));
+        }
+
+        public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format = default, IFormatProvider? provider = null)
+        {
+            return Number.TryFormatDouble(m_value, format, NumberFormatInfo.GetInstance(provider), destination, out charsWritten);
+        }
+
+        public static double Parse(string s)
+        {
+            if (s == null) ThrowHelper.ThrowArgumentNullException(ExceptionArgument.s);
+            return Number.ParseDouble(s, NumberStyles.Float | NumberStyles.AllowThousands, NumberFormatInfo.CurrentInfo);
+        }
+
+        public static double Parse(string s, NumberStyles style)
+        {
+            NumberFormatInfo.ValidateParseStyleFloatingPoint(style);
+            if (s == null) ThrowHelper.ThrowArgumentNullException(ExceptionArgument.s);
+            return Number.ParseDouble(s, style, NumberFormatInfo.CurrentInfo);
+        }
+
+        public static double Parse(string s, IFormatProvider? provider)
+        {
+            if (s == null) ThrowHelper.ThrowArgumentNullException(ExceptionArgument.s);
+            return Number.ParseDouble(s, NumberStyles.Float | NumberStyles.AllowThousands, NumberFormatInfo.GetInstance(provider));
+        }
+
+        public static double Parse(string s, NumberStyles style, IFormatProvider? provider)
+        {
+            NumberFormatInfo.ValidateParseStyleFloatingPoint(style);
+            if (s == null) ThrowHelper.ThrowArgumentNullException(ExceptionArgument.s);
+            return Number.ParseDouble(s, style, NumberFormatInfo.GetInstance(provider));
+        }
+
+        // Parses a double from a String in the given style.  If
+        // a NumberFormatInfo isn't specified, the current culture's
+        // NumberFormatInfo is assumed.
+        //
+        // This method will not throw an OverflowException, but will return
+        // PositiveInfinity or NegativeInfinity for a number that is too
+        // large or too small.
+
+        public static double Parse(ReadOnlySpan<char> s, NumberStyles style = NumberStyles.Float | NumberStyles.AllowThousands, IFormatProvider? provider = null)
+        {
+            NumberFormatInfo.ValidateParseStyleFloatingPoint(style);
+            return Number.ParseDouble(s, style, NumberFormatInfo.GetInstance(provider));
+        }
+
+
+
+        public static bool TryParse(string? s, out double result)
+        {
+            if (s == null)
+            {
+                result = 0;
+                return false;
+            }
+
+            return TryParse((ReadOnlySpan<char>)s, NumberStyles.Float | NumberStyles.AllowThousands, NumberFormatInfo.CurrentInfo, out result);
+        }
+
+        public static bool TryParse(ReadOnlySpan<char> s, out double result)
+        {
+            return TryParse(s, NumberStyles.Float | NumberStyles.AllowThousands, NumberFormatInfo.CurrentInfo, out result);
+        }
+
+        public static bool TryParse(string? s, NumberStyles style, IFormatProvider? provider, out double result)
+        {
+            NumberFormatInfo.ValidateParseStyleFloatingPoint(style);
+
+            if (s == null)
+            {
+                result = 0;
+                return false;
+            }
+
+            return TryParse((ReadOnlySpan<char>)s, style, NumberFormatInfo.GetInstance(provider), out result);
+        }
+
+        public static bool TryParse(ReadOnlySpan<char> s, NumberStyles style, IFormatProvider? provider, out double result)
+        {
+            NumberFormatInfo.ValidateParseStyleFloatingPoint(style);
+            return TryParse(s, style, NumberFormatInfo.GetInstance(provider), out result);
+        }
+
+        private static bool TryParse(ReadOnlySpan<char> s, NumberStyles style, NumberFormatInfo info, out double result)
+        {
+            return Number.TryParseDouble(s, style, info, out result);
+        }
+
+        //
+        // IConvertible implementation
+        //
+
+        public TypeCode GetTypeCode()
+        {
+            return TypeCode.Double;
         }
     }
 }
