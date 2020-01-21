@@ -20,6 +20,7 @@ namespace Natsu.Compiler
         private Dictionary<ExceptionHandler, ExceptionHandlerContext> _exceptions = new Dictionary<ExceptionHandler, ExceptionHandlerContext>();
         private int _paramIndex;
         private int _blockId;
+        private int _nextSpillSlot = 0;
 
         public List<string> UserStrings { get; set; }
         public string ModuleName { get; set; }
@@ -169,9 +170,13 @@ namespace Natsu.Compiler
             var visited = new HashSet<BasicBlock>();
             VisitBlock(_ident, _headBlock, visited);
 
+            var spillsName = new HashSet<string>();
             // spills
-            foreach (var spill in _spillSlots)
-                _writer.Ident(_ident).WriteLine($"{TypeUtils.EscapeStackTypeName(spill.Entry.Type)} {spill.Name};");
+            foreach (var spill in _spillSlots.Distinct())
+            {
+                if (spillsName.Add(spill.Name))
+                    _writer.Ident(_ident).WriteLine($"{TypeUtils.EscapeStackTypeName(spill.Entry.Type)} {spill.Name};");
+            }
 
             visited.Clear();
             VisitBlockText(_headBlock, _writer, visited);
@@ -275,7 +280,7 @@ namespace Natsu.Compiler
             // export spills
             while (block.Next.Count != 0 && !stack.Empty)
             {
-                var spill = AddSpillSlot(stack.Pop());
+                var spill = AddSpillSlot(stack.Pop(), block);
                 writer.Ident(ident).WriteLine($"{spill.Name} = {spill.Entry.Expression};");
                 block.Spills.Add(spill);
             }
@@ -292,11 +297,32 @@ namespace Natsu.Compiler
             }
         }
 
-        private SpillSlot AddSpillSlot(StackEntry stackEntry)
+        private SpillSlot AddSpillSlot(StackEntry stackEntry, BasicBlock block)
         {
-            var slot = new SpillSlot { Name = "_s" + _spillSlots.Count.ToString(), Entry = stackEntry };
-            _spillSlots.Add(slot);
-            return slot;
+            if (block.Next != null)
+            {
+                foreach (var slot in _spillSlots)
+                {
+                    if (slot.Next != block.Next)
+                    {
+                        foreach (var next in slot.Next)
+                        {
+                            if (block.Next.Contains(next))
+                            {
+                                var newSlot = new SpillSlot { Name = slot.Name, Entry = stackEntry, Next = block.Next };
+                                _spillSlots.Add(newSlot);
+                                return newSlot;
+                            }
+                        }
+                    }
+                }
+            }
+
+            {
+                var slot = new SpillSlot { Name = "_s" + _nextSpillSlot++.ToString(), Entry = stackEntry, Next = block.Next };
+                _spillSlots.Add(slot);
+                return slot;
+            }
         }
 
         private void WriteInstruction(TextWriter writer, Instruction op, EvaluationStack stack, int ident, BasicBlock block)

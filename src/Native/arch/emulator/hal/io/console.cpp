@@ -51,4 +51,5 @@ void Console::InstallConsoleReadThread(::natsu::gc_obj_ref<::Chino_Chip_Emulator
 {
     auto thread = _beginthread(ConsoleReadThread, 0, _this.ptr_);
     assert(thread);
+    THROW_WIN32_IF_NOT(SetThreadDescription((HANDLE)thread, L"Driver/Console/Reader"));
 }

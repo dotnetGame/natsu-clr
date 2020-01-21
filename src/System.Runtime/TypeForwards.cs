@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading;
 
 [assembly: TypeForwardedTo(typeof(Attribute))]
 [assembly: TypeForwardedTo(typeof(Object))]
@@ -70,3 +71,4 @@ using System.Text;
 [assembly: TypeForwardedTo(typeof(InvalidCastException))]
 [assembly: TypeForwardedTo(typeof(InvalidOperationException))]
 [assembly: TypeForwardedTo(typeof(OutOfMemoryException))]
+[assembly: TypeForwardedTo(typeof(Timeout))]

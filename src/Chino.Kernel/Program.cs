@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
+using Chino.Services;
 
 namespace Chino.Kernel
 {
@@ -14,40 +15,15 @@ namespace Chino.Kernel
 
             var scheduler = KernelServices.Scheduler;
             var systemThread = scheduler.CreateThread(() =>
-              {
-                  var terminal = Terminal.Default;
+            {
+                var host = new KernelServiceHost();
 
-                  terminal.Foreground(TerminalColor.White)
-                      .WriteLine("Hello Chino OS!");
+                var terminal = Terminal.Default;
 
-                  terminal.Foreground(TerminalColor.White)
-                      .Write("Used: ").Foreground(TerminalColor.Green).Write(Memory.MemoryManager.GetUsedMemorySize().ToString())
-                      .Foreground(TerminalColor.White).WriteLine(" Bytes");
-                  terminal.Foreground(TerminalColor.White)
-                      .Write("Free: ").Foreground(TerminalColor.Green).Write(Memory.MemoryManager.GetFreeMemorySize().ToString())
-                      .Foreground(TerminalColor.White).WriteLine(" Bytes");
-                  terminal.WriteLine().Reset();
-
-                  var l = new List<int> { 1, 2, 3 };
-                  foreach (var item in l)
-                      terminal.Write(item + ", ");
-                  l.Clear();
-                  terminal.WriteLine();
-                  l.Add(4);
-                  foreach (var item in l)
-                      terminal.Write(item + ", ");
-
-                  terminal.WriteLine();
-                  //terminal.Ready();
-
-                  var sw = new Stopwatch();
-                  sw.Start();
-                  int sum = 0;
-                  for (int i = 0; i < 10000; i++)
-                      sum += i;
-                  sw.Stop();
-                  terminal.WriteLine($"Benchmark: {sw.ElapsedMilliseconds.ToString()} ms");
-              });
+                terminal.Foreground(TerminalColor.White)
+                    .WriteLine("Hello Chino OS!");
+                host.Run();
+            });
 
             systemThread.Description = "System";
             systemThread.Start();

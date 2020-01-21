@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 using ThreadStart = System.Threading.ThreadStart;
+using ThreadState = System.Diagnostics.ThreadState;
 
 namespace Chino.Threading
 {
@@ -17,6 +18,8 @@ namespace Chino.Threading
         public LinkedListNode<ThreadScheduleEntry> ScheduleEntry { get; }
 
         public int ExitCode { get; private set; }
+
+        public ThreadState State { get; internal set; } = ThreadState.Initialized;
 
         private string? _description;
         public string? Description

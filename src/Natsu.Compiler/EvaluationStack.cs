@@ -110,5 +110,7 @@ namespace Natsu.Compiler
         public string Name { get; set; }
 
         public StackEntry Entry { get; set; }
+
+        public List<BasicBlock> Next { get; set; }
     }
 }

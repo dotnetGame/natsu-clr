@@ -22,8 +22,10 @@ HANDLE g_system_timer;
 TimeSpan g_time_slice;
 
 Semaphore g_interrupt_count(CreateSemaphore(nullptr, 0, 10240, nullptr));
+Semaphore g_interrupt_commit_count(CreateSemaphore(nullptr, 0, 10240, nullptr));
 std::atomic<bool> g_system_timer_int(false);
 std::atomic<bool> g_core_notifi_int(false);
+std::atomic<uint32_t> g_interrupt_num(0);
 
 void suspend_thread(ThreadContextArch &context)
 {
@@ -42,7 +44,17 @@ void resume_thread(ThreadContextArch &context)
 
 void notify_interrupt()
 {
+    ++g_interrupt_num;
     THROW_WIN32_IF_NOT(ReleaseSemaphore(g_interrupt_count.Get(), 1, NULL));
+}
+
+void wait_interrupt_clear()
+{
+    while (g_interrupt_num--)
+    {
+        if (WaitForSingleObject(g_interrupt_commit_count.Get(), INFINITE) == WAIT_ABANDONED)
+            break;
+    }
 }
 
 void system_timer_main(void *arg)
@@ -88,10 +100,17 @@ void interrupt_sender_main(void *arg)
                     context = running_thread->Context.Arch;
                 }
 
+                THROW_WIN32_IF_NOT(ReleaseSemaphore(g_interrupt_commit_count.Get(), 1, nullptr));
+
                 if (g_system_timer_int.exchange(false))
                 {
                     IRQDispatcher::DispatchSystemIRQ(KernelServices::_s_get_IRQDispatcher(),
                         SystemIRQ::from(SystemIRQ::SystemTick), context);
+                }
+                else if (g_core_notifi_int.exchange(false))
+                {
+                    IRQDispatcher::DispatchSystemIRQ(KernelServices::_s_get_IRQDispatcher(),
+                        SystemIRQ::from(SystemIRQ::CoreNotification), context);
                 }
             }
         }
@@ -116,6 +135,7 @@ void ChipControl::_s_Initialize()
     assert(intr_thrd);
     assert(g_interrupt_enabled_event.IsValid());
     assert(g_interrupt_count.IsValid());
+    assert(g_interrupt_commit_count.IsValid());
     THROW_IF_FAILED(SetThreadDescription((HANDLE)intr_thrd, L"Interrupt Sender"));
 
     auto dev = make_object<Chip::Emulator::HAL::IO::Console>();
@@ -124,24 +144,27 @@ void ChipControl::_s_Initialize()
 
 UIntPtr ChipControl::_s_DisableInterrupt()
 {
-    if (g_interrupt_enabled.exchange(false))
+    auto old = g_interrupt_enabled.exchange(false);
+    if (old)
     {
         EnterCriticalSection(&g_interrupt_cs);
         THROW_WIN32_IF_NOT(ResetEvent(g_interrupt_enabled_event.Get()));
     }
 
-    return 0;
+    return old;
 }
 
 UIntPtr ChipControl::_s_EnableInterrupt()
 {
-    if (!g_interrupt_enabled.exchange(true))
+    auto old = g_interrupt_enabled.exchange(true);
+    if (!old)
     {
         LeaveCriticalSection(&g_interrupt_cs);
         THROW_WIN32_IF_NOT(SetEvent(g_interrupt_enabled_event.Get()));
+        wait_interrupt_clear();
     }
 
-    return 1;
+    return old;
 }
 
 void ChipControl::_s_RestoreInterrupt(UIntPtr state)
@@ -151,12 +174,13 @@ void ChipControl::_s_RestoreInterrupt(UIntPtr state)
     {
         if (state)
         {
-            EnterCriticalSection(&g_interrupt_cs);
+            LeaveCriticalSection(&g_interrupt_cs);
             THROW_WIN32_IF_NOT(SetEvent(g_interrupt_enabled_event.Get()));
+            wait_interrupt_clear();
         }
         else
         {
-            LeaveCriticalSection(&g_interrupt_cs);
+            EnterCriticalSection(&g_interrupt_cs);
             THROW_WIN32_IF_NOT(ResetEvent(g_interrupt_enabled_event.Get()));
         }
     }
