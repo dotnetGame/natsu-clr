@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using dnlib.DotNet;
+using dnlib.DotNet.Emit;
 
 namespace Natsu.Compiler
 {
@@ -856,6 +857,20 @@ namespace Natsu.Compiler
         public static bool IsSameType(ITypeDefOrRef type1, ITypeDefOrRef type2)
         {
             return type1 == type2 || type1 == type2.Scope;
+        }
+
+        public static string GetLocalName(Local local, MethodDef method)
+        {
+            string localName = null;
+            if (method.Body.HasPdbMethod)
+            {
+                var scope = method.Body.PdbMethod.Scope;
+                var pdbLocal = scope.Variables.FirstOrDefault(x => x.Index == local.Index);
+                if (pdbLocal != null)
+                    localName = pdbLocal.Name;
+            }
+
+            return localName ?? $"_l{local.Index}";
         }
     }
 }

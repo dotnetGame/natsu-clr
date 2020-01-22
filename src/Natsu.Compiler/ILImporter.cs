@@ -1098,20 +1098,20 @@ namespace Natsu.Compiler
         public void Ldloc()
         {
             var local = Op.GetLocal(Method.Body.Variables.ToList());
-            Stack.Push(TypeUtils.GetStackType(local.Type), $"::natsu::stack_from(_l{local.Index})");
+            Stack.Push(TypeUtils.GetStackType(local.Type), $"::natsu::stack_from({TypeUtils.GetLocalName(local, Method)})");
         }
 
         public void Ldloca()
         {
             var local = Op.GetLocal(Method.Body.Variables.ToList());
-            Stack.Push(StackTypeCode.Ref, $"::natsu::ops::ref(_l{local.Index})");
+            Stack.Push(StackTypeCode.Ref, $"::natsu::ops::ref({TypeUtils.GetLocalName(local, Method)})");
         }
 
         public void Stloc()
         {
             var local = Op.GetLocal(Method.Body.Variables.ToList());
             var value = Stack.Pop();
-            Writer.Ident(Ident).WriteLine($"_l{local.Index} = {CastExpression(local.Type, value)};");
+            Writer.Ident(Ident).WriteLine($"{TypeUtils.GetLocalName(local, Method)} = {CastExpression(local.Type, value)};");
         }
 
         public void Br()
