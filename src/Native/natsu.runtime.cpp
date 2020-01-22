@@ -57,10 +57,10 @@ native_int ops::ldlen(const O &obj)
     return (intptr_t)stack_to<gc_obj_ref<RawSzArrayData>>(obj)->Count;
 }
 
-void ops::throw_(const stack::O &obj)
+void ops::throw_(gc_obj_ref<Exception> obj)
 {
     check_null_obj_ref(obj);
-    throw make_exception(stack_to<gc_obj_ref<Exception>>(obj));
+    throw make_exception(obj);
 }
 
 #ifndef _MSC_VER

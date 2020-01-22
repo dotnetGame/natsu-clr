@@ -111,7 +111,7 @@ namespace Natsu.Compiler
                     throw new NotSupportedException();
             }
 
-            return new StackType { Code = code, Name = EscapeVariableTypeName(type) };
+            return new StackType { Code = code, Name = EscapeVariableTypeName(type), TypeSig = type };
         }
 
         public static TypeSig ThisType(ITypeDefOrRef type)
@@ -679,15 +679,19 @@ namespace Natsu.Compiler
         {
             var text = value switch
             {
-                char i => ((ushort)i).ToString(),
-                byte i => i.ToString(),
-                sbyte i => i.ToString(),
-                ushort i => i.ToString(),
-                short i => i.ToString(),
-                uint i => i.ToString(),
-                int i => i.ToString(),
+                char i => char.IsLetterOrDigit(i) || char.IsSymbol(i) ? $"u'{i.ToString()}'" : $"u'\\x{((ushort)i).ToString("x")}'",
+                byte i => $"uint8_t({i.ToString()})",
+                sbyte i => $"int8_t({i.ToString()})",
+                ushort i => $"uint16_t({i.ToString()})",
+                short i => $"int16_t({i.ToString()})",
+                uint i => i.ToString() + "U",
+                int i => i == int.MinValue
+                    ? "int32_t(0x" + Unsafe.As<int, uint>(ref i).ToString("X") + ") /* " + i.ToString() + "*/"
+                    : i.ToString(),
                 ulong i => i.ToString() + "ULL",
-                long i => "::natsu::to_int64(0x" + Unsafe.As<long, ulong>(ref i).ToString("X") + ") /* " + i.ToString() + "*/",
+                long i => i == long.MinValue
+                    ? "int64_t(0x" + Unsafe.As<long, ulong>(ref i).ToString("X") + ") /* " + i.ToString() + "*/"
+                    : i.ToString() + "LL",
                 float i => EscapeFloat(i),
                 double i => EscapeFloat(i),
 
@@ -767,25 +771,28 @@ namespace Natsu.Compiler
 
         public static string EscapeStackTypeName(StackType stackType)
         {
-            switch (stackType.Code)
-            {
-                case StackTypeCode.Int32:
-                    return "::natsu::stack::int32";
-                case StackTypeCode.Int64:
-                    return "::natsu::stack::int64";
-                case StackTypeCode.NativeInt:
-                    return "::natsu::stack::native_int";
-                case StackTypeCode.F:
-                    return "::natsu::stack::F";
-                case StackTypeCode.O:
-                    return "::natsu::stack::O";
-                case StackTypeCode.Ref:
-                    return "::natsu::stack::Ref";
-                default:
-                    if (string.IsNullOrEmpty(stackType.Name))
-                        throw new NotSupportedException(stackType.ToString());
-                    return stackType.Name;
-            }
+            if (!string.IsNullOrEmpty(stackType.Name))
+                return stackType.Name;
+
+            throw new NotSupportedException(stackType.ToString());
+
+            //switch (stackType.Code)
+            //{
+            //    case StackTypeCode.Int32:
+            //        return "::natsu::stack::int32";
+            //    case StackTypeCode.Int64:
+            //        return "::natsu::stack::int64";
+            //    case StackTypeCode.NativeInt:
+            //        return "::natsu::stack::native_int";
+            //    case StackTypeCode.F:
+            //        return "::natsu::stack::F";
+            //    case StackTypeCode.O:
+            //        return "::natsu::stack::O";
+            //    case StackTypeCode.Ref:
+            //        return "::natsu::stack::Ref";
+            //    default:
+            //        throw new NotSupportedException(stackType.ToString());
+            //}
         }
 
         public static string EscapeCSharpTypeName(string name)
@@ -871,6 +878,23 @@ namespace Natsu.Compiler
             }
 
             return localName ?? $"_l{local.Index}";
+        }
+
+        public static bool IsRefOrPtr(StackTypeCode type)
+        {
+            switch (type)
+            {
+                case StackTypeCode.Int32:
+                case StackTypeCode.Int64:
+                case StackTypeCode.NativeInt:
+                case StackTypeCode.F:
+                    return false;
+                case StackTypeCode.O:
+                case StackTypeCode.Ref:
+                    return true;
+                default:
+                    throw new NotSupportedException();
+            }
         }
     }
 }

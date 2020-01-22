@@ -23,6 +23,8 @@ namespace Natsu.Compiler
     {
         public StackTypeCode Code;
 
+        public TypeSig TypeSig;
+
         public string Name;
     }
 
@@ -31,6 +33,8 @@ namespace Natsu.Compiler
         public StackType Type { get; set; }
 
         public string Expression { get; set; }
+
+        public bool Computed { get; set; }
 
         public override string ToString()
         {
@@ -72,20 +76,45 @@ namespace Natsu.Compiler
             }
             else
             {
-                var id = $"_v{_paramIndex++}";
-                _writer.Ident(Ident).WriteLine($"auto {id} = {entry.Expression};");
-                _stackValues.Push(new StackEntry { Type = entry.Type, Expression = id });
+                //var id = $"_v{_paramIndex++}";
+                //_writer.Ident(Ident).WriteLine($"auto {id} = {entry.Expression};");
+                //_stackValues.Push(new StackEntry { Type = entry.Type, Expression = id });
+                _stackValues.Push(entry);
             }
         }
 
-        public void Push(StackType type, string expression)
+        public void Compute()
         {
-            Push(new StackEntry { Type = type, Expression = expression });
+            var entry = _stackValues.Peek();
+            if (!entry.Computed)
+            {
+                _stackValues.Pop();
+                var id = $"_v{_paramIndex++}";
+                _writer.Ident(Ident).WriteLine($"auto {id} = {entry.Expression};");
+                var newEntry = new StackEntry { Type = entry.Type, Expression = id, Computed = true };
+                _stackValues.Push(newEntry);
+            }
         }
 
-        public void Push(StackTypeCode type, string expression)
+        public void Dup()
         {
-            Push(new StackEntry { Type = new StackType { Code = type }, Expression = expression });
+            Compute();
+            Push(Peek());
+        }
+
+        public void Push(StackType type, string expression, bool computed = false)
+        {
+            Push(new StackEntry { Type = type, Expression = expression, Computed = computed });
+        }
+
+        public void Push(ITypeDefOrRef type, string expression, bool computed = false)
+        {
+            Push(new StackEntry { Type = TypeUtils.GetStackType(type.ToTypeSig()), Expression = expression, Computed = computed });
+        }
+
+        public void Push(TypeSig type, string expression, bool computed = false)
+        {
+            Push(new StackEntry { Type = TypeUtils.GetStackType(type), Expression = expression, Computed = computed });
         }
 
         public StackEntry Pop()

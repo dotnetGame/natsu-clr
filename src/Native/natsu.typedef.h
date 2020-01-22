@@ -101,11 +101,17 @@ struct vtable_holder
 {
     static const constexpr T value = T();
 
-    static constexpr const T &get()
+    static constexpr const T &get() noexcept
     {
         return value;
     }
 };
+
+template <class T>
+auto &vtable() noexcept
+{
+    return vtable_holder<typename T::VTable>::get();
+}
 
 typedef struct _vtable
 {
@@ -398,7 +404,7 @@ struct gc_ptr<void>
     }
 };
 
-template <class T>
+template <class T = ::System_Private_CoreLib::System::Object>
 struct gc_obj_ref
 {
     T *ptr_;
@@ -413,15 +419,8 @@ struct gc_obj_ref
     {
     }
 
-    template <class U>
-    gc_obj_ref(gc_obj_ref<U> &&other) noexcept
-        : ptr_(reinterpret_cast<T *>(other.ptr_))
-    {
-        other.ptr_ = nullptr;
-    }
-
     template <class U, class = std::enable_if_t<std::is_convertible_v<U *, T *>>>
-    gc_obj_ref(const gc_obj_ref<U> &other) noexcept
+    constexpr gc_obj_ref(const gc_obj_ref<U> &other) noexcept
         : ptr_(static_cast<T *>(other.ptr_))
     {
     }
@@ -447,9 +446,9 @@ struct gc_obj_ref
         return ptr_;
     }
 
-    explicit operator uintptr_t() const noexcept
+    operator gc_obj_ref<>() const noexcept
     {
-        return reinterpret_cast<uintptr_t>(ptr_);
+        return gc_obj_ref<>(reinterpret_cast<::System_Private_CoreLib::System::Object *>(ptr_));
     }
 
     template <class U>

@@ -120,7 +120,7 @@ gc_obj_ref<T> gc_new()
 }
 
 template <class T>
-gc_obj_ref<::System_Private_CoreLib::System::SZArray_1<T>> gc_new_array(stack::int32 length)
+gc_obj_ref<::System_Private_CoreLib::System::SZArray_1<T>> gc_new_array(int32_t length)
 {
     using obj_t = ::System_Private_CoreLib::System::SZArray_1<T>;
     auto size = sizeof(obj_t) + (size_t)length.value_ * sizeof(T);
@@ -246,12 +246,6 @@ clr_finally<TCall> make_finally(TCall &&call)
 {
     return { std::forward<TCall>(call) };
 }
-
-template <class TFrom>
-auto stack_from(const TFrom &value);
-
-template <class TTo, class TFrom>
-auto stack_to(TFrom &&value);
 }
 
 namespace natsu
@@ -471,37 +465,37 @@ namespace stack
         template <class T>
         struct box_impl
         {
-            O operator()(T value)
+            auto operator()(T value)
             {
                 auto box = gc_new<T>();
                 *box = value;
-                return stack_from(box);
+                return box;
             }
         };
 
         template <class T>
         struct box_impl<gc_obj_ref<T>>
         {
-            O operator()(const gc_obj_ref<T> &value) const noexcept
+            gc_obj_ref<T> operator()(const gc_obj_ref<T> &value) const noexcept
             {
-                return stack_from(value);
+                return value;
             }
         };
 
         template <class T>
         struct box_impl<::System_Private_CoreLib::System::Nullable_1<T>>
         {
-            O operator()(const ::System_Private_CoreLib::System::Nullable_1<T> &value) const noexcept
+            auto operator()(const ::System_Private_CoreLib::System::Nullable_1<T> &value) const noexcept
             {
                 if (value.hasValue)
                 {
                     auto box = gc_new<T>();
                     box->value__ = value;
-                    return stack_from(box);
+                    return box;
                 }
                 else
                 {
-                    return null;
+                    return natsu::null;
                 }
             }
         };
@@ -606,10 +600,10 @@ namespace stack
             }
         };
 
-        template <class T>
+        template <class TFrom, class TTo>
         struct isinst_impl
         {
-            O operator()(const O &obj) const noexcept
+            gc_obj_ref<TTo> operator()(gc_obj_ref<TFrom> obj) const noexcept
             {
                 if (obj && obj.header().vtable_as<typename natsu::to_clr_type_t<T>::VTable>())
                     return obj;
@@ -683,250 +677,29 @@ namespace stack
                 return stack_to<TTo>(obj);
             }
         };
+
+        template <class T1, class T2>
+        struct ceq_impl
+        {
+            int32_t operator()(const T1 &lhs, const T2 rhs) const noexcept
+            {
+                return lhs == rhs;
+            }
+        };
+
+        template <class T1, class T2>
+        struct cgt_un_impl
+        {
+            int32_t operator()(const T1 &lhs, const T2 rhs) const noexcept
+            {
+                return std::lhs == rhs;
+            }
+        };
     }
-}
-
-template <class TFrom>
-auto stack_from(const TFrom &value)
-{
-    return stack::details::stack_from_impl<std::decay_t<TFrom>>()(value);
-}
-
-template <class TTo, class TFrom>
-auto stack_to(TFrom &&value)
-{
-    return stack::details::stack_to_impl<std::decay_t<TFrom>, TTo>()(std::forward<TFrom>(value));
 }
 
 namespace ops
 {
-#define BINARY_OP_IMPL(name, op, A, B, Ret, Med, Cast)                                          \
-    inline Ret name##_(const A &lhs, const B &rhs) noexcept                                     \
-    {                                                                                           \
-        return static_cast<Cast>(static_cast<Med>(lhs.value_) op static_cast<Med>(rhs.value_)); \
-    }
-
-    BINARY_OP_IMPL(add, +, stack::int32, stack::int32, stack::int32, int32_t, int32_t);
-    BINARY_OP_IMPL(add, +, stack::int32, stack::native_int, stack::native_int, intptr_t, intptr_t);
-    BINARY_OP_IMPL(add, +, stack::int32, stack::Ref, stack::Ref, intptr_t, uintptr_t);
-    BINARY_OP_IMPL(add, +, stack::int64, stack::int64, stack::int64, int64_t, int64_t);
-    BINARY_OP_IMPL(add, +, stack::native_int, stack::int32, stack::native_int, intptr_t, intptr_t);
-    BINARY_OP_IMPL(add, +, stack::native_int, stack::native_int, stack::native_int, intptr_t, intptr_t);
-    BINARY_OP_IMPL(add, +, stack::native_int, stack::Ref, stack::Ref, intptr_t, uintptr_t);
-    BINARY_OP_IMPL(add, +, stack::F, stack::F, stack::F, double, double);
-    BINARY_OP_IMPL(add, +, stack::Ref, stack::int32, stack::Ref, intptr_t, uintptr_t);
-    BINARY_OP_IMPL(add, +, stack::Ref, stack::native_int, stack::Ref, intptr_t, uintptr_t);
-
-    BINARY_OP_IMPL(sub, -, stack::int32, stack::int32, stack::int32, int32_t, int32_t);
-    BINARY_OP_IMPL(sub, -, stack::int32, stack::native_int, stack::native_int, intptr_t, intptr_t);
-    BINARY_OP_IMPL(sub, -, stack::int64, stack::int64, stack::int64, int64_t, int64_t);
-    BINARY_OP_IMPL(sub, -, stack::native_int, stack::int32, stack::native_int, intptr_t, intptr_t);
-    BINARY_OP_IMPL(sub, -, stack::native_int, stack::native_int, stack::native_int, intptr_t, intptr_t);
-    BINARY_OP_IMPL(sub, -, stack::F, stack::F, stack::F, double, double);
-    BINARY_OP_IMPL(sub, -, stack::Ref, stack::int32, stack::Ref, intptr_t, uintptr_t);
-    BINARY_OP_IMPL(sub, -, stack::Ref, stack::native_int, stack::Ref, intptr_t, uintptr_t);
-    BINARY_OP_IMPL(sub, -, stack::Ref, stack::Ref, stack::native_int, intptr_t, intptr_t);
-
-    BINARY_OP_IMPL(mul, *, stack::int32, stack::int32, stack::int32, int32_t, int32_t);
-    BINARY_OP_IMPL(mul, *, stack::int32, stack::native_int, stack::native_int, intptr_t, intptr_t);
-    BINARY_OP_IMPL(mul, *, stack::int64, stack::int64, stack::int64, int64_t, int64_t);
-    BINARY_OP_IMPL(mul, *, stack::native_int, stack::int32, stack::native_int, intptr_t, intptr_t);
-    BINARY_OP_IMPL(mul, *, stack::native_int, stack::native_int, stack::native_int, intptr_t, intptr_t);
-    BINARY_OP_IMPL(mul, *, stack::F, stack::F, stack::F, double, double);
-
-    BINARY_OP_IMPL(div, /, stack::int32, stack::int32, stack::int32, int32_t, int32_t);
-    BINARY_OP_IMPL(div, /, stack::int32, stack::native_int, stack::native_int, intptr_t, intptr_t);
-    BINARY_OP_IMPL(div, /, stack::int64, stack::int64, stack::int64, int64_t, int64_t);
-    BINARY_OP_IMPL(div, /, stack::native_int, stack::int32, stack::native_int, intptr_t, intptr_t);
-    BINARY_OP_IMPL(div, /, stack::native_int, stack::native_int, stack::native_int, intptr_t, intptr_t);
-    BINARY_OP_IMPL(div, /, stack::F, stack::F, stack::F, double, double);
-
-    BINARY_OP_IMPL(rem, %, stack::int32, stack::int32, stack::int32, int32_t, int32_t);
-    BINARY_OP_IMPL(rem, %, stack::int32, stack::native_int, stack::native_int, intptr_t, intptr_t);
-    BINARY_OP_IMPL(rem, %, stack::int64, stack::int64, stack::int64, int64_t, int64_t);
-    BINARY_OP_IMPL(rem, %, stack::native_int, stack::int32, stack::native_int, intptr_t, intptr_t);
-    BINARY_OP_IMPL(rem, %, stack::native_int, stack::native_int, stack::native_int, intptr_t, intptr_t);
-
-    BINARY_OP_IMPL(and, &, stack::int32, stack::int32, stack::int32, int32_t, int32_t);
-    BINARY_OP_IMPL(and, &, stack::int32, stack::native_int, stack::native_int, intptr_t, intptr_t);
-    BINARY_OP_IMPL(and, &, stack::int64, stack::int64, stack::int64, int64_t, int64_t);
-    BINARY_OP_IMPL(and, &, stack::native_int, stack::int32, stack::native_int, intptr_t, intptr_t);
-    BINARY_OP_IMPL(and, &, stack::native_int, stack::native_int, stack::native_int, intptr_t, intptr_t);
-
-    BINARY_OP_IMPL(or, |, stack::int32, stack::int32, stack::int32, int32_t, int32_t);
-    BINARY_OP_IMPL(or, |, stack::int32, stack::native_int, stack::native_int, intptr_t, intptr_t);
-    BINARY_OP_IMPL(or, |, stack::int64, stack::int64, stack::int64, int64_t, int64_t);
-    BINARY_OP_IMPL(or, |, stack::native_int, stack::int32, stack::native_int, intptr_t, intptr_t);
-    BINARY_OP_IMPL(or, |, stack::native_int, stack::native_int, stack::native_int, intptr_t, intptr_t);
-
-    BINARY_OP_IMPL(xor, ^, stack::int32, stack::int32, stack::int32, int32_t, int32_t);
-    BINARY_OP_IMPL(xor, ^, stack::int32, stack::native_int, stack::native_int, intptr_t, intptr_t);
-    BINARY_OP_IMPL(xor, ^, stack::int64, stack::int64, stack::int64, int64_t, int64_t);
-    BINARY_OP_IMPL(xor, ^, stack::native_int, stack::int32, stack::native_int, intptr_t, intptr_t);
-    BINARY_OP_IMPL(xor, ^, stack::native_int, stack::native_int, stack::native_int, intptr_t, intptr_t);
-
-    BINARY_OP_IMPL(shl, <<, stack::int32, stack::int32, stack::int32, int32_t, int32_t);
-    BINARY_OP_IMPL(shl, <<, stack::int32, stack::native_int, stack::native_int, intptr_t, intptr_t);
-    BINARY_OP_IMPL(shl, <<, stack::int64, stack::int32, stack::int64, int64_t, int64_t);
-    BINARY_OP_IMPL(shl, <<, stack::native_int, stack::int32, stack::native_int, intptr_t, intptr_t);
-    BINARY_OP_IMPL(shl, <<, stack::native_int, stack::native_int, stack::native_int, intptr_t, intptr_t);
-
-    BINARY_OP_IMPL(shr, >>, stack::int32, stack::int32, stack::int32, int32_t, int32_t);
-    BINARY_OP_IMPL(shr, >>, stack::int32, stack::native_int, stack::native_int, intptr_t, intptr_t);
-    BINARY_OP_IMPL(shr, >>, stack::int64, stack::int32, stack::int64, int64_t, int64_t);
-    BINARY_OP_IMPL(shr, >>, stack::native_int, stack::int32, stack::native_int, intptr_t, intptr_t);
-    BINARY_OP_IMPL(shr, >>, stack::native_int, stack::native_int, stack::native_int, intptr_t, intptr_t);
-
-    BINARY_OP_IMPL(div_un, /, stack::int32, stack::int32, stack::int32, uint32_t, int32_t);
-    BINARY_OP_IMPL(div_un, /, stack::int32, stack::native_int, stack::native_int, uintptr_t, intptr_t);
-    BINARY_OP_IMPL(div_un, /, stack::int64, stack::int64, stack::int64, uint64_t, int64_t);
-    BINARY_OP_IMPL(div_un, /, stack::native_int, stack::int32, stack::native_int, uintptr_t, intptr_t);
-    BINARY_OP_IMPL(div_un, /, stack::native_int, stack::native_int, stack::native_int, uintptr_t, intptr_t);
-    BINARY_OP_IMPL(div_un, /, stack::F, stack::F, stack::F, double, double);
-
-    BINARY_OP_IMPL(rem_un, %, stack::int32, stack::int32, stack::int32, uint32_t, int32_t);
-    BINARY_OP_IMPL(rem_un, %, stack::int32, stack::native_int, stack::native_int, uintptr_t, intptr_t);
-    BINARY_OP_IMPL(rem_un, %, stack::int64, stack::int64, stack::int64, uint64_t, int64_t);
-    BINARY_OP_IMPL(rem_un, %, stack::native_int, stack::int32, stack::native_int, uintptr_t, intptr_t);
-    BINARY_OP_IMPL(rem_un, %, stack::native_int, stack::native_int, stack::native_int, uintptr_t, intptr_t);
-
-    BINARY_OP_IMPL(shr_un, >>, stack::int32, stack::int32, stack::int32, uint32_t, int32_t);
-    BINARY_OP_IMPL(shr_un, >>, stack::int32, stack::native_int, stack::native_int, uintptr_t, intptr_t);
-    BINARY_OP_IMPL(shr_un, >>, stack::int64, stack::int32, stack::int64, uint64_t, int64_t);
-    BINARY_OP_IMPL(shr_un, >>, stack::native_int, stack::int32, stack::native_int, uintptr_t, intptr_t);
-    BINARY_OP_IMPL(shr_un, >>, stack::native_int, stack::native_int, stack::native_int, uintptr_t, intptr_t);
-
-#undef BINARY_OP_IMPL
-
-    inline stack::F rem_(const stack::F &lhs, const stack::F &rhs) noexcept
-    {
-        return fmod(lhs.value_, rhs.value_);
-    }
-
-#define UNARY_OP_IMPL(name, op, A, Med, Cast)                        \
-    inline A name##_(const A &value) noexcept                        \
-    {                                                                \
-        return static_cast<Cast>(op static_cast<Med>(value.value_)); \
-    }
-
-    UNARY_OP_IMPL(neg, -, stack::int32, int32_t, int32_t);
-    UNARY_OP_IMPL(neg, -, stack::int64, int64_t, int64_t);
-    UNARY_OP_IMPL(neg, -, stack::native_int, intptr_t, intptr_t);
-    UNARY_OP_IMPL(neg, -, stack::F, double, double);
-
-    UNARY_OP_IMPL(not, ~, stack::int32, int32_t, int32_t);
-    UNARY_OP_IMPL(not, ~, stack::int64, int64_t, int64_t);
-    UNARY_OP_IMPL(not, ~, stack::native_int, intptr_t, intptr_t);
-
-#undef UNARY_OP_IMPL
-
-#define COMPARE_OP_IMPL(name, op, A, B, Med)                                         \
-    inline stack::int32 name##_(const A &lhs, const B &rhs) noexcept                 \
-    {                                                                                \
-        return static_cast<Med>(lhs.value_) op static_cast<Med>(rhs.value_) ? 1 : 0; \
-    }
-
-    COMPARE_OP_IMPL(clt, <, stack::int32, stack::int32, int32_t);
-    COMPARE_OP_IMPL(clt, <, stack::int32, stack::native_int, intptr_t);
-    COMPARE_OP_IMPL(clt, <, stack::int64, stack::int64, int64_t);
-    COMPARE_OP_IMPL(clt, <, stack::native_int, stack::int32, intptr_t);
-    COMPARE_OP_IMPL(clt, <, stack::native_int, stack::native_int, intptr_t);
-    COMPARE_OP_IMPL(clt, <, stack::F, stack::F, double);
-    COMPARE_OP_IMPL(clt, <, stack::Ref, stack::Ref, intptr_t);
-
-    COMPARE_OP_IMPL(cle, <=, stack::int32, stack::int32, int32_t);
-    COMPARE_OP_IMPL(cle, <=, stack::int32, stack::native_int, intptr_t);
-    COMPARE_OP_IMPL(cle, <=, stack::int64, stack::int64, int64_t);
-    COMPARE_OP_IMPL(cle, <=, stack::native_int, stack::int32, intptr_t);
-    COMPARE_OP_IMPL(cle, <=, stack::native_int, stack::native_int, intptr_t);
-    COMPARE_OP_IMPL(cle, <=, stack::F, stack::F, double);
-    COMPARE_OP_IMPL(cle, <=, stack::Ref, stack::Ref, intptr_t);
-
-    COMPARE_OP_IMPL(ceq, ==, stack::int32, stack::int32, int32_t);
-    COMPARE_OP_IMPL(ceq, ==, stack::int32, stack::native_int, intptr_t);
-    COMPARE_OP_IMPL(ceq, ==, stack::int64, stack::int64, int64_t);
-    COMPARE_OP_IMPL(ceq, ==, stack::native_int, stack::int32, intptr_t);
-    COMPARE_OP_IMPL(ceq, ==, stack::native_int, stack::native_int, intptr_t);
-    COMPARE_OP_IMPL(ceq, ==, stack::native_int, stack::Ref, intptr_t);
-    COMPARE_OP_IMPL(ceq, ==, stack::F, stack::F, double);
-    COMPARE_OP_IMPL(ceq, ==, stack::Ref, stack::Ref, intptr_t);
-    COMPARE_OP_IMPL(ceq, ==, stack::Ref, stack::native_int, intptr_t);
-    COMPARE_OP_IMPL(ceq, ==, stack::O, stack::O, intptr_t);
-
-    COMPARE_OP_IMPL(cge, >=, stack::int32, stack::int32, int32_t);
-    COMPARE_OP_IMPL(cge, >=, stack::int32, stack::native_int, intptr_t);
-    COMPARE_OP_IMPL(cge, >=, stack::int64, stack::int64, int64_t);
-    COMPARE_OP_IMPL(cge, >=, stack::native_int, stack::int32, intptr_t);
-    COMPARE_OP_IMPL(cge, >=, stack::native_int, stack::native_int, intptr_t);
-    COMPARE_OP_IMPL(cge, >=, stack::F, stack::F, double);
-    COMPARE_OP_IMPL(cge, >=, stack::Ref, stack::Ref, intptr_t);
-
-    COMPARE_OP_IMPL(cgt, >, stack::int32, stack::int32, int32_t);
-    COMPARE_OP_IMPL(cgt, >, stack::int32, stack::native_int, intptr_t);
-    COMPARE_OP_IMPL(cgt, >, stack::int64, stack::int64, int64_t);
-    COMPARE_OP_IMPL(cgt, >, stack::native_int, stack::int32, intptr_t);
-    COMPARE_OP_IMPL(cgt, >, stack::native_int, stack::native_int, intptr_t);
-    COMPARE_OP_IMPL(cgt, >, stack::F, stack::F, double);
-    COMPARE_OP_IMPL(cgt, >, stack::Ref, stack::Ref, intptr_t);
-
-    COMPARE_OP_IMPL(cne, !=, stack::int32, stack::int32, int32_t);
-    COMPARE_OP_IMPL(cne, !=, stack::int32, stack::native_int, intptr_t);
-    COMPARE_OP_IMPL(cne, !=, stack::int64, stack::int64, int64_t);
-    COMPARE_OP_IMPL(cne, !=, stack::native_int, stack::int32, intptr_t);
-    COMPARE_OP_IMPL(cne, !=, stack::native_int, stack::native_int, intptr_t);
-    COMPARE_OP_IMPL(cne, !=, stack::F, stack::F, double);
-    COMPARE_OP_IMPL(cne, !=, stack::Ref, stack::Ref, intptr_t);
-    COMPARE_OP_IMPL(cne, !=, stack::O, stack::O, intptr_t);
-
-    COMPARE_OP_IMPL(clt_un, <, stack::int32, stack::int32, uint32_t);
-    COMPARE_OP_IMPL(clt_un, <, stack::int32, stack::native_int, uintptr_t);
-    COMPARE_OP_IMPL(clt_un, <, stack::int64, stack::int64, uint64_t);
-    COMPARE_OP_IMPL(clt_un, <, stack::native_int, stack::int32, uintptr_t);
-    COMPARE_OP_IMPL(clt_un, <, stack::native_int, stack::native_int, uintptr_t);
-    COMPARE_OP_IMPL(clt_un, <, stack::F, stack::F, double);
-    COMPARE_OP_IMPL(clt_un, <, stack::Ref, stack::Ref, uintptr_t);
-
-    COMPARE_OP_IMPL(cle_un, <=, stack::int32, stack::int32, uint32_t);
-    COMPARE_OP_IMPL(cle_un, <=, stack::int32, stack::native_int, uintptr_t);
-    COMPARE_OP_IMPL(cle_un, <=, stack::int64, stack::int64, uint64_t);
-    COMPARE_OP_IMPL(cle_un, <=, stack::native_int, stack::int32, uintptr_t);
-    COMPARE_OP_IMPL(cle_un, <=, stack::native_int, stack::native_int, uintptr_t);
-    COMPARE_OP_IMPL(cle_un, <=, stack::F, stack::F, double);
-    COMPARE_OP_IMPL(cle_un, <=, stack::Ref, stack::Ref, uintptr_t);
-
-    COMPARE_OP_IMPL(cge_un, >=, stack::int32, stack::int32, uint32_t);
-    COMPARE_OP_IMPL(cge_un, >=, stack::int32, stack::native_int, uintptr_t);
-    COMPARE_OP_IMPL(cge_un, >=, stack::int64, stack::int64, uint64_t);
-    COMPARE_OP_IMPL(cge_un, >=, stack::native_int, stack::int32, uintptr_t);
-    COMPARE_OP_IMPL(cge_un, >=, stack::native_int, stack::native_int, uintptr_t);
-    COMPARE_OP_IMPL(cge_un, >=, stack::F, stack::F, double);
-    COMPARE_OP_IMPL(cge_un, >=, stack::Ref, stack::Ref, uintptr_t);
-
-    COMPARE_OP_IMPL(cgt_un, >, stack::int32, stack::int32, uint32_t);
-    COMPARE_OP_IMPL(cgt_un, >, stack::int32, stack::native_int, uintptr_t);
-    COMPARE_OP_IMPL(cgt_un, >, stack::int64, stack::int64, uint64_t);
-    COMPARE_OP_IMPL(cgt_un, >, stack::native_int, stack::int32, uintptr_t);
-    COMPARE_OP_IMPL(cgt_un, >, stack::native_int, stack::native_int, uintptr_t);
-    COMPARE_OP_IMPL(cgt_un, >, stack::F, stack::F, double);
-    COMPARE_OP_IMPL(cgt_un, >, stack::Ref, stack::Ref, uintptr_t);
-    // TODO: invalid in ECMA335?, but roslyn generates
-    COMPARE_OP_IMPL(cgt_un, >, stack::O, stack::O, uintptr_t);
-
-    COMPARE_OP_IMPL(cne_un, !=, stack::int32, stack::int32, uint32_t);
-    COMPARE_OP_IMPL(cne_un, !=, stack::int32, stack::native_int, uintptr_t);
-    COMPARE_OP_IMPL(cne_un, !=, stack::int64, stack::int64, uint64_t);
-    COMPARE_OP_IMPL(cne_un, !=, stack::native_int, stack::int32, uintptr_t);
-    COMPARE_OP_IMPL(cne_un, !=, stack::native_int, stack::native_int, uintptr_t);
-    COMPARE_OP_IMPL(cne_un, !=, stack::native_int, stack::Ref, uintptr_t);
-    COMPARE_OP_IMPL(cne_un, !=, stack::F, stack::F, double);
-    COMPARE_OP_IMPL(cne_un, !=, stack::Ref, stack::Ref, uintptr_t);
-    COMPARE_OP_IMPL(cne_un, !=, stack::Ref, stack::native_int, uintptr_t);
-    COMPARE_OP_IMPL(cne_un, !=, stack::O, stack::O, uintptr_t);
-
-#undef COMPARE_OP_IMPL
-
-    stack::native_int ldlen(const stack::O &obj);
-
     template <class T, class... TArgs>
     auto newobj(TArgs... args)
     {
@@ -934,67 +707,61 @@ namespace ops
         {
             T value;
             value._ctor(value, std::forward<TArgs>(args)...);
-            return stack_from(value);
+            return value;
         }
         else if constexpr (std::is_same_v<T, ::System_Private_CoreLib::System::String>)
         {
             auto value = ::System_Private_CoreLib::System::String::_s_Ctor(std::forward<TArgs>(args)...);
-            return stack_from(value);
+            return value;
         }
         else
         {
             auto value = gc_new<T>();
             value->_ctor(value, std::forward<TArgs>(args)...);
-            return stack_from(value);
+            return value;
         }
     }
 
     template <class TFrom>
-    stack::O box(TFrom &&value) noexcept
+    auto box(TFrom &&value) noexcept
     {
         return stack::details::box_impl<std::decay_t<TFrom>>()(std::forward<TFrom>(value));
     }
 
-    template <class T>
-    stack::Ref unbox(const stack::O &obj)
+    template <class TFrom, class TTo>
+    auto unbox(TFrom &&obj)
     {
-        return stack::details::unbox_impl<T>()(obj);
+        return stack::details::unbox_impl<TTo>()(obj);
     }
 
-    template <class T>
-    auto unbox_any(const stack::O &obj)
+    template <class TFrom, class TTo>
+    auto unbox_any(TFrom &&obj)
     {
         return stack::details::unbox_any_impl<T>()(obj);
     }
 
     template <class TFrom>
-    stack::Ref ref(TFrom &value) noexcept
+    natsu::gc_ref<TFrom> ref(TFrom &value) noexcept
     {
-        return reinterpret_cast<uintptr_t>(&value);
-    }
-
-    template <class TTo, class TFrom>
-    auto access(TFrom &&value) noexcept
-    {
-        return stack::details::access_impl<std::decay_t<TFrom>, TTo>()(std::forward<TFrom>(value));
+        return natsu::gc_ref_from_ref(&value);
     }
 
     template <class TFrom>
-    void initobj(const stack::Ref &addr) noexcept
+    void initobj(gc_ref<TFrom> addr) noexcept
     {
         std::memset((void *)addr.value_, 0, sizeof(TFrom));
     }
 
     template <class TFrom>
-    void initobj(const stack::native_int &addr) noexcept
+    void initobj(intptr_t addr) noexcept
     {
-        std::memset((void *)addr.value_, 0, sizeof(TFrom));
+        std::memset((void *)addr, 0, sizeof(TFrom));
     }
 
-    template <class T>
-    stack::O isinst(const stack::O &obj) noexcept
+    template <class TFrom, class TTo>
+    auto isinst(gc_obj_ref<TFrom> obj) noexcept
     {
-        return stack::details::isinst_impl<T>()(obj);
+        return stack::details::isinst_impl<TFrom, TTo>()(obj);
     }
 
     template <class T>
@@ -1003,377 +770,11 @@ namespace ops
         return stack::details::castclass_impl<T>()(obj);
     }
 
-#define LDELEM_IMPL(name, type, value_type)                                                         \
-    inline value_type ldelem_##name(const stack::O &obj, stack::int32 index)                        \
-    {                                                                                               \
-        using ::System_Private_CoreLib::System::SZArray_1;                                          \
-        return stack_from(stack_to<gc_obj_ref<SZArray_1<type>>>(obj)->at((uint32_t)index.value_));  \
-    }                                                                                               \
-    inline value_type ldelem_##name(const stack::O &obj, stack::native_int index)                   \
-    {                                                                                               \
-        using ::System_Private_CoreLib::System::SZArray_1;                                          \
-        return stack_from(stack_to<gc_obj_ref<SZArray_1<type>>>(obj)->at((uintptr_t)index.value_)); \
-    }
-
-    LDELEM_IMPL(i1, int8_t, stack::int32);
-    LDELEM_IMPL(i2, int16_t, stack::int32);
-    LDELEM_IMPL(i4, int32_t, stack::int32);
-    LDELEM_IMPL(i8, int64_t, stack::int64);
-    LDELEM_IMPL(r4, float, stack::F);
-    LDELEM_IMPL(r8, double, stack::F);
-    LDELEM_IMPL(i, ::System_Private_CoreLib::System::IntPtr, stack::native_int);
-    LDELEM_IMPL(u1, uint8_t, stack::int32);
-    LDELEM_IMPL(u2, uint16_t, stack::int32);
-    LDELEM_IMPL(u4, uint32_t, stack::int32);
-    LDELEM_IMPL(u8, uint64_t, stack::int64);
-    LDELEM_IMPL(u, ::System_Private_CoreLib::System::UIntPtr, stack::native_int);
-
-    inline stack::O ldelem_ref(const stack::O &obj, stack::int32 index)
-    {
-        using ::System_Private_CoreLib::System::Object;
-        using ::System_Private_CoreLib::System::SZArray_1;
-        return stack_from(stack_to<gc_obj_ref<SZArray_1<Object>>>(obj)->at((uint32_t)index.value_));
-    }
-
-    inline stack::O ldelem_ref(const stack::O &obj, stack::native_int index)
-    {
-        using ::System_Private_CoreLib::System::Object;
-        using ::System_Private_CoreLib::System::SZArray_1;
-        return stack_from(stack_to<gc_obj_ref<SZArray_1<Object>>>(obj)->at((uintptr_t)index.value_));
-    }
-
     template <class T>
-    inline auto ldelem(const stack::O &obj, stack::int32 index)
+    constexpr auto unsign(T value) noexcept
     {
-        using ::System_Private_CoreLib::System::Object;
-        using ::System_Private_CoreLib::System::SZArray_1;
-        return stack_from(stack_to<gc_obj_ref<SZArray_1<T>>>(obj)->at((uint32_t)index.value_));
-    }
-
-    template <class T>
-    inline auto ldelem(const stack::O &obj, stack::native_int index)
-    {
-        using ::System_Private_CoreLib::System::Object;
-        using ::System_Private_CoreLib::System::SZArray_1;
-        return stack_from(stack_to<gc_obj_ref<SZArray_1<T>>>(obj)->at((uintptr_t)index.value_));
-    }
-
-#undef LDELEM_IMPL
-
-#define STELEM_IMPL(name, type, value_type, cast)                                                       \
-    inline void stelem_##name(const stack::O &obj, stack::int32 index, value_type value)                \
-    {                                                                                                   \
-        using ::System_Private_CoreLib::System::SZArray_1;                                              \
-        stack_to<gc_obj_ref<SZArray_1<type>>>(obj)->at(index.value_) = static_cast<cast>(value.value_); \
-    }
-
-    STELEM_IMPL(i1, int8_t, stack::int32, int8_t);
-    STELEM_IMPL(i2, int16_t, stack::int32, int16_t);
-    STELEM_IMPL(i4, int32_t, stack::int32, int32_t);
-    STELEM_IMPL(i8, int64_t, stack::int64, int64_t);
-    STELEM_IMPL(r4, float, stack::F, float);
-    STELEM_IMPL(r8, double, stack::F, double);
-    STELEM_IMPL(i, ::System_Private_CoreLib::System::IntPtr, stack::native_int, intptr_t);
-
-    inline void stelem_ref(const stack::O &obj, stack::int32 index, stack::O value)
-    {
-        using ::System_Private_CoreLib::System::Object;
-        using ::System_Private_CoreLib::System::SZArray_1;
-        stack_to<gc_obj_ref<SZArray_1<Object>>>(obj)->at(index.value_) = stack_to<gc_obj_ref<Object>>(value);
-    }
-
-    template <class T, class TStack>
-    void stelem(const stack::O &obj, stack::int32 index, TStack value)
-    {
-        using ::System_Private_CoreLib::System::Object;
-        using ::System_Private_CoreLib::System::SZArray_1;
-        stack_to<gc_obj_ref<SZArray_1<T>>>(obj)->at((uint32_t)index.value_) = stack_to<variable_type_t<T>>(value);
-    }
-
-    template <class T, class TStack>
-    void stelem(const stack::O &obj, stack::native_int index, TStack value)
-    {
-        using ::System_Private_CoreLib::System::Object;
-        using ::System_Private_CoreLib::System::SZArray_1;
-        stack_to<gc_obj_ref<SZArray_1<T>>>(obj)->at((uint32_t)index.value_) = stack_to<variable_type_t<T>>(value);
-    }
-
-#undef STELEM_IMPL
-
-#define LDIND_IMPL(name, type, ret, cast)                                 \
-    inline ret ldind_##name(stack::native_int addr)                       \
-    {                                                                     \
-        return static_cast<cast>(*reinterpret_cast<type *>(addr.value_)); \
-    }                                                                     \
-    inline ret ldind_##name(stack::Ref addr)                              \
-    {                                                                     \
-        return static_cast<cast>(*reinterpret_cast<type *>(addr.value_)); \
-    }
-
-    LDIND_IMPL(i1, int8_t, stack::int32, int32_t);
-    LDIND_IMPL(i2, int16_t, stack::int32, int32_t);
-    LDIND_IMPL(i4, int32_t, stack::int32, int32_t);
-    LDIND_IMPL(i8, int64_t, stack::int64, int64_t);
-    LDIND_IMPL(r4, float, stack::F, double);
-    LDIND_IMPL(r8, double, stack::F, double);
-    LDIND_IMPL(i, intptr_t, stack::native_int, intptr_t);
-    LDIND_IMPL(ref, uintptr_t, stack::O, uintptr_t);
-    LDIND_IMPL(u1, uint8_t, stack::int32, int32_t);
-    LDIND_IMPL(u2, uint16_t, stack::int32, int32_t);
-    LDIND_IMPL(u4, uint32_t, stack::int32, int32_t);
-
-#undef LDIND_IMPL
-
-#define STIND_IMPL(name, type, value_type)                                        \
-    inline void stind_##name(stack::native_int addr, value_type value)            \
-    {                                                                             \
-        *reinterpret_cast<type *>(addr.value_) = static_cast<type>(value.value_); \
-    }                                                                             \
-    inline void stind_##name(stack::Ref addr, value_type value)                   \
-    {                                                                             \
-        *reinterpret_cast<type *>(addr.value_) = static_cast<type>(value.value_); \
-    }
-
-    STIND_IMPL(i1, int8_t, stack::int32);
-    STIND_IMPL(i2, int16_t, stack::int32);
-    STIND_IMPL(i4, int32_t, stack::int32);
-    STIND_IMPL(i8, int64_t, stack::int64);
-    STIND_IMPL(r4, float, stack::F);
-    STIND_IMPL(r8, double, stack::F);
-    STIND_IMPL(i, intptr_t, stack::native_int);
-    STIND_IMPL(ref, uintptr_t, stack::O);
-
-#undef STIND_IMPL
-
-#define CONV_IMPL(name, value_type, ret, med_cast, cast)               \
-    inline ret conv_##name(value_type value)                           \
-    {                                                                  \
-        return static_cast<cast>(static_cast<med_cast>(value.value_)); \
-    }
-
-    CONV_IMPL(i1, stack::int32, stack::int32, int8_t, int32_t);
-    CONV_IMPL(i1, stack::int64, stack::int32, int8_t, int32_t);
-    CONV_IMPL(i1, stack::native_int, stack::int32, int8_t, int32_t);
-    CONV_IMPL(i1, stack::F, stack::int32, int8_t, int32_t);
-
-    CONV_IMPL(i2, stack::int32, stack::int32, int16_t, int32_t);
-    CONV_IMPL(i2, stack::int64, stack::int32, int16_t, int32_t);
-    CONV_IMPL(i2, stack::native_int, stack::int32, int16_t, int32_t);
-    CONV_IMPL(i2, stack::F, stack::int32, int16_t, int32_t);
-
-    CONV_IMPL(i4, stack::int32, stack::int32, int32_t, int32_t);
-    CONV_IMPL(i4, stack::int64, stack::int32, int32_t, int32_t);
-    CONV_IMPL(i4, stack::native_int, stack::int32, int32_t, int32_t);
-    CONV_IMPL(i4, stack::F, stack::int32, int32_t, int32_t);
-
-    CONV_IMPL(i8, stack::int32, stack::int64, int64_t, int64_t);
-    CONV_IMPL(i8, stack::int64, stack::int64, int64_t, int64_t);
-    CONV_IMPL(i8, stack::native_int, stack::int64, int64_t, int64_t);
-    CONV_IMPL(i8, stack::F, stack::int64, int64_t, int64_t);
-    CONV_IMPL(i8, stack::Ref, stack::int64, int64_t, int64_t);
-    CONV_IMPL(i8, stack::O, stack::int64, int64_t, int64_t);
-
-    CONV_IMPL(i, stack::int32, stack::native_int, intptr_t, intptr_t);
-    CONV_IMPL(i, stack::int64, stack::native_int, intptr_t, intptr_t);
-    CONV_IMPL(i, stack::native_int, stack::native_int, intptr_t, intptr_t);
-    CONV_IMPL(i, stack::F, stack::native_int, intptr_t, intptr_t);
-    CONV_IMPL(i, stack::Ref, stack::native_int, intptr_t, intptr_t);
-    CONV_IMPL(i, stack::O, stack::native_int, intptr_t, intptr_t);
-
-    CONV_IMPL(r4, stack::int32, stack::F, float, double);
-    CONV_IMPL(r4, stack::int64, stack::F, float, double);
-    CONV_IMPL(r4, stack::native_int, stack::F, float, double);
-    CONV_IMPL(r4, stack::F, stack::F, float, double);
-
-    CONV_IMPL(r8, stack::int32, stack::F, double, double);
-    CONV_IMPL(r8, stack::int64, stack::F, double, double);
-    CONV_IMPL(r8, stack::native_int, stack::F, double, double);
-    CONV_IMPL(r8, stack::F, stack::F, double, double);
-
-    CONV_IMPL(u1, stack::int32, stack::int32, uint8_t, int32_t);
-    CONV_IMPL(u1, stack::int64, stack::int32, uint8_t, int32_t);
-    CONV_IMPL(u1, stack::native_int, stack::int32, uint8_t, int32_t);
-    CONV_IMPL(u1, stack::F, stack::int32, uint8_t, int32_t);
-
-    CONV_IMPL(u2, stack::int32, stack::int32, uint16_t, int32_t);
-    CONV_IMPL(u2, stack::int64, stack::int32, uint16_t, int32_t);
-    CONV_IMPL(u2, stack::native_int, stack::int32, uint16_t, int32_t);
-    CONV_IMPL(u2, stack::F, stack::int32, uint16_t, int32_t);
-
-    CONV_IMPL(u4, stack::int32, stack::int32, uint32_t, int32_t);
-    CONV_IMPL(u4, stack::int64, stack::int32, uint32_t, int32_t);
-    CONV_IMPL(u4, stack::native_int, stack::int32, uint32_t, int32_t);
-    CONV_IMPL(u4, stack::F, stack::int32, uint32_t, int32_t);
-
-    CONV_IMPL(u8, stack::int32, stack::int64, uint64_t, int64_t);
-    CONV_IMPL(u8, stack::int64, stack::int64, uint64_t, int64_t);
-    CONV_IMPL(u8, stack::native_int, stack::int64, uint64_t, int64_t);
-    CONV_IMPL(u8, stack::F, stack::int64, uint64_t, int64_t);
-    CONV_IMPL(u8, stack::Ref, stack::int64, uint64_t, int64_t);
-    CONV_IMPL(u8, stack::O, stack::int64, uint64_t, int64_t);
-
-    CONV_IMPL(u, stack::int32, stack::native_int, uintptr_t, intptr_t);
-    CONV_IMPL(u, stack::int64, stack::native_int, uintptr_t, intptr_t);
-    CONV_IMPL(u, stack::native_int, stack::native_int, uintptr_t, intptr_t);
-    CONV_IMPL(u, stack::F, stack::native_int, uintptr_t, intptr_t);
-    CONV_IMPL(u, stack::Ref, stack::native_int, uintptr_t, intptr_t);
-    CONV_IMPL(u, stack::O, stack::native_int, uintptr_t, intptr_t);
-
-#undef CONV_IMPL
-
-#define CONV_OVF_IMPL(name, value_type, ret, pre_cast, med_cast, cast)                                 \
-    inline ret conv_ovf_##name(value_type value)                                                       \
-    {                                                                                                  \
-        auto v1 = static_cast<pre_cast>(value.value_);                                                 \
-        if (v1 < std::numeric_limits<med_cast>::lowest() || v1 > std::numeric_limits<med_cast>::max()) \
-            throw_overflow_exception();                                                                \
-        return static_cast<cast>(static_cast<med_cast>(v1));                                           \
-    }
-
-#define CONV_OVF_UN_IMPL(name, value_type, ret, pre_cast, med_cast, cast) \
-    inline ret conv_ovf_##name(value_type value)                          \
-    {                                                                     \
-        auto v1 = static_cast<pre_cast>(value.value_);                    \
-        if (v1 > std::numeric_limits<med_cast>::max())                    \
-            throw_overflow_exception();                                   \
-        return static_cast<cast>(static_cast<med_cast>(v1));              \
-    }
-
-    CONV_OVF_IMPL(i1, stack::int32, stack::int32, int32_t, int8_t, int32_t);
-    CONV_OVF_IMPL(i1, stack::int64, stack::int32, int64_t, int8_t, int32_t);
-    CONV_OVF_IMPL(i1, stack::native_int, stack::int32, intptr_t, int8_t, int32_t);
-    CONV_OVF_IMPL(i1, stack::F, stack::int32, double, int8_t, int32_t);
-
-    CONV_OVF_IMPL(i2, stack::int32, stack::int32, int32_t, int16_t, int32_t);
-    CONV_OVF_IMPL(i2, stack::int64, stack::int32, int64_t, int16_t, int32_t);
-    CONV_OVF_IMPL(i2, stack::native_int, stack::int32, intptr_t, int16_t, int32_t);
-    CONV_OVF_IMPL(i2, stack::F, stack::int32, double, int16_t, int32_t);
-
-    CONV_OVF_IMPL(i4, stack::int32, stack::int32, int32_t, int32_t, int32_t);
-    CONV_OVF_IMPL(i4, stack::int64, stack::int32, int64_t, int32_t, int32_t);
-    CONV_OVF_IMPL(i4, stack::native_int, stack::int32, intptr_t, int32_t, int32_t);
-    CONV_OVF_IMPL(i4, stack::F, stack::int32, double, int32_t, int32_t);
-
-    CONV_OVF_IMPL(i8, stack::int32, stack::int64, int32_t, int64_t, int64_t);
-    CONV_OVF_IMPL(i8, stack::int64, stack::int64, int64_t, int64_t, int64_t);
-    CONV_OVF_IMPL(i8, stack::native_int, stack::int64, intptr_t, int64_t, int64_t);
-    CONV_OVF_IMPL(i8, stack::F, stack::int64, double, int64_t, int64_t);
-    CONV_OVF_IMPL(i8, stack::Ref, stack::int64, intptr_t, int64_t, int64_t);
-    CONV_OVF_IMPL(i8, stack::O, stack::int64, intptr_t, int64_t, int64_t);
-
-    CONV_OVF_IMPL(i, stack::int32, stack::native_int, int32_t, intptr_t, intptr_t);
-    CONV_OVF_IMPL(i, stack::int64, stack::native_int, int64_t, intptr_t, intptr_t);
-    CONV_OVF_IMPL(i, stack::native_int, stack::native_int, intptr_t, intptr_t, intptr_t);
-    CONV_OVF_IMPL(i, stack::F, stack::native_int, double, intptr_t, intptr_t);
-    CONV_OVF_IMPL(i, stack::Ref, stack::native_int, intptr_t, intptr_t, intptr_t);
-    CONV_OVF_IMPL(i, stack::O, stack::native_int, intptr_t, intptr_t, intptr_t);
-
-    CONV_OVF_IMPL(u1, stack::int32, stack::int32, int32_t, uint8_t, int32_t);
-    CONV_OVF_IMPL(u1, stack::int64, stack::int32, int64_t, uint8_t, int32_t);
-    CONV_OVF_IMPL(u1, stack::native_int, stack::int32, intptr_t, uint8_t, int32_t);
-    CONV_OVF_IMPL(u1, stack::F, stack::int32, double, uint8_t, int32_t);
-
-    CONV_OVF_IMPL(u2, stack::int32, stack::int32, int32_t, uint16_t, int32_t);
-    CONV_OVF_IMPL(u2, stack::int64, stack::int32, int64_t, uint16_t, int32_t);
-    CONV_OVF_IMPL(u2, stack::native_int, stack::int32, intptr_t, uint16_t, int32_t);
-    CONV_OVF_IMPL(u2, stack::F, stack::int32, double, uint16_t, int32_t);
-
-    CONV_OVF_IMPL(u4, stack::int32, stack::int32, int32_t, uint32_t, int32_t);
-    CONV_OVF_IMPL(u4, stack::int64, stack::int32, int64_t, uint32_t, int32_t);
-    CONV_OVF_IMPL(u4, stack::native_int, stack::int32, intptr_t, uint32_t, int32_t);
-    CONV_OVF_IMPL(u4, stack::F, stack::int32, double, uint32_t, int32_t);
-
-    CONV_OVF_IMPL(u8, stack::int32, stack::int64, int32_t, uint64_t, int64_t);
-    CONV_OVF_IMPL(u8, stack::int64, stack::int64, int64_t, uint64_t, int64_t);
-    CONV_OVF_IMPL(u8, stack::native_int, stack::int64, intptr_t, uint64_t, int64_t);
-    CONV_OVF_IMPL(u8, stack::F, stack::int64, double, uint64_t, int64_t);
-    CONV_OVF_IMPL(u8, stack::Ref, stack::int64, intptr_t, uint64_t, int64_t);
-    CONV_OVF_IMPL(u8, stack::O, stack::int64, intptr_t, uint64_t, int64_t);
-
-    CONV_OVF_IMPL(u, stack::int32, stack::native_int, int32_t, uintptr_t, intptr_t);
-    CONV_OVF_IMPL(u, stack::int64, stack::native_int, int64_t, uintptr_t, intptr_t);
-    CONV_OVF_IMPL(u, stack::native_int, stack::native_int, intptr_t, uintptr_t, intptr_t);
-    CONV_OVF_IMPL(u, stack::F, stack::native_int, double, uintptr_t, intptr_t);
-    CONV_OVF_IMPL(u, stack::Ref, stack::native_int, intptr_t, uintptr_t, intptr_t);
-    CONV_OVF_IMPL(u, stack::O, stack::native_int, intptr_t, uintptr_t, intptr_t);
-
-    CONV_OVF_UN_IMPL(i1_un, stack::int32, stack::int32, uint32_t, int8_t, int32_t);
-    CONV_OVF_UN_IMPL(i1_un, stack::int64, stack::int32, uint64_t, int8_t, int32_t);
-    CONV_OVF_UN_IMPL(i1_un, stack::native_int, stack::int32, uintptr_t, int8_t, int32_t);
-    CONV_OVF_UN_IMPL(i1_un, stack::F, stack::int32, double, int8_t, int32_t);
-
-    CONV_OVF_UN_IMPL(i2_un, stack::int32, stack::int32, uint32_t, int16_t, int32_t);
-    CONV_OVF_UN_IMPL(i2_un, stack::int64, stack::int32, uint64_t, int16_t, int32_t);
-    CONV_OVF_UN_IMPL(i2_un, stack::native_int, stack::int32, uintptr_t, int16_t, int32_t);
-    CONV_OVF_UN_IMPL(i2_un, stack::F, stack::int32, double, int16_t, int32_t);
-
-    CONV_OVF_UN_IMPL(i4_un, stack::int32, stack::int32, uint32_t, int32_t, int32_t);
-    CONV_OVF_UN_IMPL(i4_un, stack::int64, stack::int32, uint64_t, int32_t, int32_t);
-    CONV_OVF_UN_IMPL(i4_un, stack::native_int, stack::int32, uintptr_t, int32_t, int32_t);
-    CONV_OVF_UN_IMPL(i4_un, stack::F, stack::int32, double, int32_t, int32_t);
-
-    CONV_OVF_UN_IMPL(i8_un, stack::int32, stack::int64, uint32_t, int64_t, int64_t);
-    CONV_OVF_UN_IMPL(i8_un, stack::int64, stack::int64, uint64_t, int64_t, int64_t);
-    CONV_OVF_UN_IMPL(i8_un, stack::native_int, stack::int64, uintptr_t, int64_t, int64_t);
-    CONV_OVF_UN_IMPL(i8_un, stack::F, stack::int64, double, int64_t, int64_t);
-    CONV_OVF_UN_IMPL(i8_un, stack::Ref, stack::int64, uintptr_t, int64_t, int64_t);
-    CONV_OVF_UN_IMPL(i8_un, stack::O, stack::int64, uintptr_t, int64_t, int64_t);
-
-    CONV_OVF_UN_IMPL(i_un, stack::int32, stack::native_int, uint32_t, intptr_t, intptr_t);
-    CONV_OVF_UN_IMPL(i_un, stack::int64, stack::native_int, uint64_t, intptr_t, intptr_t);
-    CONV_OVF_UN_IMPL(i_un, stack::native_int, stack::native_int, uintptr_t, intptr_t, intptr_t);
-    CONV_OVF_UN_IMPL(i_un, stack::F, stack::native_int, double, intptr_t, intptr_t);
-    CONV_OVF_UN_IMPL(i_un, stack::Ref, stack::native_int, uintptr_t, intptr_t, intptr_t);
-    CONV_OVF_UN_IMPL(i_un, stack::O, stack::native_int, uintptr_t, intptr_t, intptr_t);
-
-    CONV_OVF_UN_IMPL(u1_un, stack::int32, stack::int32, uint32_t, uint8_t, int32_t);
-    CONV_OVF_UN_IMPL(u1_un, stack::int64, stack::int32, uint64_t, uint8_t, int32_t);
-    CONV_OVF_UN_IMPL(u1_un, stack::native_int, stack::int32, uintptr_t, uint8_t, int32_t);
-    CONV_OVF_UN_IMPL(u1_un, stack::F, stack::int32, double, uint8_t, int32_t);
-
-    CONV_OVF_UN_IMPL(u2_un, stack::int32, stack::int32, uint32_t, uint16_t, int32_t);
-    CONV_OVF_UN_IMPL(u2_un, stack::int64, stack::int32, uint64_t, uint16_t, int32_t);
-    CONV_OVF_UN_IMPL(u2_un, stack::native_int, stack::int32, uintptr_t, uint16_t, int32_t);
-    CONV_OVF_UN_IMPL(u2_un, stack::F, stack::int32, double, uint16_t, int32_t);
-
-    CONV_OVF_UN_IMPL(u4_un, stack::int32, stack::int32, uint32_t, uint32_t, int32_t);
-    CONV_OVF_UN_IMPL(u4_un, stack::int64, stack::int32, uint64_t, uint32_t, int32_t);
-    CONV_OVF_UN_IMPL(u4_un, stack::native_int, stack::int32, uintptr_t, uint32_t, int32_t);
-    CONV_OVF_UN_IMPL(u4_un, stack::F, stack::int32, double, uint32_t, int32_t);
-
-    CONV_OVF_UN_IMPL(u8_un, stack::int32, stack::int64, uint32_t, uint64_t, int64_t);
-    CONV_OVF_UN_IMPL(u8_un, stack::int64, stack::int64, uint64_t, uint64_t, int64_t);
-    CONV_OVF_UN_IMPL(u8_un, stack::native_int, stack::int64, uintptr_t, uint64_t, int64_t);
-    CONV_OVF_UN_IMPL(u8_un, stack::F, stack::int64, double, uint64_t, int64_t);
-    CONV_OVF_UN_IMPL(u8_un, stack::Ref, stack::int64, uintptr_t, uint64_t, int64_t);
-    CONV_OVF_UN_IMPL(u8_un, stack::O, stack::int64, uintptr_t, uint64_t, int64_t);
-
-    CONV_OVF_UN_IMPL(u_un, stack::int32, stack::native_int, uint32_t, uintptr_t, intptr_t);
-    CONV_OVF_UN_IMPL(u_un, stack::int64, stack::native_int, uint64_t, uintptr_t, intptr_t);
-    CONV_OVF_UN_IMPL(u_un, stack::native_int, stack::native_int, uintptr_t, uintptr_t, intptr_t);
-    CONV_OVF_UN_IMPL(u_un, stack::F, stack::native_int, double, uintptr_t, intptr_t);
-    CONV_OVF_UN_IMPL(u_un, stack::Ref, stack::native_int, uintptr_t, uintptr_t, intptr_t);
-    CONV_OVF_UN_IMPL(u_un, stack::O, stack::native_int, uintptr_t, uintptr_t, intptr_t);
-
-#undef CONV_OVF_IMPL
-
-    template <class T>
-    stack::Ref ldelema(const stack::O &obj, stack::int32 index)
-    {
-        using ::System_Private_CoreLib::System::SZArray_1;
-        return stack_from(stack_to<gc_obj_ref<SZArray_1<T>>>(obj)->ref_at(index.value_));
-    }
-
-    template <class T>
-    auto ldobj(const stack::Ref &addr)
-    {
-        return stack_from(*reinterpret_cast<T *>(addr.value_));
-    }
-
-    template <class T, class TStack>
-    void stobj(const TStack &src, const stack::Ref &dest)
-    {
-        *reinterpret_cast<T *>(dest.value_) = stack_to<T>(src);
+        using unsigned_type = std::make_unsigned<T>::type;
+        return static_cast<unsigned_type>(value);
     }
 
     template <class T>
@@ -1382,29 +783,7 @@ namespace ops
         return { runtime_type_holder<natsu::to_clr_type_t<T>>::get() };
     }
 
-    [[noreturn]] void throw_(const stack::O &obj);
-
-    inline stack::native_int localloc(const stack::int32 &size)
-    {
-        return reinterpret_cast<intptr_t>(alloca(size.value_));
-    }
-
-    inline stack::native_int localloc(const stack::native_int &size)
-    {
-        return reinterpret_cast<intptr_t>(alloca(size.value_));
-    }
-
-    template <class T>
-    stack::native_int ldftn(T func)
-    {
-        return reinterpret_cast<intptr_t>(func);
-    }
-
-    template <class T>
-    stack::int32 Sizeof()
-    {
-        return static_cast<int32_t>(sizeof(T));
-    }
+    [[noreturn]] void throw_(gc_obj_ref<::System_Private_CoreLib::System::Exception> obj);
 }
 
 template <class T>

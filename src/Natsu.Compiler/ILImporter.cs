@@ -16,6 +16,7 @@ namespace Natsu.Compiler
         private readonly TextWriter _writer;
         private readonly int _ident;
         private readonly MethodDef _method;
+        private readonly CorLibTypes _corLibTypes;
         private List<SpillSlot> _spillSlots = new List<SpillSlot>();
         private Dictionary<ExceptionHandler, ExceptionHandlerContext> _exceptions = new Dictionary<ExceptionHandler, ExceptionHandlerContext>();
         private int _paramIndex;
@@ -25,8 +26,9 @@ namespace Natsu.Compiler
         public List<string> UserStrings { get; set; }
         public string ModuleName { get; set; }
 
-        public ILImporter(MethodDef method, TextWriter writer, int ident)
+        public ILImporter(CorLibTypes corLibTypes, MethodDef method, TextWriter writer, int ident)
         {
+            _corLibTypes = corLibTypes;
             _method = method;
             _writer = writer;
             _ident = ident;
@@ -328,7 +330,7 @@ namespace Natsu.Compiler
 
         private void WriteInstruction(TextWriter writer, Instruction op, EvaluationStack stack, int ident, BasicBlock block)
         {
-            var emitter = new OpEmitter { ModuleName = ModuleName, UserStrings = UserStrings, Method = _method, Op = op, Stack = stack, Ident = ident, Block = block, Writer = writer };
+            var emitter = new OpEmitter { CorLibTypes = _corLibTypes, ModuleName = ModuleName, UserStrings = UserStrings, Method = _method, Op = op, Stack = stack, Ident = ident, Block = block, Writer = writer };
             bool isSpecial = true;
 
             if (op.IsLdarg())
@@ -820,6 +822,7 @@ namespace Natsu.Compiler
         public TextWriter Writer { get; set; }
         public string ModuleName { get; set; }
         public List<string> UserStrings { get; set; }
+        public CorLibTypes CorLibTypes { get; set; }
 
         // Unary
 
@@ -828,24 +831,24 @@ namespace Natsu.Compiler
 
         // Binary
 
-        public void Add() => Binary("add");
-        public void Sub() => Binary("sub");
-        public void Mul() => Binary("mul");
-        public void Div() => Binary("div");
-        public void Div_Un() => Binary("div_un");
-        public void Rem() => Binary("rem");
-        public void Rem_Un() => Binary("rem_un");
-        public void And() => Binary("and");
-        public void Or() => Binary("or");
-        public void Xor() => Binary("xor");
-        public void Shl() => Binary("shl");
-        public void Shr() => Binary("shr");
-        public void Shr_Un() => Binary("shr_un");
-        public void Clt() => Compare("clt");
-        public void Clt_Un() => Compare("clt_un");
-        public void Ceq() => Compare("ceq");
-        public void Cgt() => Compare("cgt");
-        public void Cgt_Un() => Compare("cgt_un");
+        public void Add() => Binary("+");
+        public void Sub() => Binary("-");
+        public void Mul() => Binary("*");
+        public void Div() => Binary("/");
+        public void Div_Un() => Binary_Un("/");
+        public void Rem() => Binary("%");
+        public void Rem_Un() => Binary_Un("%");
+        public void And() => Binary("&");
+        public void Or() => Binary("|");
+        public void Xor() => Binary("^");
+        public void Shl() => Binary("<<");
+        public void Shr() => Binary(">>");
+        public void Shr_Un() => Binary_Un("shr_un");
+        public void Clt() => Compare("<");
+        public void Clt_Un() => Compare_Un("<");
+        public void Ceq() => Compare("==");
+        public void Cgt() => Compare(">");
+        public void Cgt_Un() => Compare_Un(">");
 
         // Branch
 
@@ -855,7 +858,18 @@ namespace Natsu.Compiler
         public void Blt_Un() => BranchCompare("clt_un");
         public void Ble() => BranchCompare("cle");
         public void Ble_Un() => BranchCompare("cle_un");
-        public void Beq() => BranchCompare("ceq");
+
+        public void Beq()
+        {
+            var v2 = Stack.Pop();
+            var v1 = Stack.Pop();
+            var nextOp = (Instruction)Op.Operand;
+            Writer.Ident(Ident).WriteLine($"if ({v1.Expression} == {v2.Expression})");
+            Writer.Ident(Ident + 1).WriteLine($"goto {ILUtils.GetLabel(Method, nextOp, Block)};");
+            Writer.Ident(Ident).WriteLine("else");
+            Writer.Ident(Ident + 1).WriteLine($"goto {ILUtils.GetFallthroughLabel(Method, Op, Block)};");
+        }
+
         public void Bge() => BranchCompare("cge");
         public void Bge_Un() => BranchCompare("cge_un");
         public void Bgt() => BranchCompare("cgt");
@@ -865,51 +879,56 @@ namespace Natsu.Compiler
 
         // Conversion
 
-        public void Conv_I1() => Conversion(StackTypeCode.Int32, "i1");
-        public void Conv_I2() => Conversion(StackTypeCode.Int32, "i2");
-        public void Conv_I4() => Conversion(StackTypeCode.Int32, "i4");
-        public void Conv_I8() => Conversion(StackTypeCode.Int64, "i8");
-        public void Conv_I() => Conversion(StackTypeCode.NativeInt, "i");
-        public void Conv_R4() => Conversion(StackTypeCode.F, "r4");
-        public void Conv_R8() => Conversion(StackTypeCode.F, "r8");
-        public void Conv_U1() => Conversion(StackTypeCode.Int32, "u1");
-        public void Conv_U2() => Conversion(StackTypeCode.Int32, "u2");
-        public void Conv_U4() => Conversion(StackTypeCode.Int32, "u4");
-        public void Conv_U8() => Conversion(StackTypeCode.Int64, "u8");
-        public void Conv_U() => Conversion(StackTypeCode.NativeInt, "u");
-        public void Conv_Ovf_I1() => Conversion(StackTypeCode.Int32, "ovf_i1");
-        public void Conv_Ovf_I2() => Conversion(StackTypeCode.Int32, "ovf_i2");
-        public void Conv_Ovf_I4() => Conversion(StackTypeCode.Int32, "ovf_i4");
-        public void Conv_Ovf_I8() => Conversion(StackTypeCode.Int64, "ovf_i8");
-        public void Conv_Ovf_I() => Conversion(StackTypeCode.NativeInt, "ovf_i");
-        public void Conv_Ovf_U1() => Conversion(StackTypeCode.Int32, "ovf_u1");
-        public void Conv_Ovf_U2() => Conversion(StackTypeCode.Int32, "ovf_u2");
-        public void Conv_Ovf_U4() => Conversion(StackTypeCode.Int32, "ovf_u4");
-        public void Conv_Ovf_U8() => Conversion(StackTypeCode.Int64, "ovf_u8");
-        public void Conv_Ovf_U() => Conversion(StackTypeCode.NativeInt, "ovf_u");
-        public void Conv_Ovf_I1_Un() => Conversion(StackTypeCode.Int32, "ovf_i1_un");
-        public void Conv_Ovf_I2_Un() => Conversion(StackTypeCode.Int32, "ovf_i2_un");
-        public void Conv_Ovf_I4_Un() => Conversion(StackTypeCode.Int32, "ovf_i4_un");
-        public void Conv_Ovf_I8_Un() => Conversion(StackTypeCode.Int64, "ovf_i8_un");
-        public void Conv_Ovf_I_Un() => Conversion(StackTypeCode.NativeInt, "ovf_i_un");
-        public void Conv_Ovf_U1_Un() => Conversion(StackTypeCode.Int32, "ovf_u1_un");
-        public void Conv_Ovf_U2_Un() => Conversion(StackTypeCode.Int32, "ovf_u2_un");
-        public void Conv_Ovf_U4_Un() => Conversion(StackTypeCode.Int32, "ovf_u4_un");
-        public void Conv_Ovf_U8_Un() => Conversion(StackTypeCode.Int64, "ovf_u8_un");
-        public void Conv_Ovf_U_Un() => Conversion(StackTypeCode.NativeInt, "ovf_u_un");
+        public void Conv_I1() => Conversion(CorLibTypes.SByte, "i1");
+        public void Conv_I2() => Conversion(CorLibTypes.Int16, "i2");
+        public void Conv_I4() => Conversion(CorLibTypes.Int32, "i4");
+        public void Conv_I8() => Conversion(CorLibTypes.Int64, "i8");
+        public void Conv_I() => Conversion(CorLibTypes.IntPtr, "i");
+        public void Conv_R4() => Conversion(CorLibTypes.Single, "r4");
+        public void Conv_R8() => Conversion(CorLibTypes.Double, "r8");
+        public void Conv_U1() => Conversion(CorLibTypes.Byte, "u1");
+        public void Conv_U2() => Conversion(CorLibTypes.UInt16, "u2");
+        public void Conv_U4() => Conversion(CorLibTypes.UInt32, "u4");
+        public void Conv_U8() => Conversion(CorLibTypes.UInt64, "u8");
+        public void Conv_U() => Conversion(CorLibTypes.UIntPtr, "u");
+        public void Conv_Ovf_I1() => Conversion(CorLibTypes.SByte, "ovf_i1");
+        public void Conv_Ovf_I2() => Conversion(CorLibTypes.Int16, "ovf_i2");
+        public void Conv_Ovf_I4() => Conversion(CorLibTypes.Int32, "ovf_i4");
+        public void Conv_Ovf_I8() => Conversion(CorLibTypes.Int64, "ovf_i8");
+        public void Conv_Ovf_I() => Conversion(CorLibTypes.IntPtr, "ovf_i");
+        public void Conv_Ovf_U1() => Conversion(CorLibTypes.Byte, "ovf_u1");
+        public void Conv_Ovf_U2() => Conversion(CorLibTypes.UInt16, "ovf_u2");
+        public void Conv_Ovf_U4() => Conversion(CorLibTypes.UInt32, "ovf_u4");
+        public void Conv_Ovf_U8() => Conversion(CorLibTypes.UInt64, "ovf_u8");
+        public void Conv_Ovf_U() => Conversion(CorLibTypes.UIntPtr, "ovf_u");
+        public void Conv_Ovf_I1_Un() => Conversion(CorLibTypes.SByte, "ovf_i1_un");
+        public void Conv_Ovf_I2_Un() => Conversion(CorLibTypes.Int16, "ovf_i2_un");
+        public void Conv_Ovf_I4_Un() => Conversion(CorLibTypes.Int32, "ovf_i4_un");
+        public void Conv_Ovf_I8_Un() => Conversion(CorLibTypes.Int64, "ovf_i8_un");
+        public void Conv_Ovf_I_Un() => Conversion(CorLibTypes.IntPtr, "ovf_i_un");
+        public void Conv_Ovf_U1_Un() => Conversion(CorLibTypes.Byte, "ovf_u1_un");
+        public void Conv_Ovf_U2_Un() => Conversion(CorLibTypes.UInt16, "ovf_u2_un");
+        public void Conv_Ovf_U4_Un() => Conversion(CorLibTypes.UInt32, "ovf_u4_un");
+        public void Conv_Ovf_U8_Un() => Conversion(CorLibTypes.UInt64, "ovf_u8_un");
+        public void Conv_Ovf_U_Un() => Conversion(CorLibTypes.UIntPtr, "ovf_u_un");
 
         // Ldind
-        public void Ldind_I1() => Ldind(StackTypeCode.Int32, "i1");
-        public void Ldind_I2() => Ldind(StackTypeCode.Int32, "i2");
-        public void Ldind_I4() => Ldind(StackTypeCode.Int32, "i4");
-        public void Ldind_I8() => Ldind(StackTypeCode.Int64, "i8");
-        public void Ldind_R4() => Ldind(StackTypeCode.F, "r4");
-        public void Ldind_R8() => Ldind(StackTypeCode.F, "r8");
-        public void Ldind_I() => Ldind(StackTypeCode.NativeInt, "i");
-        public void Ldind_Ref() => Ldind(StackTypeCode.O, "ref");
-        public void Ldind_U1() => Ldind(StackTypeCode.Int32, "u1");
-        public void Ldind_U2() => Ldind(StackTypeCode.Int32, "u2");
-        public void Ldind_U4() => Ldind(StackTypeCode.Int32, "u4");
+        public void Ldind_I1() => Ldind(CorLibTypes.SByte, "i1");
+        public void Ldind_I2() => Ldind(CorLibTypes.Int16, "i2");
+        public void Ldind_I4() => Ldind(CorLibTypes.Int32, "i4");
+        public void Ldind_I8() => Ldind(CorLibTypes.Int64, "i8");
+        public void Ldind_R4() => Ldind(CorLibTypes.Single, "r4");
+        public void Ldind_R8() => Ldind(CorLibTypes.Double, "r8");
+        public void Ldind_I() => Ldind(CorLibTypes.IntPtr, "i");
+        public void Ldind_Ref()
+        {
+            var addr = Stack.Pop();
+            Stack.Push(addr.Type.TypeSig.Next, $"::natsu::ops::ldind_ref({addr.Expression})");
+        }
+
+        public void Ldind_U1() => Ldind(CorLibTypes.Byte, "u1");
+        public void Ldind_U2() => Ldind(CorLibTypes.UInt16, "u2");
+        public void Ldind_U4() => Ldind(CorLibTypes.UInt32, "u4");
 
         // Stind
         public void Stind_I1() => Stind("i1");
@@ -922,17 +941,23 @@ namespace Natsu.Compiler
         public void Stind_Ref() => Stind("ref");
 
         // Ldelem
-        public void Ldelem_I1() => Ldelem(StackTypeCode.Int32, "i1");
-        public void Ldelem_I2() => Ldelem(StackTypeCode.Int32, "i2");
-        public void Ldelem_I4() => Ldelem(StackTypeCode.Int32, "i4");
-        public void Ldelem_I8() => Ldelem(StackTypeCode.Int64, "i8");
-        public void Ldelem_R4() => Ldelem(StackTypeCode.F, "r4");
-        public void Ldelem_R8() => Ldelem(StackTypeCode.F, "r8");
-        public void Ldelem_I() => Ldelem(StackTypeCode.NativeInt, "i");
-        public void Ldelem_Ref() => Ldelem(StackTypeCode.O, "ref");
-        public void Ldelem_U1() => Ldelem(StackTypeCode.Int32, "u1");
-        public void Ldelem_U2() => Ldelem(StackTypeCode.Int32, "u2");
-        public void Ldelem_U4() => Ldelem(StackTypeCode.Int32, "u4");
+        public void Ldelem_I1() => Ldelem(CorLibTypes.SByte, "i1");
+        public void Ldelem_I2() => Ldelem(CorLibTypes.Int16, "i2");
+        public void Ldelem_I4() => Ldelem(CorLibTypes.Int32, "i4");
+        public void Ldelem_I8() => Ldelem(CorLibTypes.Int64, "i8");
+        public void Ldelem_R4() => Ldelem(CorLibTypes.Single, "r4");
+        public void Ldelem_R8() => Ldelem(CorLibTypes.Double, "r8");
+        public void Ldelem_I() => Ldelem(CorLibTypes.IntPtr, "i");
+        public void Ldelem_Ref()
+        {
+            var index = Stack.Pop();
+            var array = Stack.Pop();
+            var elemType = array.Type.TypeSig.Next;
+            Stack.Push(elemType.ToTypeDefOrRef(), $"{array.Expression}->at({index.Expression})");
+        }
+        public void Ldelem_U1() => Ldelem(CorLibTypes.Byte, "u1");
+        public void Ldelem_U2() => Ldelem(CorLibTypes.UInt16, "u2");
+        public void Ldelem_U4() => Ldelem(CorLibTypes.UInt32, "u4");
 
         // Stelem
         public void Stelem_I1() => Stelem("i1");
@@ -948,7 +973,7 @@ namespace Natsu.Compiler
         {
             var param = Op.GetParameter(Method.Parameters.ToList());
             var paramName = param.IsHiddenThisParameter ? "_this" : param.ToString();
-            Stack.Push(TypeUtils.GetStackType(param.Type), $"::natsu::stack_from({paramName})");
+            Stack.Push(TypeUtils.GetStackType(param.Type), $"{paramName}", computed: true);
         }
 
         public void Starg()
@@ -963,31 +988,35 @@ namespace Natsu.Compiler
         {
             var param = Op.GetParameter(Method.Parameters.ToList());
             var paramName = param.IsHiddenThisParameter ? "_this" : param.ToString();
-            Stack.Push(StackTypeCode.Ref, $"::natsu::ops::ref({paramName})");
+            Stack.Push(TypeUtils.GetStackType(new ByRefSig(param.Type)), $"::natsu::ops::ref({paramName})", computed: true);
         }
 
         public void LdcI4()
         {
             var value = Op.GetLdcI4Value();
-            Stack.Push(StackTypeCode.Int32, $"::natsu::stack::int32({TypeUtils.LiteralConstant(value)})");
+            Stack.Push(new StackType { Code = StackTypeCode.Int32, Name = "int32_t" },
+                $"{TypeUtils.LiteralConstant(value)}", computed: true);
         }
 
         public void Ldc_I8()
         {
             var value = (long)Op.Operand;
-            Stack.Push(StackTypeCode.Int64, $"::natsu::stack::int64({TypeUtils.LiteralConstant(value)})");
+            Stack.Push(new StackType { Code = StackTypeCode.Int64, Name = "int64_t" },
+                $"{TypeUtils.LiteralConstant(value)}", computed: true);
         }
 
         public void Ldc_R4()
         {
             var value = (float)Op.Operand;
-            Stack.Push(StackTypeCode.F, $"::natsu::stack::F({TypeUtils.LiteralConstant(value)})");
+            Stack.Push(new StackType { Code = StackTypeCode.F, Name = "float" },
+                $"{TypeUtils.LiteralConstant(value)}", computed: true);
         }
 
         public void Ldc_R8()
         {
             var value = (double)Op.Operand;
-            Stack.Push(StackTypeCode.F, $"::natsu::stack::F({TypeUtils.LiteralConstant(value)})");
+            Stack.Push(new StackType { Code = StackTypeCode.F, Name = "double" },
+                $"{TypeUtils.LiteralConstant(value)}", computed: true);
         }
 
         public void Call()
@@ -1022,7 +1051,7 @@ namespace Natsu.Compiler
             if (stackType.Code == StackTypeCode.Void)
                 Stack.Push(stackType, expr);
             else
-                Stack.Push(stackType, $"::natsu::stack_from({expr})");
+                Stack.Push(stackType, $"{expr}");
         }
 
         public void Callvirt()
@@ -1033,6 +1062,7 @@ namespace Natsu.Compiler
             var parasCount = method.Params.Count;
             for (int i = parasCount - 1; i >= 0; i--)
                 para.Add((method.Params[i], Stack.Pop()));
+            Stack.Compute();
             para.Add((TypeUtils.ThisType(member.DeclaringType), Stack.Pop()));
 
             var tGen = (member.DeclaringType as TypeSpec)?.TryGetGenericInstSig()?.GenericArguments.ToList()
@@ -1042,10 +1072,10 @@ namespace Natsu.Compiler
             string expr;
             if (Stack.Constrained != null)
             {
-                Stack.Push(StackTypeCode.O, $"::natsu::ops::box(*::natsu::stack_to<{TypeUtils.EscapeVariableTypeName(new ByRefSig(Stack.Constrained.ToTypeSig()))}>({para[0].src.Expression}))");
+                Stack.Push(para[0].destType.ToTypeDefOrRef(), $"::natsu::ops::box(*{para[0].src.Expression})");
                 para[0] = (para[0].destType, Stack.Pop());
 
-                expr = $"{para[0].src.Expression}.header().template vtable_as<typename {TypeUtils.EscapeTypeName(member.DeclaringType)}::VTable>()->{TypeUtils.EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src, tGen)))})";
+                expr = $"::natsu::vtable<{TypeUtils.EscapeTypeName(Stack.Constrained)}>().{TypeUtils.EscapeMethodName(member)}({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src, tGen)))})";
 
                 Stack.Constrained = null;
             }
@@ -1058,12 +1088,33 @@ namespace Natsu.Compiler
             if (stackType.Code == StackTypeCode.Void)
                 Stack.Push(stackType, expr);
             else
-                Stack.Push(stackType, $"::natsu::stack_from({expr})");
+                Stack.Push(stackType, $"{expr}");
         }
 
         private static string CastExpression(TypeSig destType, StackEntry src, IList<TypeSig> genArgs = null)
         {
-            return $"::natsu::stack_to<{TypeUtils.EscapeVariableTypeName(destType, hasGen: 1, genArgs: genArgs)}>({src.Expression})";
+            return $"{src.Expression}";
+        }
+
+        private static string MakeUnsignedExpression(StackEntry src)
+        {
+            // Try parse literal
+            var exp = src.Expression;
+            if (uint.TryParse(exp, out var u4))
+            {
+                return $"{u4}U";
+            }
+            else if (ulong.TryParse(exp, out var u8))
+            {
+                return $"{u8}ULL";
+            }
+            else
+            {
+                if (src.Type.Code == StackTypeCode.F)
+                    return src.Expression;
+                else
+                    return $"::natsu::ops::unsign({src.Expression})";
+            }
         }
 
         public void Nop()
@@ -1098,13 +1149,13 @@ namespace Natsu.Compiler
         public void Ldloc()
         {
             var local = Op.GetLocal(Method.Body.Variables.ToList());
-            Stack.Push(TypeUtils.GetStackType(local.Type), $"::natsu::stack_from({TypeUtils.GetLocalName(local, Method)})");
+            Stack.Push(TypeUtils.GetStackType(local.Type), $"{TypeUtils.GetLocalName(local, Method)}", computed: true);
         }
 
         public void Ldloca()
         {
             var local = Op.GetLocal(Method.Body.Variables.ToList());
-            Stack.Push(StackTypeCode.Ref, $"::natsu::ops::ref({TypeUtils.GetLocalName(local, Method)})");
+            Stack.Push(TypeUtils.GetStackType(new ByRefSig(local.Type)), $"::natsu::ops::ref({TypeUtils.GetLocalName(local, Method)})", computed: true);
         }
 
         public void Stloc()
@@ -1136,14 +1187,28 @@ namespace Natsu.Compiler
         {
             var v2 = Stack.Pop();
             var v1 = Stack.Pop();
-            Stack.Push(v1.Type, $"::natsu::ops::{op}_({v1.Expression}, {v2.Expression})");
+            Stack.Push(v1.Type, $"({v1.Expression} {op} {v2.Expression})");
+        }
+
+        public void Binary_Un(string op)
+        {
+            var v2 = Stack.Pop();
+            var v1 = Stack.Pop();
+            Stack.Push(v1.Type, $"({MakeUnsignedExpression(v1)} {op} {MakeUnsignedExpression(v2)})");
         }
 
         public void Compare(string op)
         {
             var v2 = Stack.Pop();
             var v1 = Stack.Pop();
-            Stack.Push(StackTypeCode.Int32, $"::natsu::ops::{op}_({v1.Expression}, {v2.Expression})");
+            Stack.Push(CorLibTypes.Boolean, $"({v1.Expression} {op} {v2.Expression})");
+        }
+
+        public void Compare_Un(string op)
+        {
+            var v2 = Stack.Pop();
+            var v1 = Stack.Pop();
+            Stack.Push(CorLibTypes.Boolean, $"({MakeUnsignedExpression(v1)} {op} {MakeUnsignedExpression(v2)})");
         }
 
         private void BranchUnconditional(int ident, Instruction op)
@@ -1175,7 +1240,8 @@ namespace Natsu.Compiler
         public void Ldstr()
         {
             var value = (string)Op.Operand;
-            Stack.Push(StackTypeCode.O, $"::natsu::stack_from(::{ModuleName}::user_string_{UserStrings.Count}.get())");
+            Stack.Push(new StackType { Code = StackTypeCode.O, Name = "::natsu::gc_obj_ref<::System_Private_CoreLib::System::String>" },
+                $"::{ ModuleName}::user_string_{UserStrings.Count}.get()");
             UserStrings.Add(value);
         }
 
@@ -1187,7 +1253,7 @@ namespace Natsu.Compiler
                 : "::natsu::static_holder<typename" + TypeUtils.EscapeTypeName(field.DeclaringType) + "::Static>::get()." + TypeUtils.EscapeIdentifier(field.Name);
             var fieldType = field.FieldSig.Type;
 
-            Stack.Push(TypeUtils.GetStackType(fieldType), $"::natsu::stack_from({expr})");
+            Stack.Push(TypeUtils.GetStackType(fieldType), $"{expr}");
         }
 
         public void Ldfld()
@@ -1195,10 +1261,10 @@ namespace Natsu.Compiler
             var target = Stack.Pop();
             var field = (IField)Op.Operand;
             var thisType = TypeUtils.ThisType(field.DeclaringType);
-            string expr = $"::natsu::ops::access<{TypeUtils.EscapeVariableTypeName(thisType)}>({target.Expression})->" + TypeUtils.EscapeIdentifier(field.Name);
+            string expr = $"{target.Expression}->" + TypeUtils.EscapeIdentifier(field.Name);
             var fieldType = field.FieldSig.Type;
 
-            Stack.Push(TypeUtils.GetStackType(fieldType), $"::natsu::stack_from({expr})");
+            Stack.Push(TypeUtils.GetStackType(fieldType), $"{expr}");
         }
 
         public void Ldflda()
@@ -1206,24 +1272,26 @@ namespace Natsu.Compiler
             var target = Stack.Pop();
             var field = (IField)Op.Operand;
             var thisType = TypeUtils.ThisType(field.DeclaringType);
+            var fieldType = field.FieldSig.Type;
             if (TypeUtils.IsCppBasicType(field.DeclaringType))
             {
-                Stack.Push(StackTypeCode.Ref, $"::natsu::ops::ref({target.Expression})");
+                Stack.Push(TypeUtils.GetStackType(new ByRefSig(fieldType)), $"::natsu::ops::ref({target.Expression})", computed: true);
             }
             else
             {
-                string expr = $"::natsu::stack_to<{TypeUtils.EscapeVariableTypeName(thisType)}>({target.Expression})->" + TypeUtils.EscapeIdentifier(field.Name);
-                Stack.Push(StackTypeCode.Ref, $"::natsu::ops::ref({expr})");
+                string expr = $"{target.Expression}->" + TypeUtils.EscapeIdentifier(field.Name);
+                Stack.Push(TypeUtils.GetStackType(new ByRefSig(fieldType)), $"::natsu::ops::ref({expr})", computed: true);
             }
         }
 
         public void Ldsflda()
         {
             var field = (IField)Op.Operand;
+            var fieldType = field.FieldSig.Type;
             string expr = Method.IsStaticConstructor && TypeUtils.IsSameType(Method.DeclaringType, field.DeclaringType)
                 ? TypeUtils.EscapeIdentifier(field.Name)
                 : "::natsu::static_holder<typename" + TypeUtils.EscapeTypeName(field.DeclaringType) + "::Static>::get()." + TypeUtils.EscapeIdentifier(field.Name);
-            Stack.Push(StackTypeCode.Ref, $"::natsu::ops::ref({expr})");
+            Stack.Push(TypeUtils.GetStackType(new ByRefSig(fieldType)), $"::natsu::ops::ref({expr})", computed: true);
         }
 
         public void Stsfld()
@@ -1237,7 +1305,7 @@ namespace Natsu.Compiler
                 : "::natsu::static_holder<typename" + TypeUtils.EscapeTypeName(field.DeclaringType) + "::Static>::get()." + TypeUtils.EscapeIdentifier(field.Name);
             var fieldType = field.FieldSig.Type;
 
-            Writer.Ident(Ident).WriteLine($"{expr} = ::natsu::stack_to<{TypeUtils.EscapeVariableTypeName(fieldType)}>({value.Expression});");
+            Writer.Ident(Ident).WriteLine($"{expr} = {value.Expression};");
         }
 
         public void Stfld()
@@ -1246,17 +1314,17 @@ namespace Natsu.Compiler
             var target = Stack.Pop();
             var field = (IField)Op.Operand;
             var thisType = TypeUtils.ThisType(field.DeclaringType);
-            string expr = $"::natsu::stack_to<{TypeUtils.EscapeVariableTypeName(thisType)}>({target.Expression})->" + TypeUtils.EscapeIdentifier(field.Name);
+            string expr = $"{target.Expression}->" + TypeUtils.EscapeIdentifier(field.Name);
             var fieldType = field.FieldSig.Type;
 
-            Writer.Ident(Ident).WriteLine($"{expr} = ::natsu::stack_to<{TypeUtils.EscapeVariableTypeName(fieldType)}>({value.Expression});");
+            Writer.Ident(Ident).WriteLine($"{expr} = {value.Expression};");
         }
 
         public void Newarr()
         {
             var type = (ITypeDefOrRef)Op.Operand;
             var len = Stack.Pop();
-            Stack.Push(StackTypeCode.O, $"::natsu::stack_from(::natsu::gc_new_array<{TypeUtils.EscapeTypeName(type)}>({len.Expression}))");
+            Stack.Push(new SZArraySig(type.ToTypeSig()).ToTypeDefOrRef(), $"::natsu::gc_new_array<{TypeUtils.EscapeTypeName(type)}>({len.Expression})");
         }
 
         public void Initobj()
@@ -1278,14 +1346,14 @@ namespace Natsu.Compiler
             para.Reverse();
             var genSig = member.DeclaringType.TryGetGenericInstSig();
             var expr = $"::natsu::ops::newobj<{TypeUtils.EscapeTypeName(member.DeclaringType, cppBasicType: true)}>({string.Join(", ", para.Select(x => CastExpression(x.destType, x.src, genSig?.GenericArguments)))})";
-            Stack.Push(StackTypeCode.O, expr);
+            Stack.Push(TypeUtils.GetStackType(member.DeclaringType.ToTypeSig()), expr);
         }
 
         public void Ldobj()
         {
             var type = (ITypeDefOrRef)Op.Operand;
             var addr = Stack.Pop();
-            Stack.Push(StackTypeCode.O, $"::natsu::ops::ldobj<{TypeUtils.EscapeVariableTypeName(type)}>({addr.Expression})");
+            Stack.Push(TypeUtils.GetStackType(type.ToTypeSig()), $"::natsu::ops::ldobj<{TypeUtils.EscapeVariableTypeName(type)}>({addr.Expression})");
         }
 
         public void Stobj()
@@ -1306,49 +1374,52 @@ namespace Natsu.Compiler
         {
             var type = (ITypeDefOrRef)Op.Operand;
             var obj = Stack.Pop();
-            Stack.Push(StackTypeCode.O, $"::natsu::ops::isinst<{TypeUtils.EscapeTypeName(type, cppBasicType: true)}>({obj.Expression})");
+            Stack.Push(TypeUtils.GetStackType(type.ToTypeSig()), $"::natsu::ops::isinst<{TypeUtils.EscapeTypeName(type, cppBasicType: true)}>({obj.Expression})");
         }
 
         public void Unbox_Any()
         {
             var type = (ITypeDefOrRef)Op.Operand;
             var obj = Stack.Pop();
-            Stack.Push(StackTypeCode.O, $"::natsu::ops::unbox_any<{TypeUtils.EscapeTypeName(type, cppBasicType: true)}>({obj.Expression})");
+            Stack.Push(TypeUtils.GetStackType(type.ToTypeSig()), $"::natsu::ops::unbox_any<{TypeUtils.EscapeTypeName(type, cppBasicType: true)}>({obj.Expression})");
         }
 
         public void Unbox()
         {
             var type = (ITypeDefOrRef)Op.Operand;
             var obj = Stack.Pop();
-            Stack.Push(StackTypeCode.Ref, $"::natsu::ops::unbox<{TypeUtils.EscapeTypeName(type, cppBasicType: true)}>({obj.Expression})");
+            Stack.Push(TypeUtils.GetStackType(new ByRefSig(type.ToTypeSig())), $"::natsu::ops::unbox<{TypeUtils.EscapeTypeName(type, cppBasicType: true)}>({obj.Expression})");
         }
 
         public void Castclass()
         {
             var type = (ITypeDefOrRef)Op.Operand;
             var obj = Stack.Pop();
-            Stack.Push(StackTypeCode.O, $"::natsu::ops::castclass<{TypeUtils.EscapeTypeName(type, cppBasicType: true)}>({obj.Expression})");
+            Stack.Push(TypeUtils.GetStackType(type.ToTypeSig()), $"::natsu::ops::castclass<{TypeUtils.EscapeTypeName(type, cppBasicType: true)}>({obj.Expression})");
         }
 
         public void Ldlen()
         {
             var target = Stack.Pop();
-            Stack.Push(StackTypeCode.NativeInt, $"::natsu::ops::ldlen({target.Expression})");
+            Stack.Push(CorLibTypes.UIntPtr, $"{target.Expression}->length()");
         }
 
         public void Localloc()
         {
             var size = Stack.Pop();
-            Stack.Push(StackTypeCode.NativeInt, $"::natsu::ops::localloc({size.Expression})");
+            Stack.Push(CorLibTypes.UIntPtr, $"::natsu::ops::localloc({size.Expression})");
         }
 
-        private void Conversion(StackTypeCode stackType, string type)
+        private void Conversion(TypeSig stackType, string type)
         {
             var value = Stack.Pop();
-            Stack.Push(stackType, $"::natsu::ops::conv_{type}({value.Expression})");
+            var expr = value.Expression;
+            if (TypeUtils.IsRefOrPtr(value.Type.Code))
+                expr += ".ptr_";
+            Stack.Push(stackType, $"static_cast<{TypeUtils.EscapeVariableTypeName(stackType)}>({expr})");
         }
 
-        private void Ldind(StackTypeCode stackType, string type)
+        private void Ldind(TypeSig stackType, string type)
         {
             var addr = Stack.Pop();
             Stack.Push(stackType, $"::natsu::ops::ldind_{type}({addr.Expression})");
@@ -1361,11 +1432,11 @@ namespace Natsu.Compiler
             Writer.Ident(Ident).WriteLine($"::natsu::ops::stind_{type}({addr.Expression}, {value.Expression});");
         }
 
-        private void Ldelem(StackTypeCode stackType, string type)
+        private void Ldelem(TypeSig stackType, string type)
         {
             var index = Stack.Pop();
             var array = Stack.Pop();
-            Stack.Push(stackType, $"::natsu::ops::ldelem_{type}({array.Expression}, {index.Expression})");
+            Stack.Push(stackType, $"{array.Expression}->at({index.Expression})");
         }
 
         private void Stelem(string type)
@@ -1373,7 +1444,8 @@ namespace Natsu.Compiler
             var value = Stack.Pop();
             var index = Stack.Pop();
             var array = Stack.Pop();
-            Writer.Ident(Ident).WriteLine($"::natsu::ops::stelem_{type}({array.Expression}, {index.Expression}, {value.Expression});");
+            //Writer.Ident(Ident).WriteLine($"::natsu::ops::stelem_{type}({array.Expression}, {index.Expression}, {value.Expression});");
+            Writer.Ident(Ident).WriteLine($"{array.Expression}->at({index.Expression}) = {value.Expression};");
         }
 
         public void Ldelem()
@@ -1398,25 +1470,24 @@ namespace Natsu.Compiler
             var type = (ITypeDefOrRef)Op.Operand;
             var index = Stack.Pop();
             var array = Stack.Pop();
-            Stack.Push(StackTypeCode.Ref, $"::natsu::ops::ldelema<{TypeUtils.EscapeTypeName(type)}>({array.Expression}, {index.Expression})");
+            Stack.Push(TypeUtils.GetStackType(new ByRefSig(type.ToTypeSig())), $"::natsu::ops::ldelema<{TypeUtils.EscapeTypeName(type)}>({array.Expression}, {index.Expression})");
         }
 
         public void Box()
         {
             var type = (ITypeDefOrRef)Op.Operand;
             var value = Stack.Pop();
-            Stack.Push(StackTypeCode.O, $"::natsu::ops::box({CastExpression(type.ToTypeSig(), value)})");
+            Stack.Push(new StackType { Code = StackTypeCode.O, Name = "::natsu::gc_obj_ref<>" }, $"::natsu::ops::box({CastExpression(type.ToTypeSig(), value)})");
         }
 
         public void Ldnull()
         {
-            Stack.Push(StackTypeCode.O, $"::natsu::stack::null");
+            Stack.Push(new StackType { Code = StackTypeCode.O, Name = "::natsu::gc_obj_ref<>" }, $"::natsu::null");
         }
 
         public void Dup()
         {
-            var value = Stack.Peek();
-            Stack.Push(value);
+            Stack.Dup();
         }
 
         public void Ldftn()
@@ -1439,7 +1510,7 @@ namespace Natsu.Compiler
                 expr = $"{ TypeUtils.EscapeTypeName(member.DeclaringType)}::{TypeUtils.EscapeMethodName(member, hasParamType: false)}";
             }
 
-            Stack.Push(StackTypeCode.NativeInt, $"::natsu::ops::ldftn({expr})");
+            Stack.Push(new StackType { Code = StackTypeCode.NativeInt, Name = "uintptr_t" }, $"::natsu::ops::ldftn({expr})");
         }
 
         public void Ldvirtftn()
@@ -1461,7 +1532,7 @@ namespace Natsu.Compiler
                 expr = $"{obj.Expression}.header().template vtable_as<typename {TypeUtils.EscapeTypeName(member.DeclaringType)}::VTable>()->{TypeUtils.EscapeMethodName(member)}";
             }
 
-            Stack.Push(StackTypeCode.NativeInt, $"::natsu::ops::ldftn({expr})");
+            Stack.Push(new StackType { Code = StackTypeCode.NativeInt, Name = "uintptr_t" }, $"::natsu::ops::ldftn({expr})");
         }
 
         public void Switch()
@@ -1483,7 +1554,7 @@ namespace Natsu.Compiler
         public void Sizeof()
         {
             var type = (ITypeDefOrRef)Op.Operand;
-            Stack.Push(StackTypeCode.Int32, $"::natsu::ops::Sizeof<{TypeUtils.EscapeTypeName(type)}>()");
+            Stack.Push(new StackType { Code = StackTypeCode.Int32, Name = "int32_t" }, $"::natsu::ops::Sizeof<{TypeUtils.EscapeTypeName(type)}>()");
         }
     }
 }

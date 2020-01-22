@@ -1023,7 +1023,7 @@ namespace Natsu.Compiler
 
             }
 
-            var importer = new ILImporter(method, writer, ident) { UserStrings = _userStrings, ModuleName = TypeUtils.EscapeModuleName(_module.Assembly) };
+            var importer = new ILImporter(_corLibTypes, method, writer, ident) { UserStrings = _userStrings, ModuleName = TypeUtils.EscapeModuleName(_module.Assembly) };
             importer.ImportNormalBlocks();
             importer.ImportExceptionBlocks();
             importer.Gencode();
