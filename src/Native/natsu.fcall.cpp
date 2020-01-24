@@ -63,7 +63,7 @@ gc_ref<uint8_t> Array::_s_GetRawArrayGeometry(gc_obj_ref<Array> array, gc_ref<ui
 
 void Buffer::_s_Memcpy(gc_ptr<uint8_t> dest, gc_ptr<uint8_t> src, int32_t len)
 {
-    std::memcpy(dest, src, len);
+    std::memcpy(dest.get(), src.get(), len);
 }
 
 void Debug::_s_WriteCore(gc_obj_ref<String> message)
@@ -87,13 +87,13 @@ void Debug::_s_FailCore(gc_obj_ref<String> message, gc_obj_ref<String> detailMes
 
 void Buffer::_s_Memmove(gc_ptr<uint8_t> dest, gc_ptr<uint8_t> src, uint64_t len)
 {
-    std::memmove(dest, src, len);
+    std::memmove(dest.get(), src.get(), len);
 }
 
 gc_obj_ref<Type> Object::GetType(::natsu::gc_obj_ref<Object> _this)
 {
     check_null_obj_ref(_this);
-    return ::natsu::null;
+    pure_call();
 }
 
 char16_t String::get_Chars(gc_obj_ref<String> _this, int32_t index)
@@ -119,7 +119,7 @@ gc_obj_ref<String> String::_s_FastAllocateString(int32_t length)
 
 int32_t String::_s_wcslen(gc_ptr<char16_t> ptr)
 {
-    std::u16string_view sv(ptr);
+    std::u16string_view sv(ptr.get());
     return (int32_t)sv.length();
 }
 
@@ -245,7 +245,7 @@ double Math::_s_FMod(double x, double y)
 
 double Math::_s_ModF(double x, gc_ptr<double> y)
 {
-    return modf(x, y);
+    return fmod(x, *y);
 }
 
 gc_obj_ref<MulticastDelegate> MulticastDelegate::_s_CreateDelegateLike(gc_obj_ref<MulticastDelegate> delegate, gc_obj_ref<SZArray_1<Delegate>> invocationList)
@@ -253,7 +253,7 @@ gc_obj_ref<MulticastDelegate> MulticastDelegate::_s_CreateDelegateLike(gc_obj_re
     auto d_len = invocationList->length();
     if (d_len == 0)
     {
-        return null;
+        return nullptr;
     }
     else if (d_len == 1)
     {

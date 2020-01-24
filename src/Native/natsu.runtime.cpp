@@ -51,12 +51,6 @@ void natsu::pure_call()
     throw std::runtime_error("pure call");
 }
 
-native_int ops::ldlen(const O &obj)
-{
-    check_null_obj_ref(obj);
-    return (intptr_t)stack_to<gc_obj_ref<RawSzArrayData>>(obj)->Count;
-}
-
 void ops::throw_(gc_obj_ref<Exception> obj)
 {
     check_null_obj_ref(obj);

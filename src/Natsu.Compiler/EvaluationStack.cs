@@ -16,7 +16,8 @@ namespace Natsu.Compiler
         F,
         O,
         Ref,
-        Runtime
+        Runtime,
+        ValueType
     }
 
     public struct StackType
@@ -24,6 +25,8 @@ namespace Natsu.Compiler
         public StackTypeCode Code;
 
         public TypeSig TypeSig;
+
+        public IList<TypeSig> GenArgs;
 
         public string Name;
     }
@@ -55,6 +58,15 @@ namespace Natsu.Compiler
         public bool Empty => _stackValues.Count == 0;
 
         public int Count => _stackValues.Count;
+
+        public bool Volatile { get; set; }
+
+        public bool PopVolatile()
+        {
+            var value = Volatile;
+            Volatile = false;
+            return value;
+        }
 
         public EvaluationStack(TextWriter writer, int ident, int paramIndex)
         {

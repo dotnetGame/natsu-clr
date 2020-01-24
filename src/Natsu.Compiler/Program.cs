@@ -69,7 +69,7 @@ namespace Natsu.Compiler
             using (var sha256 = SHA256.Create())
             {
                 digest = Convert.ToBase64String(sha256.ComputeHash(File.ReadAllBytes(_module.Location)));
-#if false
+#if true
                 if (HasOutputUptodate(Path.Combine(outputPath, $"{_module.Assembly.Name}.h"), digest))
                     return;
 #endif
@@ -127,7 +127,7 @@ namespace Natsu.Compiler
 
                 using (var writerSrc = new StreamWriter(Path.Combine(outputPath, $"{_module.Assembly.Name}.cpp"), false, Encoding.UTF8))
                 {
-                    writer.WriteLine(DigestHeader + digest);
+                    writerSrc.WriteLine(DigestHeader + digest);
                     writerSrc.WriteLine($"#include \"{_module.Assembly.Name}.h\"");
                     writerSrc.WriteLine();
 
@@ -409,10 +409,7 @@ namespace Natsu.Compiler
                 writer.Ident(ident).Write($"template <{string.Join(", ", typeNames)}> ");
             }
 
-            if (type.TypeDef.IsExplicitLayout)
-                writer.Ident(ident).Write($"union {type.Name};");
-            else
-                writer.Ident(ident).Write($"struct {type.Name};");
+            writer.Ident(ident).Write($"struct {type.Name};");
 
             foreach (var ns in nss)
                 writer.Write(" }");
@@ -450,22 +447,13 @@ namespace Natsu.Compiler
                 writer.Ident(ident).WriteLine($"template <{string.Join(", ", typeNames)}> ");
             }
 
-            if (type.TypeDef.IsExplicitLayout)
-                writer.Ident(ident).Write($"union {type.Name}");
+            writer.Ident(ident).Write($"struct {type.Name}");
+
+            var baseType = GetBaseType(type.TypeDef);
+            if (baseType != null)
+                writer.WriteLine(" : public " + TypeUtils.EscapeTypeName(baseType));
             else
-                writer.Ident(ident).Write($"struct {type.Name}");
-            if (!type.TypeDef.IsValueType)
-            {
-                var baseType = GetBaseType(type.TypeDef);
-                if (baseType != null)
-                    writer.WriteLine(" : public " + TypeUtils.EscapeTypeName(baseType));
-                else
-                    writer.WriteLine();
-            }
-            else
-            {
                 writer.WriteLine();
-            }
 
             writer.Ident(ident).WriteLine("{");
             // ctor
@@ -492,23 +480,69 @@ namespace Natsu.Compiler
             WriteVTableDeclare(writer, ident + 1, type);
             writer.WriteLine();
 
-            var hasSize = type.TypeDef.HasClassLayout && type.TypeDef.ClassLayout.ClassSize != 0;
-            string fieldSize = "0";
-            foreach (var field in type.TypeDef.Fields)
+            if (type.TypeDef.IsEnum)
             {
-                if (field.HasConstant)
-                    WriteConstantField(writer, ident + 1, field);
-                else if (!field.IsStatic)
-                    WriteField(writer, ident + 1, field);
-                else
-                    hasStaticMember = true;
-
-                if (hasSize && !field.IsStatic)
-                    fieldSize += " + " + TypeUtils.GetTypeSize(field.FieldType.ElementType);
+                writer.Ident(ident + 1).WriteLine($"enum : {TypeUtils.EscapeVariableTypeName(type.TypeDef.GetEnumUnderlyingType())}");
+                writer.Ident(ident + 1).WriteLine("{");
+                foreach (var field in type.TypeDef.Fields)
+                {
+                    if (field.HasConstant)
+                    {
+                        writer.Ident(ident + 2).WriteLine($"{TypeUtils.EscapeIdentifier(field.Name)} = {TypeUtils.LiteralConstant(field.Constant.Value)},");
+                    }
+                }
+                writer.Ident(ident + 1).WriteLine("} value__;");
             }
+            else
+            {
+                var hasSize = type.TypeDef.HasClassLayout && type.TypeDef.ClassLayout.ClassSize != 0;
+                var fieldSize = new List<string> { "0" };
+                if (type.TypeDef.IsExplicitLayout)
+                {
+                    ident += 1;
+                    writer.Ident(ident).WriteLine($"union");
+                    writer.Ident(ident).WriteLine("{");
+                }
+                foreach (var field in type.TypeDef.Fields)
+                {
+                    if (field.HasConstant)
+                        WriteConstantField(writer, ident + 1, field);
+                    else if (!field.IsStatic)
+                        WriteField(writer, ident + 1, field);
+                    else
+                        hasStaticMember = true;
 
-            if (hasSize)
-                writer.Ident(ident + 1).WriteLine($"uint8_t padding_[{type.TypeDef.ClassLayout.ClassSize} - ({fieldSize})];");
+                    if (hasSize && !field.IsStatic)
+                    {
+                        if (field.FieldOffset.HasValue)
+                        {
+                            fieldSize.Add($"({field.FieldOffset.Value} + {TypeUtils.GetTypeSize(field.FieldType.ElementType)})");
+                        }
+                        else
+                        {
+                            fieldSize.Add(TypeUtils.GetTypeSize(field.FieldType.ElementType));
+                        }
+                    }
+                }
+
+                if (hasSize)
+                {
+                    if (type.TypeDef.IsExplicitLayout)
+                    {
+                        writer.Ident(ident + 1).WriteLine($"uint8_t padding_[{type.TypeDef.ClassLayout.ClassSize} - std::max({{{string.Join(", ", fieldSize)}}})];");
+                    }
+                    else
+                    {
+                        writer.Ident(ident + 1).WriteLine($"uint8_t padding_[{type.TypeDef.ClassLayout.ClassSize} - ({string.Join(" + ", fieldSize)})];");
+                    }
+                }
+
+                if (type.TypeDef.IsExplicitLayout)
+                {
+                    writer.Ident(ident).WriteLine("};");
+                    ident -= 1;
+                }
+            }
 
             writer.WriteLine();
 
@@ -534,12 +568,20 @@ namespace Natsu.Compiler
             {
                 writer.WriteLine();
                 writer.Ident(ident + 1).WriteLine($"NATSU_ENUM_IMPL_{type.TypeDef.GetEnumUnderlyingType().TypeName.ToUpperInvariant()}({type.Name})");
+                if (type.TypeDef.CustomAttributes.Any(x => x.TypeFullName == "System.FlagsAttribute"))
+                    writer.Ident(ident + 1).WriteLine($"NATSU_ENUM_FLAG_OPERATORS({type.Name})");
             }
 
             if (type.TypeDef.ToTypeSig().ElementType == ElementType.Object)
             {
                 writer.WriteLine();
                 writer.Ident(ident + 1).WriteLine($"NATSU_OBJECT_IMPL");
+            }
+
+            if (type.TypeDef.FullName == "System.ValueType")
+            {
+                writer.WriteLine();
+                writer.Ident(ident + 1).WriteLine($"NATSU_VALUETYPE_IMPL");
             }
 
             if (type.TypeDef == _szArrayType?.TypeDef)

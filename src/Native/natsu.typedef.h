@@ -49,6 +49,9 @@ struct gc_obj_ref;
 template <class T>
 struct gc_ref;
 
+template <class T>
+struct gc_ptr;
+
 struct clr_exception;
 
 [[noreturn]] void throw_null_ref_exception();
@@ -59,6 +62,13 @@ struct clr_exception;
 
 template <class T>
 void check_null_obj_ref(gc_obj_ref<T> obj)
+{
+    if (!obj)
+        throw_null_ref_exception();
+}
+
+template <class T>
+void check_null_obj_ref(gc_ptr<T> obj)
 {
     if (!obj)
         throw_null_ref_exception();
@@ -189,6 +199,12 @@ using to_clr_type_t = typename to_clr_type<T>::type;
 template <class T>
 constexpr bool is_value_type_v = to_clr_type_t<T>::TypeInfo::IsValueType;
 
+// clang-format off
+template <class TFrom, class TTo>
+constexpr bool is_convertible_v = std::is_convertible_v<to_clr_type_t<TFrom> *, to_clr_type_t<TTo> *>
+|| std::is_convertible_v<typename to_clr_type_t<TFrom>::VTable *, typename to_clr_type_t<TTo>::VTable *>;
+// clang-format on
+
 template <class T>
 constexpr bool is_enum_v = to_clr_type_t<T>::TypeInfo::IsEnum;
 
@@ -210,24 +226,55 @@ struct variable_type<T, false>
 template <class T>
 using variable_type_t = typename variable_type<T, is_value_type_v<T>>::type;
 
-struct null_gc_obj_ref
+template <class T>
+class clr_volatile
 {
-    constexpr null_gc_obj_ref(std::nullptr_t = nullptr) noexcept
+public:
+    using value_type = T;
+
+    clr_volatile() noexcept
     {
     }
 
-    explicit operator uintptr_t() const noexcept
+    clr_volatile(T value) noexcept
+        : value_(value)
     {
-        return 0;
     }
 
-    explicit operator bool() const noexcept
+    clr_volatile(const clr_volatile<T> &other) noexcept
+        : value_(other.value_.load(std::memory_order_acquire))
     {
-        return false;
     }
+
+    clr_volatile &operator=(const T &other) noexcept
+    {
+        value_.store(other, std::memory_order_release);
+        return *this;
+    }
+
+    T load() const noexcept
+    {
+        return value_.load(std::memory_order_acquire);
+    }
+
+    void store(const T &value)
+    {
+        value_.store(value, std::memory_order_release);
+    }
+
+    T &ref() noexcept
+    {
+        return reinterpret_cast<T &>(value_);
+    }
+
+    operator T() const noexcept
+    {
+        return load();
+    }
+
+private:
+    std::atomic<T> value_;
 };
-
-constexpr null_gc_obj_ref null;
 
 template <class T>
 struct gc_ref
@@ -244,6 +291,11 @@ struct gc_ref
     {
     }
 
+    explicit constexpr gc_ref(uintptr_t ptr) noexcept
+        : ptr_(reinterpret_cast<T *>(ptr))
+    {
+    }
+
     explicit constexpr operator bool() const noexcept
     {
         return true;
@@ -252,6 +304,16 @@ struct gc_ref
     explicit operator uintptr_t() const noexcept
     {
         return reinterpret_cast<uintptr_t>(ptr_);
+    }
+
+    operator T &() noexcept
+    {
+        return *ptr_;
+    }
+
+    T *get() const noexcept
+    {
+        return ptr_;
     }
 
     T *operator->() const noexcept
@@ -272,15 +334,9 @@ struct gc_ref
 };
 
 template <class T>
-gc_ref<T> gc_ref_from_ref(T &ref)
-{
-    return gc_ref<T>(ref);
-}
-
-template <class T>
 gc_ref<T> gc_ref_from_addr(uintptr_t addr)
 {
-    return gc_ref<T>(*reinterpret_cast<T *>(addr));
+    return *reinterpret_cast<T *>(addr);
 }
 
 template <class T>
@@ -288,7 +344,7 @@ struct gc_ptr
 {
     T *ptr_;
 
-    constexpr gc_ptr() noexcept
+    constexpr gc_ptr(std::nullptr_t = nullptr) noexcept
         : ptr_(nullptr)
     {
     }
@@ -298,7 +354,7 @@ struct gc_ptr
     {
     }
 
-    explicit constexpr gc_ptr(uintptr_t ptr) noexcept
+    constexpr gc_ptr(uintptr_t ptr) noexcept
         : ptr_(reinterpret_cast<T *>(ptr))
     {
     }
@@ -319,11 +375,6 @@ struct gc_ptr
         return ptr_;
     }
 
-    operator T *() const noexcept
-    {
-        return ptr_;
-    }
-
     T *get() const noexcept
     {
         return ptr_;
@@ -339,12 +390,29 @@ struct gc_ptr
         return *ptr_;
     }
 
-    template <class TOffset>
-    gc_ptr operator+(TOffset offset) noexcept
+    gc_ptr &operator=(uintptr_t address) noexcept
+    {
+        ptr_ = reinterpret_cast<T *>(address);
+        return *this;
+    }
+
+    gc_ptr operator+(intptr_t offset) const noexcept
     {
         auto new_ptr = *this;
         new_ptr.ptr_ = reinterpret_cast<T *>(reinterpret_cast<uint8_t *>(new_ptr.ptr_) + offset);
         return new_ptr;
+    }
+
+    gc_ptr operator-(intptr_t offset) const noexcept
+    {
+        auto new_ptr = *this;
+        new_ptr.ptr_ = reinterpret_cast<T *>(reinterpret_cast<uint8_t *>(new_ptr.ptr_) - offset);
+        return new_ptr;
+    }
+
+    intptr_t operator-(const gc_ptr &other) const noexcept
+    {
+        return reinterpret_cast<intptr_t>(ptr_) - reinterpret_cast<intptr_t>(other.ptr_);
     }
 };
 
@@ -363,20 +431,37 @@ struct gc_ptr<void>
     {
     }
 
-    explicit gc_ptr(uintptr_t ptr) noexcept
-        : ptr_(reinterpret_cast<void *>(ptr))
+    template <class T>
+    gc_ptr(const gc_ptr<T> &ptr) noexcept
+        : ptr_(ptr.ptr_)
     {
     }
 
-    template <class U>
-    gc_ptr(const gc_ptr<U> &other) noexcept
-        : ptr_(reinterpret_cast<void *>(other.ptr_))
+    template <class T>
+    gc_ptr(const gc_ref<T> &ptr) noexcept
+        : ptr_(ptr.ptr_)
+    {
+    }
+
+    gc_ptr(uintptr_t ptr) noexcept
+        : ptr_(reinterpret_cast<void *>(ptr))
     {
     }
 
     explicit operator uintptr_t() const noexcept
     {
         return reinterpret_cast<uintptr_t>(ptr_);
+    }
+
+    template <class U>
+    explicit operator gc_ref<U>() const
+    {
+        return *reinterpret_cast<U *>(ptr_);
+    }
+
+    void *get() const noexcept
+    {
+        return ptr_;
     }
 
     operator void *() const noexcept
@@ -409,7 +494,7 @@ struct gc_obj_ref
 {
     T *ptr_;
 
-    constexpr gc_obj_ref(null_gc_obj_ref = {}) noexcept
+    constexpr gc_obj_ref(std::nullptr_t = nullptr) noexcept
         : ptr_(nullptr)
     {
     }
@@ -419,9 +504,15 @@ struct gc_obj_ref
     {
     }
 
-    template <class U, class = std::enable_if_t<std::is_convertible_v<U *, T *>>>
-    constexpr gc_obj_ref(const gc_obj_ref<U> &other) noexcept
-        : ptr_(static_cast<T *>(other.ptr_))
+    //template <class U, class = std::enable_if_t<is_convertible_v<U, T>>>
+    //constexpr gc_obj_ref(const gc_obj_ref<U> &other) noexcept
+    //    : ptr_(static_cast<T *>(other.ptr_))
+    //{
+    //}
+
+    template <class U>
+    gc_obj_ref(const gc_obj_ref<U> &other) noexcept
+        : ptr_(reinterpret_cast<T *>(other.ptr_))
     {
     }
 
@@ -461,7 +552,7 @@ struct gc_obj_ref
                 return gc_obj_ref<U>(reinterpret_cast<U *>(ptr_));
         }
 
-        return null;
+        return nullptr;
     }
 
     template <class U>
@@ -474,41 +565,6 @@ struct gc_obj_ref
     {
         return *reinterpret_cast<object_header *>(reinterpret_cast<uint8_t *>(ptr_) - sizeof(object_header));
     }
-};
-
-template <class T>
-class clr_volatile
-{
-public:
-    using value_type = T;
-
-    clr_volatile() noexcept
-    {
-    }
-
-    clr_volatile(T value) noexcept
-        : value_(value)
-    {
-    }
-
-    clr_volatile(const clr_volatile<T> &other) noexcept
-        : value_(other.value_.load(std::memory_order_acquire))
-    {
-    }
-
-    clr_volatile &operator=(const T &other) noexcept
-    {
-        value_.store(other, std::memory_order_release);
-        return *this;
-    }
-
-    T load() const noexcept
-    {
-        return value_.load(std::memory_order_acquire);
-    }
-
-private:
-    std::atomic<T> value_;
 };
 
 struct clr_exception
@@ -535,6 +591,30 @@ constexpr bool operator==(const gc_obj_ref<T> &lhs, U *rhs) noexcept
 }
 
 template <class T, class U>
+constexpr bool operator==(const gc_ptr<T> &lhs, const gc_ptr<U> &rhs) noexcept
+{
+    return reinterpret_cast<uintptr_t>(lhs.ptr_) == reinterpret_cast<uintptr_t>(rhs.ptr_);
+}
+
+template <class T, class U>
+constexpr bool operator!=(const gc_ptr<T> &lhs, const gc_ptr<U> &rhs) noexcept
+{
+    return reinterpret_cast<uintptr_t>(lhs.ptr_) != reinterpret_cast<uintptr_t>(rhs.ptr_);
+}
+
+template <class T>
+constexpr bool operator==(const gc_ptr<T> &lhs, uintptr_t rhs) noexcept
+{
+    return reinterpret_cast<uintptr_t>(lhs.ptr_) == rhs;
+}
+
+template <class T>
+constexpr bool operator!=(const gc_ptr<T> &lhs, uintptr_t rhs) noexcept
+{
+    return reinterpret_cast<uintptr_t>(lhs.ptr_) != rhs;
+}
+
+template <class T, class U>
 constexpr bool operator==(U *lhs, const gc_obj_ref<T> &rhs) noexcept
 {
     return lhs == rhs.ptr_;
@@ -547,15 +627,57 @@ constexpr bool operator!=(const gc_obj_ref<T> &lhs, const gc_obj_ref<U> &rhs) no
 }
 
 template <class T>
-constexpr bool operator==(const gc_obj_ref<T> &lhs, null_gc_obj_ref) noexcept
+constexpr bool operator==(const gc_obj_ref<T> &lhs, std::nullptr_t) noexcept
 {
     return !lhs.ptr_;
 }
 
 template <class T>
-constexpr bool operator==(null_gc_obj_ref, const gc_obj_ref<T> &rhs) noexcept
+constexpr bool operator==(std::nullptr_t, const gc_obj_ref<T> &rhs) noexcept
 {
     return !rhs.ptr_;
+}
+
+template <class T>
+constexpr bool operator>(const gc_obj_ref<T> &lhs, std::nullptr_t) noexcept
+{
+    return lhs.ptr_;
+}
+
+template <class T>
+constexpr bool operator<(const gc_ptr<T> &lhs, const gc_ptr<T> &rhs) noexcept
+{
+    return lhs.ptr_ < rhs.ptr_;
+}
+
+template <class T>
+constexpr bool operator<(const gc_ptr<T> &lhs, uintptr_t rhs) noexcept
+{
+    return reinterpret_cast<uintptr_t>(lhs.ptr_) < rhs;
+}
+
+template <class T>
+constexpr bool operator<(uintptr_t lhs, const gc_ptr<T> &rhs) noexcept
+{
+    return lhs.ptr_ < reinterpret_cast<uintptr_t>(rhs.ptr_);
+}
+
+template <class T>
+constexpr bool operator>(const gc_ptr<T> &lhs, const gc_ptr<T> &rhs) noexcept
+{
+    return lhs.ptr_ > rhs.ptr_;
+}
+
+template <class T>
+constexpr bool operator>(const gc_ptr<T> &lhs, uintptr_t rhs) noexcept
+{
+    return reinterpret_cast<uintptr_t>(lhs.ptr_) > rhs;
+}
+
+template <class T>
+constexpr bool operator>(uintptr_t lhs, const gc_ptr<T> &rhs) noexcept
+{
+    return lhs > reinterpret_cast<uintptr_t>(rhs.ptr_);
 }
 
 template <class TBase, class TIFace, bool>
@@ -692,80 +814,136 @@ struct static_object
 #define NATSU_PRIMITIVE_IMPL_INTPTR                      \
     IntPtr() = default;                                  \
     IntPtr(intptr_t value) : _value((uintptr_t)value) {} \
+    IntPtr(void *value) : _value((uintptr_t)value) {}    \
     operator intptr_t() const noexcept { return (uintptr_t)_value; }
 
 #define NATSU_PRIMITIVE_IMPL_UINTPTR                       \
     UIntPtr() = default;                                   \
     UIntPtr(uintptr_t value) : _value((uintptr_t)value) {} \
+    UIntPtr(void *value) : _value((uintptr_t)value) {}     \
     operator uintptr_t() const noexcept { return (uintptr_t)_value; }
 
-#define NATSU_ENUM_IMPL_BYTE(name)  \
-    name &operator=(uint8_t value)  \
-    {                               \
-        value__ = value;            \
-        return *this;               \
-    }                               \
-    static name from(uint8_t value) \
-    {                               \
-        return name { value };      \
-    }                               \
+#define NATSU_ENUM_FLAG_OPERATORS(name)                                  \
+    name operator|(name b) const noexcept                                \
+    {                                                                    \
+        name e;                                                          \
+        e.value__ = static_cast<decltype(value__)>(value__ | b.value__); \
+        return e;                                                        \
+    }                                                                    \
+    name &operator|=(name b) noexcept                                    \
+    {                                                                    \
+        value__ = static_cast<decltype(value__)>(value__ | b.value__);   \
+        return *this;                                                    \
+    }                                                                    \
+    name operator&(name b) const noexcept                                \
+    {                                                                    \
+        name e;                                                          \
+        e.value__ = static_cast<decltype(value__)>(value__ & b.value__); \
+        return e;                                                        \
+    }                                                                    \
+    name &operator&=(name b) noexcept                                    \
+    {                                                                    \
+        value__ = static_cast<decltype(value__)>(value__ & b.value__);   \
+        return *this;                                                    \
+    }                                                                    \
+    name operator~() const noexcept                                      \
+    {                                                                    \
+        name e;                                                          \
+        e.value__ = static_cast<decltype(value__)>(~value__);            \
+        return e;                                                        \
+    }                                                                    \
+    name operator^(name b) const noexcept                                \
+    {                                                                    \
+        name e;                                                          \
+        e.value__ = static_cast<decltype(value__)>(value__ ^ b.value__); \
+        return e;                                                        \
+    }                                                                    \
+    name &operator^=(name b) noexcept                                    \
+    {                                                                    \
+        value__ = static_cast<decltype(value__)>(value__ ^ b.value__);   \
+        return *this;                                                    \
+    }
+
+#define NATSU_ENUM_IMPL_BYTE(name)                \
+    name &operator=(decltype(value__) value)      \
+    {                                             \
+        value__ = value;                          \
+        return *this;                             \
+    }                                             \
+    static name value_of(decltype(value__) value) \
+    {                                             \
+        name e;                                   \
+        e.value__ = value;                        \
+        return e;                                 \
+    }                                             \
     constexpr operator uint8_t() const noexcept { return value__; }
 
-#define NATSU_ENUM_IMPL_INT32(name) \
-    name &operator=(int32_t value)  \
-    {                               \
-        value__ = value;            \
-        return *this;               \
-    }                               \
-    static name from(int32_t value) \
-    {                               \
-        return name { value };      \
-    }                               \
+#define NATSU_ENUM_IMPL_INT32(name)               \
+    name &operator=(decltype(value__) value)      \
+    {                                             \
+        value__ = value;                          \
+        return *this;                             \
+    }                                             \
+    static name value_of(decltype(value__) value) \
+    {                                             \
+        name e;                                   \
+        e.value__ = value;                        \
+        return e;                                 \
+    }                                             \
     constexpr operator int32_t() const noexcept { return value__; }
 
-#define NATSU_ENUM_IMPL_UINT32(name) \
-    name &operator=(uint32_t value)  \
-    {                                \
-        value__ = value;             \
-        return *this;                \
-    }                                \
-    static name from(uint32_t value) \
-    {                                \
-        return name { value };       \
-    }                                \
+#define NATSU_ENUM_IMPL_UINT32(name)              \
+    name &operator=(decltype(value__) value)      \
+    {                                             \
+        value__ = value;                          \
+        return *this;                             \
+    }                                             \
+    static name value_of(decltype(value__) value) \
+    {                                             \
+        name e;                                   \
+        e.value__ = value;                        \
+        return e;                                 \
+    }                                             \
     constexpr operator uint32_t() const noexcept { return value__; }
 
 #define NATSU_OBJECT_IMPL
 
+#define NATSU_VALUETYPE_IMPL                                                                                \
+    template <class T>                                                                                      \
+    static ::natsu::gc_obj_ref<::System_Private_CoreLib::System::String> ToString(::natsu::gc_ref<T> _this) \
+    {                                                                                                       \
+        ::natsu::pure_call();                                                                               \
+    }
+
 #define NATSU_PRIMITIVE_OPERATORS_IMPL
 
-#define NATSU_SZARRAY_IMPL                                           \
-    constexpr ::natsu::variable_type_t<T> &at(size_t index)          \
-    {                                                                \
-        return elements_[index];                                     \
-    }                                                                \
-    constexpr ::natsu::variable_type_t<T> *begin()                   \
-    {                                                                \
-        return elements_;                                            \
-    }                                                                \
-    constexpr ::natsu::variable_type_t<T> *end()                     \
-    {                                                                \
-        return elements_ + length();                                 \
-    }                                                                \
-    constexpr auto ref_at(size_t index)                              \
-    {                                                                \
-        return ::natsu::gc_ref_from_ref(elements_[index]);           \
-    }                                                                \
-    constexpr ::natsu::variable_type_t<T> get(int index)             \
-    {                                                                \
-        return at(index);                                            \
-    }                                                                \
-    constexpr void set(int index, ::natsu::variable_type_t<T> value) \
-    {                                                                \
-        at(index) = value;                                           \
-    }                                                                \
-    constexpr uintptr_t length() const noexcept                      \
-    {                                                                \
-        return Length;                                               \
-    }                                                                \
+#define NATSU_SZARRAY_IMPL                                                      \
+    constexpr ::natsu::variable_type_t<T> &at(size_t index)                     \
+    {                                                                           \
+        return elements_[index];                                                \
+    }                                                                           \
+    constexpr ::natsu::variable_type_t<T> *begin()                              \
+    {                                                                           \
+        return elements_;                                                       \
+    }                                                                           \
+    constexpr ::natsu::variable_type_t<T> *end()                                \
+    {                                                                           \
+        return elements_ + length();                                            \
+    }                                                                           \
+    constexpr ::natsu::gc_ref<::natsu::variable_type_t<T>> ref_at(size_t index) \
+    {                                                                           \
+        return elements_[index];                                                \
+    }                                                                           \
+    constexpr ::natsu::variable_type_t<T> get(int index)                        \
+    {                                                                           \
+        return at(index);                                                       \
+    }                                                                           \
+    constexpr void set(int index, ::natsu::variable_type_t<T> value)            \
+    {                                                                           \
+        at(index) = value;                                                      \
+    }                                                                           \
+    constexpr uintptr_t length() const noexcept                                 \
+    {                                                                           \
+        return Length;                                                          \
+    }                                                                           \
     ::natsu::variable_type_t<T> elements_[0];

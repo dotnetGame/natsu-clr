@@ -105,12 +105,12 @@ void interrupt_sender_main(void *arg)
                 if (g_system_timer_int.exchange(false))
                 {
                     IRQDispatcher::DispatchSystemIRQ(KernelServices::_s_get_IRQDispatcher(),
-                        SystemIRQ::from(SystemIRQ::SystemTick), context);
+                        SystemIRQ::value_of(SystemIRQ::SystemTick), context);
                 }
                 else if (g_core_notifi_int.exchange(false))
                 {
                     IRQDispatcher::DispatchSystemIRQ(KernelServices::_s_get_IRQDispatcher(),
-                        SystemIRQ::from(SystemIRQ::CoreNotification), context);
+                        SystemIRQ::value_of(SystemIRQ::CoreNotification), context);
                 }
             }
         }

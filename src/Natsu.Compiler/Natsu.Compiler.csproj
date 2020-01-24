@@ -7,7 +7,6 @@
 
   <ItemGroup>
     <PackageReference Include="dnlib" Version="3.2.0" />
-    <PackageReference Include="ICSharpCode.Decompiler" Version="5.0.2.5153" />
     <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="4.5.2" />
   </ItemGroup>
 

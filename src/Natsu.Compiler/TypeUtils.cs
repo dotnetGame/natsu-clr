@@ -11,7 +11,12 @@ namespace Natsu.Compiler
 {
     static class TypeUtils
     {
-        public static StackType GetStackType(TypeSig type)
+        public static StackType GetStackType(StackTypeCode code, TypeSig type, IList<TypeSig> genArgs = null)
+        {
+            return new StackType { Code = code, Name = EscapeVariableTypeName(type, genArgs: genArgs), TypeSig = type, GenArgs = genArgs };
+        }
+
+        public static StackType GetStackType(TypeSig type, IList<TypeSig> genArgs = null)
         {
             StackTypeCode code;
             switch (type.ElementType)
@@ -65,19 +70,16 @@ namespace Natsu.Compiler
                     code = StackTypeCode.Ref;
                     break;
                 case ElementType.ValueType:
-                    code = StackTypeCode.Runtime;
+                    code = StackTypeCode.ValueType;
                     break;
                 case ElementType.Class:
                     code = StackTypeCode.O;
-                    break;
-                case ElementType.Var:
-                    code = StackTypeCode.Runtime;
                     break;
                 case ElementType.Array:
                     code = StackTypeCode.O;
                     break;
                 case ElementType.TypedByRef:
-                    code = StackTypeCode.Runtime;
+                    code = StackTypeCode.ValueType;
                     break;
                 case ElementType.I:
                     code = StackTypeCode.NativeInt;
@@ -94,24 +96,47 @@ namespace Natsu.Compiler
                 case ElementType.SZArray:
                     code = StackTypeCode.O;
                     break;
+                case ElementType.Var:
+                    {
+                        var var = type.ToGenericVar();
+                        if (genArgs != null)
+                        {
+                            var sig = genArgs.OfType<GenericSig>().FirstOrDefault(x => x.Number == var.Number);
+                            if (sig != null)
+                                code = GetStackType(sig).Code;
+                            else
+                                code = GetStackType(genArgs[(int)var.Number]).Code;
+                        }
+                        else
+                        {
+                            code = StackTypeCode.Runtime;
+                        }
+                    }
+                    break;
                 case ElementType.MVar:
-                    code = StackTypeCode.Runtime;
+                    {
+                        var mvar = type.ToGenericMVar();
+                        if (genArgs != null)
+                            code = GetStackType(genArgs[(int)mvar.Number]).Code;
+                        else
+                            code = StackTypeCode.Runtime;
+                    }
                     break;
                 case ElementType.GenericInst:
                     {
                         var gen = type.ToGenericInstSig();
-                        code = GetStackType(gen.GenericType).Code;
+                        code = GetStackType(gen.GenericType, genArgs).Code;
                         break;
                     }
                 case ElementType.CModReqd:
                 case ElementType.CModOpt:
                 case ElementType.Pinned:
-                    return GetStackType(type.Next);
+                    return GetStackType(type.Next, genArgs);
                 default:
                     throw new NotSupportedException();
             }
 
-            return new StackType { Code = code, Name = EscapeVariableTypeName(type), TypeSig = type };
+            return new StackType { Code = code, Name = EscapeVariableTypeName(type, genArgs: genArgs), TypeSig = type, GenArgs = genArgs };
         }
 
         public static TypeSig ThisType(ITypeDefOrRef type)
@@ -226,7 +251,10 @@ namespace Natsu.Compiler
                         }
                         else
                         {
-                            sb.Append(var.GetName());
+                            if (cppBasicType)
+                                sb.Append(var.GetName());
+                            else
+                                sb.Append($"::natsu::to_clr_type_t<{var.GetName()}>");
                         }
                     }
                     break;
@@ -236,7 +264,12 @@ namespace Natsu.Compiler
                         if (genArgs != null)
                             EscapeTypeName(sb, genArgs[(int)mvar.Number], cppBasicType: true);
                         else
-                            sb.Append(mvar.GetName());
+                        {
+                            if (cppBasicType)
+                                sb.Append(mvar.GetName());
+                            else
+                                sb.Append($"::natsu::to_clr_type_t<{mvar.GetName()}>");
+                        }
                     }
                     break;
                 case ElementType.GenericInst:
@@ -300,11 +333,11 @@ namespace Natsu.Compiler
         {
             var sig = type.ToTypeSig();
             if (type.IsValueType || IsValueType(sig))
-                return EscapeTypeNameImpl(type, hasGen, hasModuleName, genArgs);
+                return EscapeTypeNameImpl(type, hasGen, hasModuleName, genArgs, cppBasicType: true);
             else if (type.ToTypeSig().IsGenericParameter)
-                return $"::natsu::variable_type_t<{EscapeTypeNameImpl(type, hasGen, hasModuleName, genArgs)}>";
+                return $"::natsu::variable_type_t<{EscapeTypeNameImpl(type, hasGen, hasModuleName, genArgs, cppBasicType: true)}>";
             else
-                return $"::natsu::gc_obj_ref<{EscapeTypeNameImpl(type, hasGen, hasModuleName, genArgs)}>";
+                return $"::natsu::gc_obj_ref<{EscapeTypeNameImpl(type, hasGen, hasModuleName, genArgs, cppBasicType: true)}>";
         }
 
         public static string EscapeTypeName(string name)
@@ -863,7 +896,7 @@ namespace Natsu.Compiler
 
         public static bool IsSameType(ITypeDefOrRef type1, ITypeDefOrRef type2)
         {
-            return type1 == type2 || type1 == type2.Scope;
+            return type1 == type2 || type1 == type2.ScopeType;
         }
 
         public static string GetLocalName(Local local, MethodDef method)
@@ -880,21 +913,38 @@ namespace Natsu.Compiler
             return localName ?? $"_l{local.Index}";
         }
 
-        public static bool IsRefOrPtr(StackTypeCode type)
+        public static bool IsRefOrPtr(StackType type)
         {
-            switch (type)
+            if (type.Code == StackTypeCode.O)
+                return true;
+
+            switch (type.TypeSig.ElementType)
             {
-                case StackTypeCode.Int32:
-                case StackTypeCode.Int64:
-                case StackTypeCode.NativeInt:
-                case StackTypeCode.F:
-                    return false;
-                case StackTypeCode.O:
-                case StackTypeCode.Ref:
+                case ElementType.Object:
+                case ElementType.SZArray:
+                case ElementType.Array:
+                case ElementType.String:
+                case ElementType.ByRef:
+                case ElementType.Ptr:
                     return true;
                 default:
-                    throw new NotSupportedException();
+                    return false;
             }
+        }
+
+        public static bool IsSameType(TypeSig destType, StackType type, IList<TypeSig> genArgs = null)
+        {
+            if (destType != type.TypeSig)
+            {
+                if (EscapeVariableTypeName(destType, genArgs: genArgs) != type.Name)
+                {
+                    if (EscapeVariableTypeName(destType, genArgs: genArgs) !=
+                        EscapeVariableTypeName(type.TypeSig, genArgs: genArgs))
+                        return false;
+                }
+            }
+
+            return true;
         }
     }
 }

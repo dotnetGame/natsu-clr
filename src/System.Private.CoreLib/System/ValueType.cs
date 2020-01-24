@@ -18,5 +18,9 @@ namespace System
 {
     public abstract class ValueType
     {
+        public override string ToString()
+        {
+            return base.ToString();
+        }
     }
 }
