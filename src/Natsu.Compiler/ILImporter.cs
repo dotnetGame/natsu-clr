@@ -963,7 +963,7 @@ namespace Natsu.Compiler
         {
             var param = Op.GetParameter(Method.Parameters.ToList());
             var paramName = param.IsHiddenThisParameter ? "_this" : param.ToString();
-            Stack.Push(TypeUtils.GetStackType(param.Type), $"{paramName}", computed: true);
+            Stack.Push(TypeUtils.GetStackType(param.Type), $"{paramName}", computed: false);
         }
 
         public void Starg()
@@ -1218,7 +1218,7 @@ namespace Natsu.Compiler
         public void Ldloc()
         {
             var local = Op.GetLocal(Method.Body.Variables.ToList());
-            Stack.Push(TypeUtils.GetStackType(local.Type), $"{TypeUtils.GetLocalName(local, Method)}", computed: true);
+            Stack.Push(TypeUtils.GetStackType(local.Type), $"{TypeUtils.GetLocalName(local, Method)}", computed: false);
         }
 
         public void Ldloca()
