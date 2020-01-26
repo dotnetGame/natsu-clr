@@ -12,6 +12,7 @@ using namespace System_Private_CoreLib::System::Diagnostics;
 using namespace System_Private_CoreLib::System::Runtime;
 using namespace System_Private_CoreLib::System::Runtime::CompilerServices;
 using namespace System_Private_CoreLib::System::Threading;
+using namespace Chino_Kernel;
 
 int32_t Array::GetLength(gc_obj_ref<Array> _this, int32_t dimension)
 {
@@ -284,15 +285,24 @@ int32_t Environment::_s_get_TickCount()
 
 int64_t Environment::_s_get_TickCount64()
 {
-    using namespace Chino_Core::Chino;
-    using namespace Chino_Core::Chino::Threading;
+    auto scheduler = Chino::KernelServices::_s_get_Scheduler();
+    return (int64_t)Chino::Threading::Scheduler::get_TickCount(scheduler);
+}
 
-    auto scheduler = SystemServices::_s_get_Scheduler().cast<Object>();
-    return (int64_t)scheduler.header().vtable_as<typename IScheduler::VTable>()->get_TickCount_(scheduler);
+namespace
+{
+void *get_current_thread_id()
+{
+    auto thread = Chino::KernelServices::_s_get_CurrentThread();
+    return thread.ptr_;
+}
 }
 
 void Monitor::_s_Enter(gc_obj_ref<Object> obj)
 {
+    check_null_obj_ref(obj);
+    auto thread_id = get_current_thread_id();
+    auto &sync_header = obj.header().sync_header_;
 }
 
 void Monitor::_s_ReliableEnter(gc_obj_ref<Object> obj, gc_ref<bool> lockTaken)
@@ -334,14 +344,14 @@ int64_t Monitor::_s_GetLockContentionCount()
 
 void Thread::_s_SleepInternal(int32_t millisecondsTimeout)
 {
-}
-
-void Thread::_s_SpinWaitInternal(int32_t iterations)
-{
+    auto scheduler = Chino::KernelServices::_s_get_Scheduler();
+    Chino::Threading::Scheduler::DelayCurrentThread(scheduler, TimeSpan::_s_FromMilliseconds(millisecondsTimeout));
 }
 
 bool Thread::_s_YieldInternal()
 {
+    auto scheduler = Chino::KernelServices::_s_get_Scheduler();
+    Chino::Threading::Scheduler::DelayCurrentThread(scheduler, TimeSpan::_s_FromTicks(0));
     return true;
 }
 

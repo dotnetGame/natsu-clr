@@ -11,6 +11,8 @@ namespace Chino
 
         public static IRQDispatcher IRQDispatcher { get; private set; }
 
+        public static Thread CurrentThread => Scheduler.RunningThread.Value.Thread;
+
         internal static void Initialize()
         {
             Scheduler = new Scheduler();

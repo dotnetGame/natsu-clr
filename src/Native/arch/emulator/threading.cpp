@@ -4,7 +4,7 @@
 #include <process.h>
 
 using namespace natsu;
-using namespace System_Threading::System::Threading;
+using namespace System_Private_CoreLib;
 using namespace Chino_Core::Chino::Threading;
 using namespace Chino_Kernel::Chino::Threading;
 using namespace Chino_Chip_Emulator::Chino;
@@ -20,9 +20,17 @@ uint32_t __stdcall thread_main_thunk(void *arg)
 }
 }
 
-void Interlocked::_s__MemoryBarrierProcessWide()
+void System::Threading::Interlocked::_s__MemoryBarrierProcessWide()
 {
     FlushProcessWriteBuffers();
+}
+
+void System::Threading::Thread::_s_SpinWaitInternal(int32_t iterations)
+{
+    while (iterations--)
+    {
+        YieldProcessor();
+    }
 }
 
 void ChipControl::_s_InitializeThreadContext(gc_ref<ThreadContextArch> context, gc_obj_ref<IThread> thread)

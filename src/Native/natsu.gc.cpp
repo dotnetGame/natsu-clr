@@ -398,7 +398,7 @@ gc_obj_ref<Object> natsu::gc_alloc(const vtable_t &vtable, size_t size)
     if (!mem_ptr)
         throw make_exception(make_object<OutOfMemoryException>());
     gc_obj_ref<Object> ptr(reinterpret_cast<Object *>(mem_ptr + sizeof(object_header)));
-    ptr.header().vtable_ = &vtable;
+    new (&ptr.header()) object_header(OBJ_ATTR_NONE, &vtable);
     return ptr;
 }
 

@@ -145,10 +145,21 @@ enum object_attributes
     OBJ_ATTR_NONE
 };
 
+struct object_sync_header
+{
+    std::atomic<void *> lock_taken = nullptr;
+};
+
 struct object_header
 {
     object_attributes attributes_;
+    object_sync_header sync_header_;
     const vtable_t *vtable_;
+
+    constexpr object_header(object_attributes attributes, const vtable_t *vtable)
+        : attributes_(attributes), vtable_(vtable)
+    {
+    }
 
     template <class TVTable>
     const TVTable *vtable() const noexcept
@@ -743,7 +754,7 @@ struct static_object
     TValue value_;
 
     constexpr static_object(TValue value)
-        : header_({ OBJ_ATTR_NONE, &vtable_holder<typename TObject::VTable>::get() }), value_(value)
+        : header_(OBJ_ATTR_NONE, &vtable_holder<typename TObject::VTable>::get()), value_(value)
     {
     }
 

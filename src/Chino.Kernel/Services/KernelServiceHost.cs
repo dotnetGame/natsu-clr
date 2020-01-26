@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 using Chino.Kernel;
 
 namespace Chino.Services
@@ -18,7 +19,7 @@ namespace Chino.Services
             while (true)
             {
                 Terminal.Default.WriteLine("Tick " + i++.ToString());
-                KernelServices.Scheduler.DelayCurrentThread(TimeSpan.FromSeconds(1));
+                Thread.Sleep(1000);
             }
         }
     }
