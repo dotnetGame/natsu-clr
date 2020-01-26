@@ -17,7 +17,6 @@ namespace
 {
 std::atomic<bool> g_interrupt_enabled(false);
 CRITICAL_SECTION g_interrupt_cs;
-Event g_interrupt_enabled_event(CreateEvent(nullptr, TRUE, FALSE, nullptr));
 HANDLE g_system_timer;
 TimeSpan g_time_slice;
 
@@ -44,16 +43,17 @@ void resume_thread(ThreadContextArch &context)
 
 void notify_interrupt()
 {
-    ++g_interrupt_num;
+    g_interrupt_num.fetch_add(1);
     THROW_WIN32_IF_NOT(ReleaseSemaphore(g_interrupt_count.Get(), 1, NULL));
 }
 
 void wait_interrupt_clear()
 {
-    while (g_interrupt_num--)
+    while (g_interrupt_num.load())
     {
         if (WaitForSingleObject(g_interrupt_commit_count.Get(), INFINITE) == WAIT_ABANDONED)
             break;
+        g_interrupt_num.fetch_sub(1);
     }
 }
 
@@ -80,44 +80,36 @@ void interrupt_sender_main(void *arg)
 {
     while (true)
     {
-        if (g_interrupt_enabled.load(std::memory_order_acquire))
-        {
-            if (WaitForSingleObject(g_interrupt_count.Get(), INFINITE) == WAIT_ABANDONED)
-                break;
+        if (WaitForSingleObject(g_interrupt_count.Get(), INFINITE) == WAIT_ABANDONED)
+            break;
 
+        {
+            auto leave = natsu::make_finally([&] { LeaveCriticalSection(&g_interrupt_cs); });
+            EnterCriticalSection(&g_interrupt_cs);
+
+            ThreadContextArch context;
+            // Suspend running thread
+            auto running_thread_entry = Scheduler::get_RunningThread(KernelServices::_s_get_Scheduler());
+            if (running_thread_entry)
             {
-                auto leave = natsu::make_finally([&] { LeaveCriticalSection(&g_interrupt_cs); });
-                EnterCriticalSection(&g_interrupt_cs);
-
-                ThreadContextArch context;
-                // Suspend running thread
-                auto running_thread_entry = Scheduler::get_RunningThread(KernelServices::_s_get_Scheduler());
-                if (running_thread_entry)
-                {
-                    auto running_thread = running_thread_entry->item->_Thread_k__BackingField;
-                    // Wait for suspended
-                    suspend_thread(running_thread->Context.Arch);
-                    context = running_thread->Context.Arch;
-                }
-
-                THROW_WIN32_IF_NOT(ReleaseSemaphore(g_interrupt_commit_count.Get(), 1, nullptr));
-
-                if (g_system_timer_int.exchange(false))
-                {
-                    IRQDispatcher::DispatchSystemIRQ(KernelServices::_s_get_IRQDispatcher(),
-                        SystemIRQ::value_of(SystemIRQ::SystemTick), context);
-                }
-                else if (g_core_notifi_int.exchange(false))
-                {
-                    IRQDispatcher::DispatchSystemIRQ(KernelServices::_s_get_IRQDispatcher(),
-                        SystemIRQ::value_of(SystemIRQ::CoreNotification), context);
-                }
+                auto running_thread = running_thread_entry->item->_Thread_k__BackingField;
+                // Wait for suspended
+                suspend_thread(running_thread->Context.Arch);
+                context = running_thread->Context.Arch;
             }
-        }
-        else
-        {
-            if (WaitForSingleObject(g_interrupt_enabled_event.Get(), INFINITE) == WAIT_ABANDONED)
-                break;
+
+            THROW_WIN32_IF_NOT(ReleaseSemaphore(g_interrupt_commit_count.Get(), 1, nullptr));
+
+            if (g_system_timer_int.exchange(false))
+            {
+                IRQDispatcher::DispatchSystemIRQ(KernelServices::_s_get_IRQDispatcher(),
+                    SystemIRQ::value_of(SystemIRQ::SystemTick), context);
+            }
+            else if (g_core_notifi_int.exchange(false))
+            {
+                IRQDispatcher::DispatchSystemIRQ(KernelServices::_s_get_IRQDispatcher(),
+                    SystemIRQ::value_of(SystemIRQ::CoreNotification), context);
+            }
         }
     }
 }
@@ -133,7 +125,6 @@ void ChipControl::_s_Initialize()
     // Init interrupt sender thread
     auto intr_thrd = _beginthread(interrupt_sender_main, 0, nullptr);
     assert(intr_thrd);
-    assert(g_interrupt_enabled_event.IsValid());
     assert(g_interrupt_count.IsValid());
     assert(g_interrupt_commit_count.IsValid());
     THROW_IF_FAILED(SetThreadDescription((HANDLE)intr_thrd, L"Interrupt Sender"));
@@ -148,7 +139,6 @@ UIntPtr ChipControl::_s_DisableInterrupt()
     if (old)
     {
         EnterCriticalSection(&g_interrupt_cs);
-        THROW_WIN32_IF_NOT(ResetEvent(g_interrupt_enabled_event.Get()));
     }
 
     return old;
@@ -160,7 +150,6 @@ UIntPtr ChipControl::_s_EnableInterrupt()
     if (!old)
     {
         LeaveCriticalSection(&g_interrupt_cs);
-        THROW_WIN32_IF_NOT(SetEvent(g_interrupt_enabled_event.Get()));
         wait_interrupt_clear();
     }
 
@@ -175,13 +164,11 @@ void ChipControl::_s_RestoreInterrupt(UIntPtr state)
         if (state)
         {
             LeaveCriticalSection(&g_interrupt_cs);
-            THROW_WIN32_IF_NOT(SetEvent(g_interrupt_enabled_event.Get()));
             wait_interrupt_clear();
         }
         else
         {
             EnterCriticalSection(&g_interrupt_cs);
-            THROW_WIN32_IF_NOT(ResetEvent(g_interrupt_enabled_event.Get()));
         }
     }
 }
