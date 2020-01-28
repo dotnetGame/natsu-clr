@@ -629,6 +629,75 @@ gc_ref<T> unbox_exact(gc_obj_ref<::System_Private_CoreLib::System::Object> value
 
 namespace System_Private_CoreLib
 {
+namespace details
+{
+    template <class T>
+    struct default_comparer_impl
+    {
+        ::natsu::gc_obj_ref<System::Collections::Generic::Comparer_1<T>> operator()() const
+        {
+            using namespace System::Collections::Generic;
+
+            // If T implements IComparable<T> return a GenericComparer<T>
+            if constexpr (natsu::is_convertible_v<T, IComparable_1<T>>)
+                return natsu::make_object<GenericComparer_1<T>>();
+            else
+                return nullptr;
+        }
+    };
+
+    // Nullable does not implement IComparable<T?> directly because that would add an extra interface call per comparison.
+    // Instead, it relies on Comparer<T?>.Default to specialize for nullables and do the lifted comparisons if T implements IComparable.
+    template <class T>
+    struct default_comparer_impl<System::Nullable_1<T>>
+    {
+        ::natsu::gc_obj_ref<System::Collections::Generic::Comparer_1<System::Nullable_1<T>>> operator()() const
+        {
+            using namespace System::Collections::Generic;
+
+            // If T implements IComparable<T> return a GenericComparer<T>
+            if constexpr (natsu::is_convertible_v<T, IComparable_1<T>>)
+                return natsu::make_object<NullableComparer_1<T>>();
+            else
+                return nullptr;
+        }
+    };
+
+    template <class T>
+    struct default_equality_comparer_impl
+    {
+        ::natsu::gc_obj_ref<System::Collections::Generic::EqualityComparer_1<T>> operator()() const
+        {
+            using namespace System::Collections::Generic;
+
+            // Specialize for byte so Array.IndexOf is faster.
+            if constexpr (std::is_same_v<T, uint8_t>)
+                return natsu::make_object<ByteEqualityComparer>();
+            // If T implements IEquatable<T> return a GenericEqualityComparer<T>
+            else if constexpr (natsu::is_convertible_v<T, ::System_Private_CoreLib::System::IEquatable_1<T>>)
+                return natsu::make_object<GenericEqualityComparer_1<T>>();
+            else
+                return nullptr;
+        }
+    };
+
+    // Nullable does not implement IEquatable<T?> directly because that would add an extra interface call per comparison.
+    // Instead, it relies on EqualityComparer<T?>.Default to specialize for nullables and do the lifted comparisons if T implements IEquatable.
+    template <class T>
+    struct default_equality_comparer_impl<System::Nullable_1<T>>
+    {
+        ::natsu::gc_obj_ref<System::Collections::Generic::EqualityComparer_1<System::Nullable_1<T>>> operator()() const
+        {
+            using namespace System::Collections::Generic;
+
+            if constexpr (natsu::is_convertible_v<T, IEquatable_1<T>>)
+                return natsu::make_object<NullableEqualityComparer_1<T>>();
+            else
+                return nullptr;
+        }
+    };
+}
+
 template <class T>
 void System::ByReference_1<T>::_ctor(::natsu::gc_ref<System::ByReference_1<T>> _this, ::natsu::gc_ref<::natsu::variable_type_t<T>> value)
 {
@@ -756,6 +825,11 @@ bool System::Runtime::CompilerServices::RuntimeHelpers::_s_IsBitwiseEquatable()
 template <class T>
 ::natsu::gc_obj_ref<System::Collections::Generic::EqualityComparer_1<T>> System::Collections::Generic::ComparerHelpers::_s_CreateDefaultEqualityComparer()
 {
-    return nullptr;
+    using namespace System::Collections::Generic;
+
+    auto comparer = details::default_equality_comparer_impl<T>()();
+    if (!comparer)
+        comparer = natsu::make_object<ObjectEqualityComparer_1<T>>();
+    return comparer;
 }
 }

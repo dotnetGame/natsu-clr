@@ -4,6 +4,6 @@ namespace System
 {
     internal class SZArray<T> : Array
     {
-        public uint Length;
+        public IntPtr Length;
     }
 }

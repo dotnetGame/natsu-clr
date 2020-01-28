@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
@@ -60,6 +61,7 @@ using System.Threading;
 [assembly: TypeForwardedTo(typeof(ValueTuple<,,,,,>))]
 [assembly: TypeForwardedTo(typeof(ValueTuple<,,,,,,>))]
 [assembly: TypeForwardedTo(typeof(ValueTuple<,,,,,,,>))]
+[assembly: TypeForwardedTo(typeof(KeyValuePair<,>))]
 [assembly: TypeForwardedTo(typeof(Span<>))]
 [assembly: TypeForwardedTo(typeof(ReadOnlySpan<>))]
 [assembly: TypeForwardedTo(typeof(TimeSpan))]

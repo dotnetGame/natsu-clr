@@ -212,8 +212,7 @@ constexpr bool is_value_type_v = to_clr_type_t<T>::TypeInfo::IsValueType;
 
 // clang-format off
 template <class TFrom, class TTo>
-constexpr bool is_convertible_v = std::is_convertible_v<to_clr_type_t<TFrom> *, to_clr_type_t<TTo> *>
-|| std::is_convertible_v<typename to_clr_type_t<TFrom>::VTable *, typename to_clr_type_t<TTo>::VTable *>;
+constexpr bool is_convertible_v = std::is_convertible_v<typename to_clr_type_t<TFrom>::VTable *, typename to_clr_type_t<TTo>::VTable *>;
 // clang-format on
 
 template <class T>
@@ -592,13 +591,13 @@ struct clr_exception
 template <class T, class U>
 constexpr bool operator==(const gc_obj_ref<T> &lhs, const gc_obj_ref<U> &rhs) noexcept
 {
-    return lhs.ptr_ == rhs.ptr_;
+    return reinterpret_cast<uintptr_t>(lhs.ptr_) == reinterpret_cast<uintptr_t>(rhs.ptr_);
 }
 
 template <class T, class U>
 constexpr bool operator==(const gc_obj_ref<T> &lhs, U *rhs) noexcept
 {
-    return lhs.ptr_ == rhs;
+    return reinterpret_cast<uintptr_t>(lhs.ptr_) == reinterpret_cast<uintptr_t>(rhs);
 }
 
 template <class T, class U>
@@ -919,11 +918,11 @@ struct static_object
 
 #define NATSU_OBJECT_IMPL
 
-#define NATSU_VALUETYPE_IMPL                                                                                \
-    template <class T>                                                                                      \
-    static ::natsu::gc_obj_ref<::System_Private_CoreLib::System::String> ToString(::natsu::gc_ref<T> _this) \
-    {                                                                                                       \
-        ::natsu::pure_call();                                                                               \
+#define NATSU_VALUETYPE_IMPL                                                                      \
+    template <class T>                                                                            \
+    static ::natsu::gc_obj_ref<::System_Private_CoreLib::System::String> ToString(const T &_this) \
+    {                                                                                             \
+        ::natsu::pure_call();                                                                     \
     }
 
 #define NATSU_PRIMITIVE_OPERATORS_IMPL

@@ -1096,6 +1096,16 @@ namespace Natsu.Compiler
             {
                 return $"{src.Expression}";
             }
+            else if (destType.ElementType == ElementType.Ptr &&
+                src.Type.Code == StackTypeCode.Ref)
+            {
+                return $"{src.Expression}.get()";
+            }
+            else if (destType.ElementType != ElementType.ByRef &&
+                src.Type.Code == StackTypeCode.Ref)
+            {
+                return $"*{src.Expression}";
+            }
             else
             {
                 if (destType.IsValueType)

@@ -50,7 +50,18 @@ int32_t Array::GetLowerBound(gc_obj_ref<Array> _this, int32_t dimension)
 
 void Array::_s_Copy(gc_obj_ref<Array> sourceArray, int32_t sourceIndex, gc_obj_ref<Array> destinationArray, int32_t destinationIndex, int32_t length, bool reliable)
 {
-    throw_exception<InvalidOperationException>();
+    check_null_obj_ref(sourceArray);
+    check_null_obj_ref(destinationArray);
+    auto src = sourceArray.cast<RawSzArrayData>();
+    auto dest = sourceArray.cast<RawSzArrayData>();
+    auto element_size = sourceArray.header().vtable_->ElementSize;
+
+    if ((sourceIndex + length) > (intptr_t)src->Count || (destinationIndex + length) > (intptr_t)dest->Count)
+        throw_index_out_of_range_exception();
+
+    if (sourceArray.header().vtable_ != destinationArray.header().vtable_)
+        throw_exception<ArrayTypeMismatchException>();
+    std::memmove(&dest->Data + (size_t)destinationIndex * element_size, &src->Data + (size_t)sourceIndex * element_size, (size_t)length * element_size);
 }
 
 gc_ref<uint8_t> Array::_s_GetRawArrayGeometry(gc_obj_ref<Array> array, gc_ref<uint32_t> numComponents, gc_ref<uint32_t> elementSize, gc_ref<int32_t> lowerBound, ::natsu::gc_ref<bool> containsGCPointers)
@@ -300,41 +311,64 @@ void *get_current_thread_id()
 
 void Monitor::_s_Enter(gc_obj_ref<Object> obj)
 {
-    check_null_obj_ref(obj);
-    auto thread_id = get_current_thread_id();
-    auto &sync_header = obj.header().sync_header_;
+    bool lock_taken = false;
+    _s_ReliableEnter(obj, lock_taken);
 }
 
 void Monitor::_s_ReliableEnter(gc_obj_ref<Object> obj, gc_ref<bool> lockTaken)
 {
-    *lockTaken = true;
+    check_null_obj_ref(obj);
+    auto thread_id = get_current_thread_id();
+    auto &sync_header = obj.header().sync_header_;
+    void *expected = nullptr;
+
+    while (true)
+    {
+        if (sync_header.lock_taken.compare_exchange_strong(expected, thread_id))
+        {
+            Volatile::_s_Write(*lockTaken, true);
+            break;
+        }
+
+        Thread::_s_SleepInternal(1);
+    }
 }
 
 void Monitor::_s_Exit(::natsu::gc_obj_ref<Object> obj)
 {
+    check_null_obj_ref(obj);
+    auto thread_id = get_current_thread_id();
+    auto &sync_header = obj.header().sync_header_;
+    void *expected = thread_id;
+    sync_header.lock_taken.compare_exchange_strong(expected, nullptr);
 }
 
 void Monitor::_s_ReliableEnterTimeout(gc_obj_ref<Object> obj, int32_t timeout, gc_ref<bool> lockTaken)
 {
-    *lockTaken = true;
+    pure_call();
 }
 
 bool Monitor::_s_IsEnteredNative(gc_obj_ref<Object> obj)
 {
-    return true;
+    check_null_obj_ref(obj);
+    auto thread_id = get_current_thread_id();
+    auto &sync_header = obj.header().sync_header_;
+    return sync_header.lock_taken.load() == thread_id;
 }
 
 bool Monitor::_s_ObjWait(bool exitContext, int32_t millisecondsTimeout, gc_obj_ref<Object> obj)
 {
-    return true;
+    pure_call();
 }
 
 void Monitor::_s_ObjPulse(gc_obj_ref<Object> obj)
 {
+    pure_call();
 }
 
 void Monitor::_s_ObjPulseAll(gc_obj_ref<Object> obj)
 {
+    pure_call();
 }
 
 int64_t Monitor::_s_GetLockContentionCount()
