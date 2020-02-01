@@ -21,6 +21,7 @@ set(SRCS natsu.fcall.cpp
          Generated/BitFields.cpp)
 
 add_executable(chino ${SRCS} ${ASM_SRCS})
+target_compile_definitions(chino PUBLIC -DCHINO_ARCH=${CHINO_ARCH})
 target_link_libraries(chino PUBLIC arch)
 
 if (NOT WIN32)

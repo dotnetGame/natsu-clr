@@ -4,8 +4,7 @@ using System.Text;
 
 namespace Chino.Threading
 {
-    public interface IThread
+    public abstract class ThreadContext
     {
-        public string? Description { get; set; }
     }
 }

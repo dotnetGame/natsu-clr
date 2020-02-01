@@ -45,6 +45,18 @@ natsu-clr
 - Garbage Collection
 - Reflection
 
+## Build from source
+## 从源码编译
+
+Install .Net Core SDK 3.0 and CMake
+
+```
+dotnet build Natsu.sln
+cd src/Natsu.Compiler/bin/Debug/netcoreapp3.0 && ./Natsu.Compiler
+mkdir out && cd out
+cmake .. -DCHINO_ARCH=Emulator -DCHINO_BOARD=Emulator
+```
+
 ## Roadmap
 - [ ] Full support of standard libraries (Wellcome contributors!)
 

@@ -1,4 +1,5 @@
 ﻿using System;
+using Chino.Chip;
 
 namespace Chino.Kernel
 {
@@ -6,7 +7,7 @@ namespace Chino.Kernel
     {
         private static void Write(string message)
         {
-            ChipControl.Write(message);
+            ChipControl.Default.Write(message);
         }
     }
 }

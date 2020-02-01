@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using Chino.Chip;
 
 namespace Chino.Threading
 {
@@ -10,12 +11,12 @@ namespace Chino.Threading
 
         public static ProcessorCriticalSection Acquire()
         {
-            return new ProcessorCriticalSection { _lastState = ChipControl.DisableInterrupt() };
+            return new ProcessorCriticalSection { _lastState = ChipControl.Default.DisableInterrupt() };
         }
 
         public void Dispose()
         {
-            ChipControl.RestoreInterrupt(_lastState);
+            ChipControl.Default.RestoreInterrupt(_lastState);
         }
     }
 }

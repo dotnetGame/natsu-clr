@@ -1,6 +1,7 @@
 #include "Chino.Kernel.h"
 #include <cmath>
 #include <cstring>
+#include <random>
 #ifdef WIN32
 #include <Windows.h>
 #endif
@@ -12,7 +13,7 @@ using namespace System_Private_CoreLib::System::Diagnostics;
 using namespace System_Private_CoreLib::System::Runtime;
 using namespace System_Private_CoreLib::System::Runtime::CompilerServices;
 using namespace System_Private_CoreLib::System::Threading;
-using namespace Chino_Kernel;
+using namespace Chino_Core;
 
 int32_t Array::GetLength(gc_obj_ref<Array> _this, int32_t dimension)
 {
@@ -279,7 +280,13 @@ gc_obj_ref<MulticastDelegate> MulticastDelegate::_s_CreateDelegateLike(gc_obj_re
     }
 }
 
-void RuntimeImports::_s_RhZeroMemory(::natsu::gc_ptr<void> b, uint64_t byteLength)
+void RuntimeImports::_s_GetRandomBytes(gc_ptr<uint8_t> buffer, int32_t length)
+{
+    std::mt19937 rbe;
+    std::generate_n(buffer.get(), length, std::ref(rbe));
+}
+
+void RuntimeImports::_s_RhZeroMemory(gc_ptr<void> b, uint64_t byteLength)
 {
     std::memset(b.ptr_, 0, byteLength);
 }

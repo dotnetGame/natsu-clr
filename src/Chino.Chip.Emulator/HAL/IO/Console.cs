@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Diagnostics;
 
 namespace Chino.Chip.Emulator.HAL.IO
 {
@@ -22,7 +23,7 @@ namespace Chino.Chip.Emulator.HAL.IO
             if (e.Type == ConsoleEventType.KeyEvent)
             {
                 if (e.Key.KeyDown)
-                    ChipControl.Write(e.Key.Char.ToString());
+                    Debug.Write(e.Key.Char.ToString());
             }
         }
 

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
+using Chino.Chip;
 using Chino.Services;
 
 namespace Chino.Kernel
@@ -10,7 +11,7 @@ namespace Chino.Kernel
     {
         static void Main()
         {
-            ChipControl.Initialize();
+            ChipControl.Default.Initialize();
             KernelServices.Initialize();
 
             var scheduler = KernelServices.Scheduler;

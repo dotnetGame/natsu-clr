@@ -20,8 +20,8 @@ namespace Chino.Threading
         public DPCHandler Callback;
     }
 
-    public delegate ref ThreadContextArch DPCHandler(object? argument, ref ThreadContextArch context);
-    public delegate ref ThreadContextArch SystemIRQHandler(SystemIRQ irq, ref ThreadContextArch context);
+    public delegate ThreadContext DPCHandler(object? argument, ThreadContext context);
+    public delegate ThreadContext SystemIRQHandler(SystemIRQ irq, ThreadContext context);
 
     public class IRQDispatcher
     {
@@ -46,37 +46,37 @@ namespace Chino.Threading
                 _dpcs.AddLast(dpc);
             }
 
-            ChipControl.RaiseCoreNotification();
+            ChipControl.Default.RaiseCoreNotification();
         }
 
-        internal void DispatchSystemIRQ(SystemIRQ irq, ref ThreadContextArch context)
+        internal void DispatchSystemIRQ(SystemIRQ irq, ThreadContext context)
         {
             Debug.Assert(irq < SystemIRQ.COUNT);
             var handler = Volatile.Read(ref _systemIRQHandlers[(int)irq]);
             if (handler != null)
-                context = ref handler(irq, ref context);
+                context = handler(irq, context);
             else
                 UnhandledIRQ(irq);
 
             ExitIRQHandler(context);
         }
 
-        private void ExitIRQHandler(in ThreadContextArch context)
+        private void ExitIRQHandler(ThreadContext context)
         {
-            ChipControl.RestoreContext(context);
+            ChipControl.Default.RestoreContext(context);
         }
 
-        private ref ThreadContextArch OnCoreNotification(SystemIRQ irq, ref ThreadContextArch context)
+        private ThreadContext OnCoreNotification(SystemIRQ irq, ThreadContext context)
         {
             while (_dpcs.Count != 0)
             {
                 var item = _dpcs.First;
                 _dpcs.RemoveFirst();
 
-                context = ref item!.Value.Callback(item.Value.Argument, ref context);
+                context = item!.Value.Callback(item.Value.Argument, context);
             }
 
-            return ref context;
+            return context;
         }
 
         private void UnhandledIRQ(SystemIRQ irq)

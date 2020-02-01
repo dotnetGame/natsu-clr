@@ -8,7 +8,7 @@ using ThreadState = System.Diagnostics.ThreadState;
 
 namespace Chino.Threading
 {
-    public sealed class Scheduler : IScheduler
+    public sealed class Scheduler
     {
         private readonly LinkedList<ThreadScheduleEntry> _readyThreads = new LinkedList<ThreadScheduleEntry>();
         private readonly LinkedList<ThreadScheduleEntry> _delayedThreads = new LinkedList<ThreadScheduleEntry>();
@@ -18,7 +18,7 @@ namespace Chino.Threading
         private readonly Thread _idleThread;
         private volatile bool _isRunning;
 
-        public TimeSpan TimeSlice { get; private set; } = ChipControl.DefaultTimeSlice;
+        public TimeSpan TimeSlice { get; private set; } = ChipControl.Default.DefaultTimeSlice;
 
         public LinkedListNode<ThreadScheduleEntry> RunningThread => _runningThread!;
 
@@ -95,8 +95,8 @@ namespace Chino.Threading
             _isRunning = true;
             _runningThread = _readyThreads.First;
             KernelServices.IRQDispatcher.RegisterSystemIRQ(SystemIRQ.SystemTick, OnSystemTick);
-            ChipControl.SetupSystemTimer(TimeSlice);
-            ChipControl.StartSchedule(_runningThread.Value.Thread.Context.Arch);
+            ChipControl.Default.SetupSystemTimer(TimeSlice);
+            ChipControl.Default.StartSchedule(_runningThread.Value.Thread.Context);
 
             // Should not reach here
             while (true) ;
@@ -140,12 +140,12 @@ namespace Chino.Threading
             }
         }
 
-        private ref ThreadContextArch OnYieldDPC(object argument, ref ThreadContextArch context)
+        private ThreadContext OnYieldDPC(object? argument, ThreadContext context)
         {
-            return ref YieldThread();
+            return YieldThread();
         }
 
-        private ref ThreadContextArch OnSystemTick(SystemIRQ irq, ref ThreadContextArch context)
+        private ThreadContext OnSystemTick(SystemIRQ irq, ThreadContext context)
         {
             TickCount++;
 
@@ -165,10 +165,10 @@ namespace Chino.Threading
                 }
             }
 
-            return ref YieldThread();
+            return YieldThread();
         }
 
-        private ref ThreadContextArch YieldThread()
+        private ThreadContext YieldThread()
         {
             Debug.Assert(_runningThread != null);
             Debug.Assert(_readyThreads.First != null);
@@ -183,7 +183,7 @@ namespace Chino.Threading
             _runningThread = nextThread;
             Debug.Assert(_runningThread != null);
             _runningThread.Value.Thread.State = ThreadState.Running;
-            return ref nextThread.Value.Thread.Context.Arch;
+            return nextThread.Value.Thread.Context;
         }
 
         private long TimeSpanToTicks(in TimeSpan timeSpan)

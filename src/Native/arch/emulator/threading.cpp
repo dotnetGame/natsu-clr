@@ -6,9 +6,9 @@
 using namespace natsu;
 using namespace System_Private_CoreLib;
 using namespace Chino_Core::Chino::Threading;
-using namespace Chino_Kernel::Chino::Threading;
 using namespace Chino_Chip_Emulator::Chino;
 using namespace Chino_Chip_Emulator::Chino::Chip;
+using namespace Chino_Chip_Emulator::Chino::Chip::Emulator::Threading;
 
 namespace
 {
@@ -33,9 +33,11 @@ void System::Threading::Thread::_s_SpinWaitInternal(int32_t iterations)
     }
 }
 
-void ChipControl::_s_InitializeThreadContext(gc_ref<ThreadContextArch> context, gc_obj_ref<IThread> thread)
+gc_obj_ref<ThreadContext> ArchChipControl::InitializeThreadContext(gc_obj_ref<ArchChipControl> _this, gc_obj_ref<> thread)
 {
+    auto context = make_object<ArchThreadContext>();
     auto handle = _beginthreadex(nullptr, 0, thread_main_thunk, thread.ptr_, CREATE_SUSPENDED, nullptr);
     assert(handle != -1);
     context->NativeHandle = handle;
+    return context;
 }

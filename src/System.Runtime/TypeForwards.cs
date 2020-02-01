@@ -71,6 +71,7 @@ using System.Threading;
 [assembly: TypeForwardedTo(typeof(ArgumentNullException))]
 [assembly: TypeForwardedTo(typeof(ArgumentOutOfRangeException))]
 [assembly: TypeForwardedTo(typeof(NotImplementedException))]
+[assembly: TypeForwardedTo(typeof(NotSupportedException))]
 [assembly: TypeForwardedTo(typeof(IndexOutOfRangeException))]
 [assembly: TypeForwardedTo(typeof(InvalidCastException))]
 [assembly: TypeForwardedTo(typeof(InvalidOperationException))]

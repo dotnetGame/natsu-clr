@@ -5,7 +5,7 @@ using Chino.Threading;
 
 namespace Chino
 {
-    public class KernelServices
+    public static class KernelServices
     {
         public static Scheduler Scheduler { get; private set; }
 
@@ -13,7 +13,7 @@ namespace Chino
 
         public static Thread CurrentThread => Scheduler.RunningThread.Value.Thread;
 
-        internal static void Initialize()
+        public static void Initialize()
         {
             Scheduler = new Scheduler();
             IRQDispatcher = new IRQDispatcher();

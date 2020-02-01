@@ -2,18 +2,20 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Threading;
+using Chino.Chip;
 using ThreadStart = System.Threading.ThreadStart;
 using ThreadState = System.Diagnostics.ThreadState;
 
 namespace Chino.Threading
 {
-    public class Thread : IThread
+    public class Thread
     {
         private readonly ThreadStart _start;
         private object? _startArg;
 
-        public ThreadContext Context;
         public volatile Scheduler? Scheduler;
+
+        public ThreadContext Context { get; }
 
         public LinkedListNode<ThreadScheduleEntry> ScheduleEntry { get; }
 
@@ -28,7 +30,7 @@ namespace Chino.Threading
             set
             {
                 _description = value;
-                ChipControl.SetThreadDescription(ref Context.Arch, value);
+                ChipControl.Default.SetThreadDescription(Context, value);
             }
         }
 
@@ -37,7 +39,7 @@ namespace Chino.Threading
             _start = start ?? throw new ArgumentNullException(nameof(start));
             ScheduleEntry = new LinkedListNode<ThreadScheduleEntry>(new ThreadScheduleEntry(this));
 
-            ChipControl.InitializeThreadContext(ref Context.Arch, this);
+            Context = ChipControl.Default.InitializeThreadContext(this);
         }
 
         public void Start(object? arg = null)

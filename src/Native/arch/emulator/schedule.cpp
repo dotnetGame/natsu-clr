@@ -1,3 +1,4 @@
+#include "Chino.Chip.Emulator.h"
 #include "Chino.Kernel.h"
 #include "win_utils.h"
 #include <Windows.h>
@@ -7,10 +8,11 @@
 using namespace natsu;
 using namespace System_Runtime::System;
 using namespace System_Threading::System::Threading;
-using namespace Chino_Kernel::Chino;
-using namespace Chino_Kernel::Chino::Threading;
+using namespace Chino_Core::Chino;
+using namespace Chino_Core::Chino::Threading;
 using namespace Chino_Chip_Emulator::Chino;
 using namespace Chino_Chip_Emulator::Chino::Chip;
+using namespace Chino_Chip_Emulator::Chino::Chip::Emulator::Threading;
 using namespace Microsoft::WRL::Wrappers;
 
 namespace
@@ -26,7 +28,7 @@ std::atomic<bool> g_system_timer_int(false);
 std::atomic<bool> g_core_notifi_int(false);
 std::atomic<uint32_t> g_interrupt_num(0);
 
-void suspend_thread(ThreadContextArch &context)
+void suspend_thread(ArchThreadContext &context)
 {
     //printf("S (%d)\n", (int)GetThreadId(context.NativeHandle._value));
     auto handle = (HANDLE)context.NativeHandle._value;
@@ -35,7 +37,7 @@ void suspend_thread(ThreadContextArch &context)
     THROW_WIN32_IF_NOT(GetThreadContext(handle, &c));
 }
 
-void resume_thread(ThreadContextArch &context)
+void resume_thread(ArchThreadContext &context)
 {
     //printf("R (%d)\n", (int)GetThreadId(context.NativeHandle._value));
     THROW_WIN32_IF_NOT(ResumeThread((HANDLE)context.NativeHandle._value) != (DWORD)(-1));
@@ -87,15 +89,15 @@ void interrupt_sender_main(void *arg)
             auto leave = natsu::make_finally([&] { LeaveCriticalSection(&g_interrupt_cs); });
             EnterCriticalSection(&g_interrupt_cs);
 
-            ThreadContextArch context;
+            gc_obj_ref<ArchThreadContext> context;
             // Suspend running thread
             auto running_thread_entry = Scheduler::get_RunningThread(KernelServices::_s_get_Scheduler());
             if (running_thread_entry)
             {
                 auto running_thread = running_thread_entry->item->_Thread_k__BackingField;
                 // Wait for suspended
-                suspend_thread(running_thread->Context.Arch);
-                context = running_thread->Context.Arch;
+                context = Thread::get_Context(running_thread);
+                suspend_thread(*context);
             }
 
             THROW_WIN32_IF_NOT(ReleaseSemaphore(g_interrupt_commit_count.Get(), 1, nullptr));
@@ -115,7 +117,7 @@ void interrupt_sender_main(void *arg)
 }
 }
 
-void ChipControl::_s_Initialize()
+void ArchChipControl::Initialize(gc_obj_ref<ArchChipControl> _this)
 {
     system(" ");
 
@@ -127,13 +129,13 @@ void ChipControl::_s_Initialize()
     assert(intr_thrd);
     assert(g_interrupt_count.IsValid());
     assert(g_interrupt_commit_count.IsValid());
-    THROW_IF_FAILED(SetThreadDescription((HANDLE)intr_thrd, L"Interrupt Sender"));
+    THROW_IF_FAILED(::SetThreadDescription((HANDLE)intr_thrd, L"Interrupt Sender"));
 
     auto dev = make_object<Chip::Emulator::HAL::IO::Console>();
     Chip::Emulator::HAL::IO::Console::Install(dev);
 }
 
-UIntPtr ChipControl::_s_DisableInterrupt()
+UIntPtr ArchChipControl::DisableInterrupt(gc_obj_ref<ArchChipControl> _this)
 {
     auto old = g_interrupt_enabled.exchange(false);
     if (old)
@@ -144,7 +146,7 @@ UIntPtr ChipControl::_s_DisableInterrupt()
     return old;
 }
 
-UIntPtr ChipControl::_s_EnableInterrupt()
+UIntPtr ArchChipControl::EnableInterrupt(gc_obj_ref<ArchChipControl> _this)
 {
     auto old = g_interrupt_enabled.exchange(true);
     if (!old)
@@ -156,7 +158,7 @@ UIntPtr ChipControl::_s_EnableInterrupt()
     return old;
 }
 
-void ChipControl::_s_RestoreInterrupt(UIntPtr state)
+void ArchChipControl::RestoreInterrupt(gc_obj_ref<ArchChipControl> _this, UIntPtr state)
 {
     auto old_state = g_interrupt_enabled.exchange(state, std::memory_order_release);
     if (old_state != state)
@@ -173,34 +175,34 @@ void ChipControl::_s_RestoreInterrupt(UIntPtr state)
     }
 }
 
-void ChipControl::_s_StartSchedule(gc_ref<ThreadContextArch> context)
+void ArchChipControl::StartSchedule(gc_obj_ref<ArchChipControl> _this, gc_obj_ref<ThreadContext> context)
 {
-    resume_thread(*context);
-    _s_EnableInterrupt();
+    resume_thread(*context.cast<ArchThreadContext>());
+    EnableInterrupt(_this);
     ExitThread(0);
 }
 
-void ChipControl::_s_SetupSystemTimer(TimeSpan timeSlice)
+void ArchChipControl::SetupSystemTimer(gc_obj_ref<ArchChipControl> _this, TimeSpan timeSlice)
 {
     g_time_slice = timeSlice;
     auto systimer_thrd = _beginthread(system_timer_main, 0, nullptr);
     assert(systimer_thrd);
-    THROW_IF_FAILED(SetThreadDescription((HANDLE)systimer_thrd, L"System Timer"));
+    THROW_IF_FAILED(::SetThreadDescription((HANDLE)systimer_thrd, L"System Timer"));
 }
 
-void ChipControl::_s_RestoreContext(gc_ref<ThreadContextArch> context)
+void ArchChipControl::RestoreContext(gc_obj_ref<ArchChipControl> _this, gc_obj_ref<ThreadContext> context)
 {
     // Run selected thread
-    resume_thread(*context);
+    resume_thread(*context.cast<ArchThreadContext>());
 }
 
-void ChipControl::_s_RaiseCoreNotification()
+void ArchChipControl::RaiseCoreNotification(gc_obj_ref<ArchChipControl> _this)
 {
     g_core_notifi_int.store(true, std::memory_order_relaxed);
     notify_interrupt();
 }
 
-void ChipControl::_s_SetThreadDescription(gc_ref<ThreadContextArch> arch, gc_obj_ref<String> value)
+void ArchChipControl::SetThreadDescription(gc_obj_ref<ArchChipControl> _this, gc_obj_ref<ThreadContext> context, gc_obj_ref<String> value)
 {
-    THROW_IF_FAILED(SetThreadDescription(arch->NativeHandle._value, reinterpret_cast<PCWSTR>(&value->_firstChar)));
+    THROW_IF_FAILED(::SetThreadDescription(context.cast<ArchThreadContext>()->NativeHandle._value, reinterpret_cast<PCWSTR>(&value->_firstChar)));
 }

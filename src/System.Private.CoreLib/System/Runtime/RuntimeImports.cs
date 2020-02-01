@@ -37,5 +37,8 @@ namespace System.Runtime
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         internal static extern void RhBulkMoveWithWriteBarrier(ref byte destination, ref byte source, nuint byteCount);
+
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        internal static extern unsafe void GetRandomBytes(byte* buffer, int length);
     }
 }
