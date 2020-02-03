@@ -13,7 +13,7 @@ using namespace System_Private_CoreLib::System::Diagnostics;
 using namespace System_Private_CoreLib::System::Runtime;
 using namespace System_Private_CoreLib::System::Runtime::CompilerServices;
 using namespace System_Private_CoreLib::System::Threading;
-using namespace Chino_Core;
+using namespace Chino_Threading;
 
 int32_t Array::GetLength(gc_obj_ref<Array> _this, int32_t dimension)
 {
@@ -303,7 +303,7 @@ int32_t Environment::_s_get_TickCount()
 
 int64_t Environment::_s_get_TickCount64()
 {
-    auto scheduler = Chino::KernelServices::_s_get_Scheduler();
+    auto scheduler = Chino::Threading::Scheduler::_s_get_Current();
     return (int64_t)Chino::Threading::Scheduler::get_TickCount(scheduler);
 }
 
@@ -311,8 +311,8 @@ namespace
 {
 void *get_current_thread_id()
 {
-    auto thread = Chino::KernelServices::_s_get_CurrentThread();
-    return thread.ptr_;
+    auto thread = Chino::Threading::Scheduler::_s_get_CurrentThread();
+    return thread.get_Object(thread).ptr_;
 }
 }
 
@@ -385,14 +385,12 @@ int64_t Monitor::_s_GetLockContentionCount()
 
 void Thread::_s_SleepInternal(int32_t millisecondsTimeout)
 {
-    auto scheduler = Chino::KernelServices::_s_get_Scheduler();
-    Chino::Threading::Scheduler::DelayCurrentThread(scheduler, TimeSpan::_s_FromMilliseconds(millisecondsTimeout));
+    Chino::Threading::Scheduler::_s_Delay(TimeSpan::_s_FromMilliseconds(millisecondsTimeout));
 }
 
 bool Thread::_s_YieldInternal()
 {
-    auto scheduler = Chino::KernelServices::_s_get_Scheduler();
-    Chino::Threading::Scheduler::DelayCurrentThread(scheduler, TimeSpan::_s_FromTicks(0));
+    Chino::Threading::Scheduler::_s_Delay(TimeSpan::_s_FromTicks(0));
     return true;
 }
 

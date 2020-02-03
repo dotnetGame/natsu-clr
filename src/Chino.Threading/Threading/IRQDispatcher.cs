@@ -23,23 +23,23 @@ namespace Chino.Threading
     public delegate ThreadContext DPCHandler(object? argument, ThreadContext context);
     public delegate ThreadContext SystemIRQHandler(SystemIRQ irq, ThreadContext context);
 
-    public class IRQDispatcher
+    public static class IRQDispatcher
     {
-        private readonly SystemIRQHandler?[] _systemIRQHandlers = new SystemIRQHandler?[(int)SystemIRQ.COUNT];
-        private readonly LinkedList<DPC> _dpcs = new LinkedList<DPC>();
+        private static readonly SystemIRQHandler?[] _systemIRQHandlers = new SystemIRQHandler?[(int)SystemIRQ.COUNT];
+        private static readonly LinkedList<DPC> _dpcs = new LinkedList<DPC>();
 
-        public IRQDispatcher()
+        static IRQDispatcher()
         {
-            RegisterSystemIRQ(SystemIRQ.CoreNotification, OnCoreNotification);
+            _systemIRQHandlers[(int)SystemIRQ.CoreNotification] = OnCoreNotification;
         }
 
-        public void RegisterSystemIRQ(SystemIRQ irq, SystemIRQHandler? handler)
+        public static void RegisterSystemIRQ(SystemIRQ irq, SystemIRQHandler? handler)
         {
             Debug.Assert(irq < SystemIRQ.COUNT);
             Volatile.Write(ref _systemIRQHandlers[(int)irq], handler);
         }
 
-        public void RegisterDPC(LinkedListNode<DPC> dpc)
+        public static void RegisterDPC(LinkedListNode<DPC> dpc)
         {
             using (ProcessorCriticalSection.Acquire())
             {
@@ -49,7 +49,7 @@ namespace Chino.Threading
             ChipControl.Default.RaiseCoreNotification();
         }
 
-        internal void DispatchSystemIRQ(SystemIRQ irq, ThreadContext context)
+        internal static void DispatchSystemIRQ(SystemIRQ irq, ThreadContext context)
         {
             Debug.Assert(irq < SystemIRQ.COUNT);
             var handler = Volatile.Read(ref _systemIRQHandlers[(int)irq]);
@@ -61,12 +61,12 @@ namespace Chino.Threading
             ExitIRQHandler(context);
         }
 
-        private void ExitIRQHandler(ThreadContext context)
+        private static void ExitIRQHandler(ThreadContext context)
         {
             ChipControl.Default.RestoreContext(context);
         }
 
-        private ThreadContext OnCoreNotification(SystemIRQ irq, ThreadContext context)
+        private static ThreadContext OnCoreNotification(SystemIRQ irq, ThreadContext context)
         {
             while (_dpcs.Count != 0)
             {
@@ -79,7 +79,7 @@ namespace Chino.Threading
             return context;
         }
 
-        private void UnhandledIRQ(SystemIRQ irq)
+        private static void UnhandledIRQ(SystemIRQ irq)
         {
             Debug.Fail("Unhandled IRQ");
         }

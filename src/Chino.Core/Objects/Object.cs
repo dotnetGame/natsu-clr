@@ -4,9 +4,10 @@ using System.Text;
 
 namespace Chino.Objects
 {
-    public struct ObjectHeader
+    internal struct ObjectHeader
     {
-        public string Name;
+        public string? Name;
+        public Directory? Parent;
     }
 
     public enum ObjectParseStatus
@@ -16,13 +17,36 @@ namespace Chino.Objects
         NotFound
     }
 
-    public class Object
+    public struct ObjectAttributes
+    {
+        public static readonly ObjectAttributes Empty = new ObjectAttributes();
+
+        public string? Name;
+        public Accessor<Directory>? Root;
+    }
+
+    public abstract class Object
     {
         internal ObjectHeader _header;
 
+        public string? Name => _header.Name;
+
+        public virtual bool CanOpen => false;
+
         public virtual bool CanParse => false;
 
-        public virtual ObjectParseStatus Parse(ref ReadOnlySpan<char> completeName, ref ReadOnlySpan<char> remainingName, out Object? foundObject)
+        public virtual AccessMask ValidAccessMask { get; } = AccessMask.Empty;
+
+        public Object()
+        {
+        }
+
+        protected internal virtual void Open(AccessMask grantedAccess)
+        {
+            throw new NotSupportedException();
+        }
+
+        protected internal virtual ObjectParseStatus Parse(ref AccessState accessState, ref ReadOnlySpan<char> completeName, ref ReadOnlySpan<char> remainingName, out Object? foundObject)
         {
             throw new NotSupportedException();
         }

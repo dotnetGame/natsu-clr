@@ -6,6 +6,7 @@
 using namespace natsu;
 using namespace System_Private_CoreLib;
 using namespace Chino_Core::Chino::Threading;
+using namespace Chino_Threading::Chino::Threading;
 using namespace Chino_Chip_Emulator::Chino;
 using namespace Chino_Chip_Emulator::Chino::Chip;
 using namespace Chino_Chip_Emulator::Chino::Chip::Emulator::Threading;

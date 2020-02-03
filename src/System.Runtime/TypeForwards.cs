@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
@@ -67,6 +68,8 @@ using System.Threading;
 [assembly: TypeForwardedTo(typeof(TimeSpan))]
 [assembly: TypeForwardedTo(typeof(IAsyncResult))]
 [assembly: TypeForwardedTo(typeof(IDisposable))]
+[assembly: TypeForwardedTo(typeof(HashCode))]
+[assembly: TypeForwardedTo(typeof(Exception))]
 [assembly: TypeForwardedTo(typeof(ArgumentException))]
 [assembly: TypeForwardedTo(typeof(ArgumentNullException))]
 [assembly: TypeForwardedTo(typeof(ArgumentOutOfRangeException))]
@@ -75,5 +78,9 @@ using System.Threading;
 [assembly: TypeForwardedTo(typeof(IndexOutOfRangeException))]
 [assembly: TypeForwardedTo(typeof(InvalidCastException))]
 [assembly: TypeForwardedTo(typeof(InvalidOperationException))]
+[assembly: TypeForwardedTo(typeof(UnauthorizedAccessException))]
 [assembly: TypeForwardedTo(typeof(OutOfMemoryException))]
+[assembly: TypeForwardedTo(typeof(SystemException))]
+[assembly: TypeForwardedTo(typeof(IOException))]
+[assembly: TypeForwardedTo(typeof(FileNotFoundException))]
 [assembly: TypeForwardedTo(typeof(Timeout))]

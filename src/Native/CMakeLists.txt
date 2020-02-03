@@ -17,6 +17,7 @@ set(SRCS natsu.fcall.cpp
          Generated/System.Runtime.cpp
          Generated/System.Runtime.Extensions.cpp
          Generated/Chino.Core.cpp
+         Generated/Chino.Threading.cpp
          Generated/Chino.Kernel.cpp
          Generated/BitFields.cpp)
 

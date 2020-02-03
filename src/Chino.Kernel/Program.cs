@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Text;
 using Chino.Chip;
 using Chino.Services;
+using Chino.Threading;
 
 namespace Chino.Kernel
 {
@@ -12,10 +13,8 @@ namespace Chino.Kernel
         static void Main()
         {
             ChipControl.Default.Initialize();
-            KernelServices.Initialize();
 
-            var scheduler = KernelServices.Scheduler;
-            var systemThread = scheduler.CreateThread(() =>
+            var systemThread = Scheduler.CreateThread(() =>
             {
                 var host = new KernelServiceHost();
 
@@ -26,9 +25,9 @@ namespace Chino.Kernel
                 host.Run();
             });
 
-            systemThread.Description = "System";
+            systemThread.SetDescription("System");
             systemThread.Start();
-            scheduler.Start();
+            Scheduler.StartCurrentScheduler();
         }
     }
 

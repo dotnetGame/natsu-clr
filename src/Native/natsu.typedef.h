@@ -930,7 +930,10 @@ struct static_object
 #define NATSU_SZARRAY_IMPL                                                      \
     constexpr ::natsu::variable_type_t<T> &at(size_t index)                     \
     {                                                                           \
-        return elements_[index];                                                \
+        if (index < length())                                                   \
+            return elements_[index];                                            \
+        else                                                                    \
+            ::natsu::throw_index_out_of_range_exception();                      \
     }                                                                           \
     constexpr ::natsu::variable_type_t<T> *begin()                              \
     {                                                                           \
@@ -942,7 +945,10 @@ struct static_object
     }                                                                           \
     constexpr ::natsu::gc_ref<::natsu::variable_type_t<T>> ref_at(size_t index) \
     {                                                                           \
-        return elements_[index];                                                \
+        if (index < length())                                                   \
+            return elements_[index];                                            \
+        else                                                                    \
+            ::natsu::throw_index_out_of_range_exception();                      \
     }                                                                           \
     constexpr ::natsu::variable_type_t<T> get(int index)                        \
     {                                                                           \

@@ -10,6 +10,7 @@ using namespace System_Runtime::System;
 using namespace System_Threading::System::Threading;
 using namespace Chino_Core::Chino;
 using namespace Chino_Core::Chino::Threading;
+using namespace Chino_Threading::Chino::Threading;
 using namespace Chino_Chip_Emulator::Chino;
 using namespace Chino_Chip_Emulator::Chino::Chip;
 using namespace Chino_Chip_Emulator::Chino::Chip::Emulator::Threading;
@@ -91,10 +92,10 @@ void interrupt_sender_main(void *arg)
 
             gc_obj_ref<ArchThreadContext> context;
             // Suspend running thread
-            auto running_thread_entry = Scheduler::get_RunningThread(KernelServices::_s_get_Scheduler());
+            auto running_thread_entry = Scheduler::get_RunningThread(Scheduler::_s_get_Current());
             if (running_thread_entry)
             {
-                auto running_thread = running_thread_entry->item->_Thread_k__BackingField;
+                auto running_thread = ThreadScheduleEntry::get_Thread(running_thread_entry->item);
                 // Wait for suspended
                 context = Thread::get_Context(running_thread);
                 suspend_thread(*context);
@@ -104,13 +105,11 @@ void interrupt_sender_main(void *arg)
 
             if (g_system_timer_int.exchange(false))
             {
-                IRQDispatcher::DispatchSystemIRQ(KernelServices::_s_get_IRQDispatcher(),
-                    SystemIRQ::value_of(SystemIRQ::SystemTick), context);
+                IRQDispatcher::_s_DispatchSystemIRQ(SystemIRQ::value_of(SystemIRQ::SystemTick), context);
             }
             else if (g_core_notifi_int.exchange(false))
             {
-                IRQDispatcher::DispatchSystemIRQ(KernelServices::_s_get_IRQDispatcher(),
-                    SystemIRQ::value_of(SystemIRQ::CoreNotification), context);
+                IRQDispatcher::_s_DispatchSystemIRQ(SystemIRQ::value_of(SystemIRQ::CoreNotification), context);
             }
         }
     }

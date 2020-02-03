@@ -1,15 +1,23 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using Chino.Chip;
 using Chino.Collections;
+using Chino.Objects;
 using ThreadState = System.Diagnostics.ThreadState;
 
 namespace Chino.Threading
 {
     public sealed class Scheduler
     {
+        private static readonly Scheduler[] _schedulers = new Scheduler[ChipControl.Default.ProcessorsCount];
+
+        internal static Scheduler Current => _schedulers[ChipControl.Default.CurrentProcessorId];
+
+        public static Accessor<Thread> CurrentThread => ObjectManager.OpenObject(Current.RunningThread.Value.Thread, AccessMask.GenericAll);
+
         private readonly LinkedList<ThreadScheduleEntry> _readyThreads = new LinkedList<ThreadScheduleEntry>();
         private readonly LinkedList<ThreadScheduleEntry> _delayedThreads = new LinkedList<ThreadScheduleEntry>();
         private readonly LinkedList<ThreadScheduleEntry> _suspendedThreads = new LinkedList<ThreadScheduleEntry>();
@@ -18,44 +26,68 @@ namespace Chino.Threading
         private readonly Thread _idleThread;
         private volatile bool _isRunning;
 
+        public int Id { get; }
+
         public TimeSpan TimeSlice { get; private set; } = ChipControl.Default.DefaultTimeSlice;
 
-        public LinkedListNode<ThreadScheduleEntry> RunningThread => _runningThread!;
+        internal LinkedListNode<ThreadScheduleEntry> RunningThread => _runningThread!;
 
         public ulong TickCount { get; private set; }
 
-        public Scheduler()
+        static Scheduler()
         {
+            for (int i = 0; i < _schedulers.Length; i++)
+                _schedulers[i] = new Scheduler(i);
+        }
+
+        internal Scheduler(int id)
+        {
+            Id = id;
             _yieldDPC = new LinkedListNode<DPC>(new DPC { Callback = OnYieldDPC });
-            _idleThread = CreateThread(IdleMain);
+            _idleThread = new Thread(IdleMain);
             _idleThread.Description = "Idle";
         }
 
-        public void StartThread(Thread thread)
+        public static Accessor<Thread> CreateThread(ThreadStart start)
         {
-            if (Interlocked.CompareExchange(ref thread.Scheduler, this, null) == null)
+            return ObjectManager.CreateObject(new Thread(start), AccessMask.GenericAll, ObjectAttributes.Empty);
+        }
+
+        public static void Delay(TimeSpan delay)
+        {
+            Current.DelayCurrentThread(delay);
+        }
+
+        public static void ExitThread(int exitCode)
+        {
+            Current.RunningThread.Value.Thread.Exit(exitCode);
+        }
+
+        [DoesNotReturn]
+        public static void StartCurrentScheduler()
+        {
+            Current.Start();
+        }
+
+        internal void StartThread(Thread thread)
+        {
+            if (Interlocked.CompareExchange(ref thread._scheduler, this, null) == null)
             {
                 AddThreadToReadyList(thread);
             }
         }
 
-        public Thread CreateThread(ThreadStart start)
+        internal void KillThread(Thread thread)
         {
-            var thread = new Thread(start);
-            return thread;
-        }
-
-        public void KillThread(Thread thread)
-        {
-            Debug.Assert(thread.Scheduler == this);
-            if (Interlocked.Exchange(ref thread.Scheduler, null) != null)
+            Debug.Assert(thread._scheduler == this);
+            if (Interlocked.Exchange(ref thread._scheduler, null) != null)
             {
                 RemoveThreadFromReadyList(thread);
                 thread.State = ThreadState.Terminated;
             }
         }
 
-        public void DelayCurrentThread(TimeSpan delay)
+        private void DelayCurrentThread(TimeSpan delay)
         {
             if (delay.Ticks < 0)
                 throw new ArgumentOutOfRangeException(nameof(delay));
@@ -81,11 +113,12 @@ namespace Chino.Threading
                     }
                 }
 
-                KernelServices.IRQDispatcher.RegisterDPC(_yieldDPC);
+                IRQDispatcher.RegisterDPC(_yieldDPC);
             }
         }
 
-        public void Start()
+        [DoesNotReturn]
+        private void Start()
         {
             Debug.Assert(!_isRunning);
 
@@ -94,7 +127,7 @@ namespace Chino.Threading
 
             _isRunning = true;
             _runningThread = _readyThreads.First;
-            KernelServices.IRQDispatcher.RegisterSystemIRQ(SystemIRQ.SystemTick, OnSystemTick);
+            IRQDispatcher.RegisterSystemIRQ(SystemIRQ.SystemTick, OnSystemTick);
             ChipControl.Default.SetupSystemTimer(TimeSlice);
             ChipControl.Default.StartSchedule(_runningThread.Value.Thread.Context);
 
@@ -136,7 +169,7 @@ namespace Chino.Threading
                 _readyThreads.Remove(thread.ScheduleEntry);
 
                 if (_runningThread == thread.ScheduleEntry)
-                    KernelServices.IRQDispatcher.RegisterDPC(_yieldDPC);
+                    IRQDispatcher.RegisterDPC(_yieldDPC);
             }
         }
 
@@ -197,7 +230,7 @@ namespace Chino.Threading
         }
     }
 
-    public class ThreadScheduleEntry
+    internal class ThreadScheduleEntry
     {
         public Thread Thread { get; }
 

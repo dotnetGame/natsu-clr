@@ -1,7 +1,6 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Library</OutputType>
     <TargetFramework>netcoreapp3.0</TargetFramework>
     <OutputPath>$(SolutionDir)out/bin/</OutputPath>
     <RootNamespace>Chino</RootNamespace>
@@ -9,15 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Objects\" />
-    <Folder Include="Threading\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\Chino.Core\Chino.Core.csproj" />
-    <ProjectReference Include="..\Chino.IO\Chino.IO.csproj" />
-    <ProjectReference Include="..\Chino.Threading\Chino.Threading.csproj" />
   </ItemGroup>
-
 
 </Project>

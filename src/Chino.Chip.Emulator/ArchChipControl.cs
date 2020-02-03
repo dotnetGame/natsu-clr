@@ -11,6 +11,10 @@ namespace Chino.Chip
     {
         public override TimeSpan DefaultTimeSlice => TimeSpan.FromMilliseconds(100);
 
+        public override int ProcessorsCount => 1;
+
+        public override int CurrentProcessorId => 0;
+
         [MethodImpl(MethodImplOptions.InternalCall)]
         public override extern void Initialize();
 

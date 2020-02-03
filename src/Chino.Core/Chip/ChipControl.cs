@@ -11,6 +11,10 @@ namespace Chino.Chip
 
         public abstract TimeSpan DefaultTimeSlice { get; }
 
+        public abstract int ProcessorsCount { get; }
+
+        public abstract int CurrentProcessorId { get; }
+
         public abstract void Initialize();
         public abstract void Write(string message);
 
