@@ -888,19 +888,23 @@ struct static_object
     }                                             \
     constexpr operator uint8_t() const noexcept { return value__; }
 
-#define NATSU_ENUM_IMPL_INT32(name)               \
-    name &operator=(decltype(value__) value)      \
-    {                                             \
-        value__ = value;                          \
-        return *this;                             \
-    }                                             \
-    static name value_of(decltype(value__) value) \
-    {                                             \
-        name e;                                   \
-        e.value__ = value;                        \
-        return e;                                 \
-    }                                             \
-    constexpr operator int32_t() const noexcept { return value__; }
+#define NATSU_ENUM_IMPL_INT32(name)                                 \
+    name &operator=(decltype(value__) value)                        \
+    {                                                               \
+        value__ = value;                                            \
+        return *this;                                               \
+    }                                                               \
+    static name value_of(decltype(value__) value)                   \
+    {                                                               \
+        name e;                                                     \
+        e.value__ = value;                                          \
+        return e;                                                   \
+    }                                                               \
+    constexpr operator int32_t() const noexcept { return value__; } \
+    static constexpr int32_t GetHashCode(name e) noexcept           \
+    {                                                               \
+        return e.value__;                                           \
+    }
 
 #define NATSU_ENUM_IMPL_UINT32(name)              \
     name &operator=(decltype(value__) value)      \
@@ -923,6 +927,13 @@ struct static_object
     static ::natsu::gc_obj_ref<::System_Private_CoreLib::System::String> ToString(const T &_this) \
     {                                                                                             \
         ::natsu::pure_call();                                                                     \
+    }                                                                                             \
+    template <class T>                                                                            \
+    static bool Equals(const T &_this, ::natsu::gc_obj_ref<> rhs)                                 \
+    {                                                                                             \
+        if (auto rhs_value = ::natsu::ops::isinst<T>(rhs))                                        \
+            return _this == *rhs_value;                                                           \
+        return false;                                                                             \
     }
 
 #define NATSU_PRIMITIVE_OPERATORS_IMPL

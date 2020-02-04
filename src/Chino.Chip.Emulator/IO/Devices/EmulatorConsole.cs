@@ -1,18 +1,21 @@
-﻿using Chino.Devices.IO;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
+using Chino.IO.Devices;
 
-namespace Chino.Chip.Emulator.HAL.IO
+namespace Chino.Chip.Emulator.IO.Devices
 {
-    public class Console : Chino.Devices.IO.Console, IConsole
+    public class EmulatorConsole : ConsoleDevice
     {
-        private UIntPtr _readThread;
+        public EmulatorConsole(int capacity)
+            : base(capacity)
+        {
+        }
 
-        public void Install()
+        protected override void OnInstall()
         {
             InstallConsoleReadThread();
         }

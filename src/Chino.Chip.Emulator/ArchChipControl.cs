@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Chino.Chip;
+using Chino.Chip.Emulator.IO.Drivers;
+using Chino.IO;
 using Chino.Threading;
 
 namespace Chino.Chip
@@ -47,5 +49,15 @@ namespace Chino.Chip
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         public override extern void RaiseCoreNotification();
+
+        public override void InstallDrivers()
+        {
+            IOManager.InstallDriver("emulator.console", new ConsoleDriver());
+        }
+
+        public override void RegisterDeviceDescriptions()
+        {
+            IOManager.RegisterDeviceDescription(new DeviceDescription("emulator, console"));
+        }
     }
 }

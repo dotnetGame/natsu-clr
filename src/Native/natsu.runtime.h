@@ -641,6 +641,8 @@ namespace details
             // If T implements IComparable<T> return a GenericComparer<T>
             if constexpr (natsu::is_convertible_v<T, IComparable_1<T>>)
                 return natsu::make_object<GenericComparer_1<T>>();
+            else if constexpr (natsu::is_enum_v<T>)
+                return natsu::make_object<EnumComparer_1<T>>();
             else
                 return nullptr;
         }
@@ -655,11 +657,7 @@ namespace details
         {
             using namespace System::Collections::Generic;
 
-            // If T implements IComparable<T> return a GenericComparer<T>
-            if constexpr (natsu::is_convertible_v<T, IComparable_1<T>>)
-                return natsu::make_object<NullableComparer_1<T>>();
-            else
-                return nullptr;
+            return default_comparer_impl<T>()();
         }
     };
 
@@ -673,11 +671,13 @@ namespace details
             // Specialize for byte so Array.IndexOf is faster.
             if constexpr (std::is_same_v<T, uint8_t>)
                 return natsu::make_object<ByteEqualityComparer>();
+            else if constexpr (natsu::is_enum_v<T>)
+                return natsu::make_object<EnumEqualityComparer_1<T>>();
             // If T implements IEquatable<T> return a GenericEqualityComparer<T>
             else if constexpr (natsu::is_convertible_v<T, ::System_Private_CoreLib::System::IEquatable_1<T>>)
                 return natsu::make_object<GenericEqualityComparer_1<T>>();
             else
-                return nullptr;
+                return natsu::make_object<ObjectEqualityComparer_1<T>>();
         }
     };
 
@@ -690,10 +690,7 @@ namespace details
         {
             using namespace System::Collections::Generic;
 
-            if constexpr (natsu::is_convertible_v<T, IEquatable_1<T>>)
-                return natsu::make_object<NullableEqualityComparer_1<T>>();
-            else
-                return nullptr;
+            return default_equality_comparer_impl<T>()();
         }
     };
 }
@@ -823,13 +820,16 @@ bool System::Runtime::CompilerServices::RuntimeHelpers::_s_IsBitwiseEquatable()
 }
 
 template <class T>
+bool System::Runtime::CompilerServices::RuntimeHelpers::_s_EnumEquals(::natsu::variable_type_t<T> x, ::natsu::variable_type_t<T> y)
+{
+    return x.value__ == y.value__;
+}
+
+template <class T>
 ::natsu::gc_obj_ref<System::Collections::Generic::EqualityComparer_1<T>> System::Collections::Generic::ComparerHelpers::_s_CreateDefaultEqualityComparer()
 {
     using namespace System::Collections::Generic;
 
-    auto comparer = details::default_equality_comparer_impl<T>()();
-    if (!comparer)
-        comparer = natsu::make_object<ObjectEqualityComparer_1<T>>();
-    return comparer;
+    return details::default_equality_comparer_impl<T>()();
 }
 }

@@ -30,5 +30,13 @@ namespace Chino.Chip
         public abstract void SetupSystemTimer(TimeSpan timeSlice);
 
         public abstract void RaiseCoreNotification();
+
+        public virtual void InstallDrivers()
+        {
+        }
+
+        public virtual void RegisterDeviceDescriptions()
+        {
+        }
     }
 }

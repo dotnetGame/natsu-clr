@@ -129,9 +129,6 @@ void ArchChipControl::Initialize(gc_obj_ref<ArchChipControl> _this)
     assert(g_interrupt_count.IsValid());
     assert(g_interrupt_commit_count.IsValid());
     THROW_IF_FAILED(::SetThreadDescription((HANDLE)intr_thrd, L"Interrupt Sender"));
-
-    auto dev = make_object<Chip::Emulator::HAL::IO::Console>();
-    Chip::Emulator::HAL::IO::Console::Install(dev);
 }
 
 UIntPtr ArchChipControl::DisableInterrupt(gc_obj_ref<ArchChipControl> _this)

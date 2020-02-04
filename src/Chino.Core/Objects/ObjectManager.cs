@@ -46,6 +46,13 @@ namespace Chino.Objects
             return OpenObject<T>(attributes, ref accessState);
         }
 
+        public static ObjectParseStatus TryOpenObject<T>(AccessMask desiredAccess, in ObjectAttributes attributes, out Accessor<T> accessor)
+            where T : Object
+        {
+            var accessState = new AccessState(desiredAccess);
+            return TryOpenObject(attributes, ref accessState, out accessor);
+        }
+
         public static Accessor<T> OpenObject<T>(in Accessor<T> accessor, AccessMask desiredAccess)
             where T : Object
         {
@@ -133,6 +140,28 @@ namespace Chino.Objects
         {
             var obj = (T)FindObject(attributes.Name, ref accessState, attributes.Root?.Object);
             return OpenObject(obj, ref accessState);
+        }
+
+        private static ObjectParseStatus TryOpenObject<T>(in ObjectAttributes attributes, ref AccessState accessState, out Accessor<T> accessor)
+            where T : Object
+        {
+            var status = TryFindObject(attributes.Name, ref accessState, out var @object, attributes.Root?.Object);
+            if (status == ObjectParseStatus.Success)
+            {
+                if (@object is T obj)
+                {
+                    accessor = OpenObject<T>(obj, ref accessState);
+                    return ObjectParseStatus.Success;
+                }
+                else
+                {
+                    accessor = default;
+                    return ObjectParseStatus.NotFound;
+                }
+            }
+
+            accessor = default;
+            return status;
         }
 
         private static Accessor<T> OpenObject<T>(T @object, ref AccessState accessState)

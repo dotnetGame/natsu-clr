@@ -337,17 +337,15 @@ void Monitor::_s_ReliableEnter(gc_obj_ref<Object> obj, gc_ref<bool> lockTaken)
             break;
         }
 
-        Thread::_s_SleepInternal(1);
+        Thread::_s_Sleep(1);
     }
 }
 
 void Monitor::_s_Exit(::natsu::gc_obj_ref<Object> obj)
 {
     check_null_obj_ref(obj);
-    auto thread_id = get_current_thread_id();
     auto &sync_header = obj.header().sync_header_;
-    void *expected = thread_id;
-    sync_header.lock_taken.compare_exchange_strong(expected, nullptr);
+    sync_header.lock_taken.store(nullptr);
 }
 
 void Monitor::_s_ReliableEnterTimeout(gc_obj_ref<Object> obj, int32_t timeout, gc_ref<bool> lockTaken)

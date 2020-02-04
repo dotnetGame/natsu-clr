@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace Chino.Devices.IO
+namespace Chino.IO.Devices
 {
     public enum ConsoleEventType
     {
@@ -15,10 +15,10 @@ namespace Chino.Devices.IO
     public struct ConsoleEvent
     {
         [field: FieldOffset(0)]
-        public ConsoleEventType Type { get; }
+        public ConsoleEventType Type { get; private set; }
 
         [field: FieldOffset(4)]
-        public KeyEvent Key { get; }
+        public KeyEvent Key { get; private set; }
 
         public struct KeyEvent
         {
@@ -32,10 +32,21 @@ namespace Chino.Devices.IO
                 Char = c;
             }
         }
+
+        public static ConsoleEvent CreateKey(bool keyDown, char c)
+        {
+            return new ConsoleEvent
+            {
+                Type = ConsoleEventType.KeyEvent,
+                Key = new KeyEvent(keyDown, c)
+            };
+        }
     }
 
-    public interface IConsole
+    public interface IConsoleDevice
     {
-        event EventHandler DataAvailable;
+        event EventHandler? InputAvailable;
+
+        int TryReadInput(Span<ConsoleEvent> buffer);
     }
 }

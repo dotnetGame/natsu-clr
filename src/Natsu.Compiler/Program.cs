@@ -268,7 +268,7 @@ namespace Natsu.Compiler
             return type.BaseType;
         }
 
-        private void AddTypeRef(TypeDesc declareDesc, TypeSig fieldType, bool force)
+        private void AddTypeRef(TypeDesc declareDesc, TypeSig fieldType, bool force, bool isGenPara = false)
         {
             var cntSig = fieldType;
             while (cntSig != null)
@@ -281,7 +281,6 @@ namespace Natsu.Compiler
                     case ElementType.Ptr:
                     case ElementType.CModReqd:
                     case ElementType.Object:
-                    case ElementType.Class:
                     case ElementType.Boolean:
                     case ElementType.Char:
                     case ElementType.I1:
@@ -294,6 +293,10 @@ namespace Natsu.Compiler
                     case ElementType.U8:
                     case ElementType.R4:
                     case ElementType.R8:
+                        break;
+                    case ElementType.Class:
+                        if (isGenPara)
+                            AddTypeRef(declareDesc, cntSig.TryGetTypeDef(), true);
                         break;
                     case ElementType.String:
                     case ElementType.I:
@@ -315,7 +318,7 @@ namespace Natsu.Compiler
                             var sig = cntSig.ToGenericInstSig();
                             AddTypeRef(declareDesc, sig.GenericType, force);
                             foreach (var arg in sig.GenericArguments)
-                                AddTypeRef(declareDesc, arg, force);
+                                AddTypeRef(declareDesc, arg, force, true);
                             break;
                         }
                     default:
@@ -471,6 +474,18 @@ namespace Natsu.Compiler
                 writer.Ident(ident + 1).WriteLine($"{type.Name}({type.Name} &&other) noexcept");
                 writer.Ident(ident + 1).WriteLine("{");
                 writer.Ident(ident + 2).WriteLine($"std::memcpy(this, &other, sizeof({type.Name}));");
+                writer.Ident(ident + 1).WriteLine("}");
+                writer.WriteLine();
+                writer.Ident(ident + 1).WriteLine($"{type.Name}& operator=(const {type.Name} &other) noexcept");
+                writer.Ident(ident + 1).WriteLine("{");
+                writer.Ident(ident + 2).WriteLine($"std::memcpy(this, &other, sizeof({type.Name}));");
+                writer.Ident(ident + 2).WriteLine("return *this;");
+                writer.Ident(ident + 1).WriteLine("}");
+                writer.WriteLine();
+                writer.Ident(ident + 1).WriteLine($"{type.Name}& operator=({type.Name} &&other) noexcept");
+                writer.Ident(ident + 1).WriteLine("{");
+                writer.Ident(ident + 2).WriteLine($"std::memcpy(this, &other, sizeof({type.Name}));");
+                writer.Ident(ident + 2).WriteLine("return *this;");
                 writer.Ident(ident + 1).WriteLine("}");
                 writer.WriteLine();
             }

@@ -31,7 +31,7 @@ namespace Chino.Objects
 
         public string? Name => _header.Name;
 
-        public virtual bool CanOpen => false;
+        public virtual bool CanOpen => true;
 
         public virtual bool CanParse => false;
 
@@ -43,7 +43,6 @@ namespace Chino.Objects
 
         protected internal virtual void Open(AccessMask grantedAccess)
         {
-            throw new NotSupportedException();
         }
 
         protected internal virtual ObjectParseStatus Parse(ref AccessState accessState, ref ReadOnlySpan<char> completeName, ref ReadOnlySpan<char> remainingName, out Object? foundObject)

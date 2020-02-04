@@ -2,9 +2,10 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Chino.Devices.IO
+namespace Chino.IO
 {
-    public interface ISerial
+    public enum DeviceType
     {
+        Console
     }
 }
