@@ -5,6 +5,8 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
 using Chino.IO.Devices;
+using Chino.Objects;
+using System.Threading;
 
 namespace Chino.Chip.Emulator.IO.Devices
 {
@@ -18,16 +20,6 @@ namespace Chino.Chip.Emulator.IO.Devices
         protected override void OnInstall()
         {
             InstallConsoleReadThread();
-        }
-
-        private void OnReceive(ConsoleEvent e)
-        {
-            EventsBuffer.TryWrite(MemoryMarshal.CreateReadOnlySpan(ref e, 1));
-            if (e.Type == ConsoleEventType.KeyEvent)
-            {
-                if (e.Key.KeyDown)
-                    Debug.Write(e.Key.Char.ToString());
-            }
         }
 
         [MethodImpl(MethodImplOptions.InternalCall)]

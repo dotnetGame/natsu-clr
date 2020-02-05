@@ -16,7 +16,12 @@ namespace Chino.Threading
 
         internal static Scheduler Current => _schedulers[ChipControl.Default.CurrentProcessorId];
 
+        private static int _nextThreadId;
+        internal static uint NextThreadId => (uint)Interlocked.Increment(ref _nextThreadId);
+
         public static Accessor<Thread> CurrentThread => ObjectManager.OpenObject(Current.RunningThread.Value.Thread, AccessMask.GenericAll);
+
+        public static uint CurrentThreadId => Current.RunningThread.Value.Thread.Id;
 
         private readonly LinkedList<ThreadScheduleEntry> _readyThreads = new LinkedList<ThreadScheduleEntry>();
         private readonly LinkedList<ThreadScheduleEntry> _delayedThreads = new LinkedList<ThreadScheduleEntry>();
@@ -38,19 +43,20 @@ namespace Chino.Threading
         {
             for (int i = 0; i < _schedulers.Length; i++)
                 _schedulers[i] = new Scheduler(i);
+            _nextThreadId = _schedulers.Length + 1;
         }
 
         internal Scheduler(int id)
         {
             Id = id;
             _yieldDPC = new LinkedListNode<DPC>(new DPC { Callback = OnYieldDPC });
-            _idleThread = new Thread(IdleMain);
+            _idleThread = new Thread((uint)id + 1, IdleMain);
             _idleThread.Description = "Idle";
         }
 
         public static Accessor<Thread> CreateThread(ThreadStart start)
         {
-            return ObjectManager.CreateObject(new Thread(start), AccessMask.GenericAll, ObjectAttributes.Empty);
+            return ObjectManager.CreateObject(new Thread(NextThreadId, start), AccessMask.GenericAll, ObjectAttributes.Empty);
         }
 
         public static void Delay(TimeSpan delay)
@@ -84,6 +90,19 @@ namespace Chino.Threading
             {
                 RemoveThreadFromReadyList(thread);
                 thread.State = ThreadState.Terminated;
+            }
+        }
+
+        internal void UnDelayThread(Thread thread)
+        {
+            Debug.Assert(thread.State == ThreadState.Wait);
+
+            using (ProcessorCriticalSection.Acquire())
+            {
+                var scheduleEntry = thread.ScheduleEntry;
+                scheduleEntry.List!.Remove(scheduleEntry);
+                _readyThreads.AddLast(scheduleEntry);
+                scheduleEntry.Value.Thread.State = ThreadState.Ready;
             }
         }
 
@@ -230,13 +249,25 @@ namespace Chino.Threading
         }
     }
 
-    internal class ThreadScheduleEntry
+    internal sealed class ThreadScheduleEntry
     {
         public Thread Thread { get; }
 
         public ulong AwakeTick { get; set; }
 
         public ThreadScheduleEntry(Thread thread)
+        {
+            Thread = thread;
+        }
+    }
+
+    internal sealed class ThreadWaitEntry
+    {
+        public Thread Thread { get; }
+
+        public volatile bool Signaled;
+
+        public ThreadWaitEntry(Thread thread)
         {
             Thread = thread;
         }

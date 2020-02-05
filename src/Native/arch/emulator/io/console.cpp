@@ -33,7 +33,7 @@ void ConsoleReadThread(void *arg)
             switch (record.EventType)
             {
             case KEY_EVENT:
-                this_->OnReceive(this_, ConsoleEvent::_s_CreateKey(
+                this_->OnReceiveInputFromIsr(this_, ConsoleEvent::_s_CreateKey(
                     record.Event.KeyEvent.bKeyDown, record.Event.KeyEvent.uChar.UnicodeChar));
                 break;
             default:

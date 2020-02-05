@@ -147,7 +147,7 @@ enum object_attributes
 
 struct object_sync_header
 {
-    std::atomic<void *> lock_taken = nullptr;
+    std::atomic<uint32_t> lock_taken = 0;
 };
 
 struct object_header

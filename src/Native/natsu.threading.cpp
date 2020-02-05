@@ -39,6 +39,15 @@ gc_obj_ref<Object> Interlocked::_s_Exchange(gc_ref<gc_obj_ref<Object>> location1
 #endif
 }
 
+int32_t Interlocked::_s_CompareExchange(gc_ref<int32_t> location1, int32_t value, int32_t comparand)
+{
+#if _MSC_VER
+    return _InterlockedCompareExchange(reinterpret_cast<volatile long *>(location1.ptr_), value, comparand);
+#else
+    return __sync_val_compare_and_swap(reinterpret_cast<volatile int32_t *>(location1.ptr_), value, comparand);
+#endif
+}
+
 int64_t Interlocked::_s_CompareExchange(gc_ref<int64_t> location1, int64_t value, int64_t comparand)
 {
 #if _MSC_VER

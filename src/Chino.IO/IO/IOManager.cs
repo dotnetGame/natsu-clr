@@ -110,8 +110,8 @@ namespace Chino.IO
 
             if (foundDriver != null)
             {
-                foundDriver.Value.Object.InstallDevice(deviceDescription);
-                deviceDescription._installedDriver = foundDriver.Value;
+                foundDriver.Object.InstallDevice(deviceDescription);
+                deviceDescription._installedDriver = foundDriver;
                 return true;
             }
 

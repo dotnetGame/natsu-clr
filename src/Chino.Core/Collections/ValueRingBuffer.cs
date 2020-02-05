@@ -12,6 +12,15 @@ namespace Chino.Collections
         private int _readPointer;
         private int _writePointer;
 
+        public bool IsEmpty
+        {
+            get
+            {
+                var pointers = GetPointers();
+                return pointers.readPtr == pointers.writePtr;
+            }
+        }
+
         public ValueRingBuffer(int capacity)
         {
             Debug.Assert(capacity > 0);

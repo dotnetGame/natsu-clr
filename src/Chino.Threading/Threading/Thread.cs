@@ -20,6 +20,9 @@ namespace Chino.Threading
         internal ThreadContext Context { get; }
 
         internal LinkedListNode<ThreadScheduleEntry> ScheduleEntry { get; }
+        internal LinkedListNode<ThreadWaitEntry> WaitEntry { get; }
+
+        internal uint Id { get; }
 
         internal int ExitCode { get; private set; }
 
@@ -36,20 +39,25 @@ namespace Chino.Threading
             }
         }
 
-        internal Thread(ThreadStart start)
+        private Thread(uint id)
         {
-            _start = start ?? throw new ArgumentNullException(nameof(start));
+            Id = id;
             ScheduleEntry = new LinkedListNode<ThreadScheduleEntry>(new ThreadScheduleEntry(this));
+            WaitEntry = new LinkedListNode<ThreadWaitEntry>(new ThreadWaitEntry(this));
 
             Context = ChipControl.Default.InitializeThreadContext(this);
         }
 
-        internal Thread(ParameterizedThreadStart start)
+        internal Thread(uint id, ThreadStart start)
+            : this(id)
+        {
+            _start = start ?? throw new ArgumentNullException(nameof(start));
+        }
+
+        internal Thread(uint id, ParameterizedThreadStart start)
+            : this(id)
         {
             _paramterizedStart = _paramterizedStart ?? throw new ArgumentNullException(nameof(start));
-            ScheduleEntry = new LinkedListNode<ThreadScheduleEntry>(new ThreadScheduleEntry(this));
-
-            Context = ChipControl.Default.InitializeThreadContext(this);
         }
 
         internal void Start(object? arg = null)
@@ -65,6 +73,14 @@ namespace Chino.Threading
 
             ExitCode = exitCode;
             _scheduler.KillThread(this);
+        }
+
+        internal void UnDelay()
+        {
+            if (_scheduler == null)
+                throw new InvalidOperationException();
+
+            _scheduler.UnDelayThread(this);
         }
 
         private static void ThreadMainThunk(Thread thread)

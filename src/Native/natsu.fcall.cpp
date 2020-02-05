@@ -18,7 +18,7 @@ using namespace Chino_Threading;
 int32_t Array::GetLength(gc_obj_ref<Array> _this, int32_t dimension)
 {
     if (dimension != 0)
-        throw_exception<IndexOutOfRangeException>();
+        throw_index_out_of_range_exception();
     return (intptr_t)_this.cast<RawSzArrayData>()->Count;
 }
 
@@ -112,7 +112,7 @@ gc_obj_ref<Type> Object::GetType(::natsu::gc_obj_ref<Object> _this)
 char16_t String::get_Chars(gc_obj_ref<String> _this, int32_t index)
 {
     if ((uint32_t)index >= (uint32_t)_this->_stringLength)
-        throw_exception<IndexOutOfRangeException>();
+        throw_index_out_of_range_exception();
     return (&_this->_firstChar)[index];
 }
 
@@ -309,10 +309,9 @@ int64_t Environment::_s_get_TickCount64()
 
 namespace
 {
-void *get_current_thread_id()
+uint32_t get_current_thread_id()
 {
-    auto thread = Chino::Threading::Scheduler::_s_get_CurrentThread();
-    return thread.get_Object(thread).ptr_;
+    return Chino::Threading::Scheduler::_s_get_CurrentThreadId();
 }
 }
 
@@ -327,7 +326,7 @@ void Monitor::_s_ReliableEnter(gc_obj_ref<Object> obj, gc_ref<bool> lockTaken)
     check_null_obj_ref(obj);
     auto thread_id = get_current_thread_id();
     auto &sync_header = obj.header().sync_header_;
-    void *expected = nullptr;
+    uint32_t expected = 0;
 
     while (true)
     {
@@ -345,7 +344,7 @@ void Monitor::_s_Exit(::natsu::gc_obj_ref<Object> obj)
 {
     check_null_obj_ref(obj);
     auto &sync_header = obj.header().sync_header_;
-    sync_header.lock_taken.store(nullptr);
+    sync_header.lock_taken.store(0);
 }
 
 void Monitor::_s_ReliableEnterTimeout(gc_obj_ref<Object> obj, int32_t timeout, gc_ref<bool> lockTaken)

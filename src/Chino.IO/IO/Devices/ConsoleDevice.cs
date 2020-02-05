@@ -3,11 +3,14 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 using Chino.Collections;
+using Chino.Objects;
 
 namespace Chino.IO.Devices
 {
     public class ConsoleDevice : Device, IConsoleDevice
     {
+        private volatile bool _active = false;
+
         public event EventHandler? InputAvailable;
 
         protected ValueRingBuffer<ConsoleEvent> EventsBuffer;
@@ -24,9 +27,16 @@ namespace Chino.IO.Devices
             return EventsBuffer.TryRead(buffer);
         }
 
+        protected override void Open(AccessMask grantedAccess)
+        {
+            _active = true;
+            base.Open(grantedAccess);
+        }
+
         protected void OnReceiveInputFromIsr(ConsoleEvent @event)
         {
-            EventsBuffer.TryWrite(MemoryMarshal.CreateReadOnlySpan(ref @event, 1));
+            if (_active)
+                EventsBuffer.TryWrite(MemoryMarshal.CreateReadOnlySpan(ref @event, 1));
         }
     }
 }
