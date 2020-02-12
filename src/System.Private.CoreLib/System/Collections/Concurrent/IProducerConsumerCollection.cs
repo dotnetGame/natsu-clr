@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics;
 
 namespace System.Collections.Concurrent
 {
@@ -16,14 +16,14 @@ namespace System.Collections.Concurrent
     /// All implementations of this interface must enable all members of this interface
     /// to be used concurrently from multiple threads.
     /// </remarks>
-    public interface IProducerConsumerCollection<T> : IEnumerable<T>
+    public interface IProducerConsumerCollection<T> : IEnumerable<T>, ICollection
     {
         /// <summary>
         /// Copies the elements of the <see cref="IProducerConsumerCollection{T}"/> to
         /// an
-        /// <see cref="System.Array"/>, starting at a specified index.
+        /// <see cref="T:System.Array"/>, starting at a specified index.
         /// </summary>
-        /// <param name="array">The one-dimensional <see cref="System.Array"/> that is the destination of
+        /// <param name="array">The one-dimensional <see cref="T:System.Array"/> that is the destination of
         /// the elements copied from the <see cref="IProducerConsumerCollection{T}"/>.
         /// The array must have zero-based indexing.</param>
         /// <param name="index">The zero-based index in <paramref name="array"/> at which copying
@@ -47,7 +47,7 @@ namespace System.Collections.Concurrent
         /// <param name="item">The object to add to the <see
         /// cref="IProducerConsumerCollection{T}"/>.</param>
         /// <returns>true if the object was added successfully; otherwise, false.</returns>
-        /// <exception cref="System.ArgumentException">The <paramref name="item"/> was invalid for this collection.</exception>
+        /// <exception cref="T:System.ArgumentException">The <paramref name="item"/> was invalid for this collection.</exception>
         bool TryAdd(T item);
 
         /// <summary>
@@ -59,7 +59,7 @@ namespace System.Collections.Concurrent
         /// unspecified.
         /// </param>
         /// <returns>true if an object was removed and returned successfully; otherwise, false.</returns>
-        bool TryTake([MaybeNullWhen(false)] out T item);
+        bool TryTake(out T item);
 
         /// <summary>
         /// Copies the elements contained in the <see cref="IProducerConsumerCollection{T}"/> to a new array.

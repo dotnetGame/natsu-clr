@@ -1,28 +1,33 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using System.Diagnostics;
 using Chino.IO.Devices;
-using Chino.Objects;
-using System.Threading;
 
 namespace Chino.Chip.Emulator.IO.Devices
 {
     public class EmulatorConsole : ConsoleDevice
     {
-        public EmulatorConsole(int capacity)
-            : base(capacity)
+        private UIntPtr _stdIn, _stdOut;
+
+        public override bool CanRead => true;
+
+        public override bool CanWrite => true;
+
+        public EmulatorConsole()
         {
         }
 
         protected override void OnInstall()
         {
-            InstallConsoleReadThread();
+            OpenStdHandles();
         }
 
         [MethodImpl(MethodImplOptions.InternalCall)]
-        private extern void InstallConsoleReadThread();
+        protected override extern int Read(Span<byte> buffer);
+
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        protected override extern void Write(ReadOnlySpan<byte> buffer);
+
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        private extern void OpenStdHandles();
     }
 }

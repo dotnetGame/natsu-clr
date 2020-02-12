@@ -4,6 +4,13 @@ set(GENERATED_DIR ${CMAKE_CURRENT_LIST_DIR}/Generated)
 include_directories(${CMAKE_CURRENT_LIST_DIR} ${CMAKE_CURRENT_LIST_DIR}/Generated)
 add_subdirectory(arch/${CHINO_ARCH})
 
+if (CHINO_APP)
+    string(REPLACE "." "_" CHINO_APP_MODULE ${CHINO_APP})
+    string(REPLACE "." "::" CHINO_APP_NAMESPACE ${CHINO_APP})
+else()
+    message(FATAL_ERROR "Please set CHINO_APP")
+endif()
+
 set(SRCS natsu.fcall.cpp
          natsu.runtime.cpp
          natsu.gc.cpp
@@ -11,6 +18,7 @@ set(SRCS natsu.fcall.cpp
          natsu.threading.cpp
          chino.runtime.cpp
          main.cpp
+         Generated/${CHINO_APP}.cpp
          Generated/System.Private.CoreLib.cpp
          Generated/System.Collections.cpp
          Generated/System.Diagnostics.Debug.cpp
@@ -23,7 +31,11 @@ set(SRCS natsu.fcall.cpp
          Generated/BitFields.cpp)
 
 add_executable(chino ${SRCS} ${ASM_SRCS})
-target_compile_definitions(chino PUBLIC -DCHINO_ARCH=${CHINO_ARCH})
+target_compile_definitions(chino PUBLIC
+    -DCHINO_ARCH=${CHINO_ARCH}
+    -DCHINO_APP=${CHINO_APP}
+    -DCHINO_APP_MODULE=${CHINO_APP_MODULE}
+    -DCHINO_APP_NAMESPACE=${CHINO_APP_NAMESPACE})
 target_link_libraries(chino PUBLIC arch)
 
 if (NOT WIN32)

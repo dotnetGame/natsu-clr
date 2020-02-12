@@ -654,10 +654,10 @@ constexpr bool operator>(const gc_obj_ref<T> &lhs, std::nullptr_t) noexcept
     return lhs.ptr_;
 }
 
-template <class T>
-constexpr bool operator<(const gc_ptr<T> &lhs, const gc_ptr<T> &rhs) noexcept
+template <class T, class U>
+constexpr bool operator<(const gc_ptr<T> &lhs, const gc_ptr<U> &rhs) noexcept
 {
-    return lhs.ptr_ < rhs.ptr_;
+    return reinterpret_cast<uintptr_t>(lhs.ptr_) < reinterpret_cast<uintptr_t>(rhs.ptr_);
 }
 
 template <class T>
@@ -669,13 +669,25 @@ constexpr bool operator<(const gc_ptr<T> &lhs, uintptr_t rhs) noexcept
 template <class T>
 constexpr bool operator<(uintptr_t lhs, const gc_ptr<T> &rhs) noexcept
 {
-    return lhs.ptr_ < reinterpret_cast<uintptr_t>(rhs.ptr_);
+    return lhs < reinterpret_cast<uintptr_t>(rhs.ptr_);
 }
 
-template <class T>
-constexpr bool operator>(const gc_ptr<T> &lhs, const gc_ptr<T> &rhs) noexcept
+template <class T, class U>
+constexpr bool operator<=(const gc_ptr<T> &lhs, const gc_ptr<U> &rhs) noexcept
 {
-    return lhs.ptr_ > rhs.ptr_;
+    return reinterpret_cast<uintptr_t>(lhs.ptr_) <= reinterpret_cast<uintptr_t>(rhs.ptr_);
+}
+
+template <class T, class U>
+constexpr bool operator>=(const gc_ptr<T> &lhs, const gc_ptr<U> &rhs) noexcept
+{
+    return reinterpret_cast<uintptr_t>(lhs.ptr_) >= reinterpret_cast<uintptr_t>(rhs.ptr_);
+}
+
+template <class T, class U>
+constexpr bool operator>(const gc_ptr<T> &lhs, const gc_ptr<U> &rhs) noexcept
+{
+    return reinterpret_cast<uintptr_t>(lhs.ptr_) > reinterpret_cast<uintptr_t>(rhs.ptr_);
 }
 
 template <class T>
@@ -732,17 +744,17 @@ template <size_t N>
 struct string_literal
 {
     int32_t _stringLength;
-    std::array<char16_t, N + 1> _firstChar;
+    std::array<char16_t, N> _firstChar;
 
-    constexpr string_literal(std::u16string_view str)
+    constexpr string_literal(const char16_t (&str)[N])
         : _stringLength((int32_t)N), _firstChar(init_array(str, std::make_index_sequence<N>()))
     {
     }
 
     template <size_t... I>
-    constexpr std::array<char16_t, N + 1> init_array(std::u16string_view str, std::index_sequence<I...>)
+    constexpr std::array<char16_t, N> init_array(const char16_t (&str)[N], std::index_sequence<I...>)
     {
-        return { str[I]..., 0 };
+        return { str[I]... };
     }
 };
 
@@ -757,11 +769,23 @@ struct static_object
     {
     }
 
+    constexpr static_object(const static_object &other) noexcept
+        : header_(other.header_), value_(other.value_)
+    {
+    }
+
     constexpr gc_obj_ref<TObject> get() const noexcept
     {
         return gc_obj_ref<TObject>(reinterpret_cast<TObject *>(const_cast<TValue *>(&value_)));
     }
 };
+
+template <size_t N>
+constexpr auto make_string_literal(const char16_t (&str)[N])
+{
+    return static_object<::System_Private_CoreLib::System::String,
+        string_literal<N>>(str);
+}
 }
 
 #define NATSU_PRIMITIVE_IMPL_BYTE                     \

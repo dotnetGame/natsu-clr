@@ -23,6 +23,7 @@ namespace Chino.Chip
         public abstract void RestoreInterrupt(UIntPtr state);
 
         public abstract ThreadContext InitializeThreadContext(object thread);
+        public abstract void UninitializeThreadContext(ThreadContext context);
         public abstract void SetThreadDescription(ThreadContext context, string? description);
 
         public abstract void StartSchedule(ThreadContext context);

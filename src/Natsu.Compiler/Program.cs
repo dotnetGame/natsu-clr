@@ -21,6 +21,7 @@ namespace Natsu.Compiler
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.IO.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.K210.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.Emulator.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Apps.Shell.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Private.CoreLib.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Collections.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Memory.dll",
@@ -71,7 +72,7 @@ namespace Natsu.Compiler
             using (var sha256 = SHA256.Create())
             {
                 digest = Convert.ToBase64String(sha256.ComputeHash(File.ReadAllBytes(_module.Location)));
-#if true
+#if false
                 if (HasOutputUptodate(Path.Combine(outputPath, $"{_module.Assembly.Name}.h"), digest))
                     return;
 #endif
@@ -184,7 +185,7 @@ namespace Natsu.Compiler
         {
             for (int i = 0; i < _userStrings.Count; i++)
             {
-                writer.Ident(1).WriteLine($"static const constexpr natsu::static_object<::System_Private_CoreLib::System::String, natsu::string_literal<{_userStrings[i].Length}>> user_string_{i}(uR\"NS({_userStrings[i]})NS\"sv);");
+                writer.Ident(1).WriteLine($"static const constexpr auto user_string_{i} = ::natsu::make_string_literal(uR\"NS({_userStrings[i]})NS\");");
             }
 
             writer.WriteLine();
@@ -808,7 +809,7 @@ namespace Natsu.Compiler
             if (value.ElementType == ElementType.String)
             {
                 var str = (string)value.Constant.Value;
-                writer.Ident(ident).WriteLine($"static const constexpr natsu::static_object<::System_Private_CoreLib::System::String, natsu::string_literal<{str.Length}>> _storage_{TypeUtils.EscapeIdentifier(value.Name)}{{uR\"NS({str})NS\"sv}};");
+                writer.Ident(ident).WriteLine($"static const constexpr auto _storage_{TypeUtils.EscapeIdentifier(value.Name)} = ::natsu::make_string_literal(uR\"NS({str})NS\");");
 
                 writer.Ident(ident).WriteLine($"inline {prefix}::natsu::gc_obj_ref<::System_Private_CoreLib::System::String> {TypeUtils.EscapeIdentifier(value.Name)} = _storage_{TypeUtils.EscapeIdentifier(value.Name)}.get();");
 

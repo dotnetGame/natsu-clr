@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using System.Text;
 
 namespace System
 {
@@ -150,6 +151,80 @@ namespace System
             fixed (char* dest = &result._firstChar)
                 wstrcpy(dest, pStart, length);
             return result;
+        }
+
+        [CLSCompliant(false)]
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        public extern unsafe String(sbyte* value);
+
+        private static unsafe string Ctor(sbyte* value)
+        {
+            byte* pb = (byte*)value;
+            if (pb == null)
+                return Empty;
+
+            int numBytes = new ReadOnlySpan<byte>((byte*)value, int.MaxValue).IndexOf<byte>(0);
+
+            // Check for overflow
+            if (numBytes < 0)
+                throw new ArgumentException(SR.Arg_MustBeNullTerminatedString);
+
+            return CreateStringForSByteConstructor(pb, numBytes);
+        }
+
+        [CLSCompliant(false)]
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        public extern unsafe String(sbyte* value, int startIndex, int length);
+        private static unsafe string Ctor(sbyte* value, int startIndex, int length)
+        {
+            if (startIndex < 0)
+                throw new ArgumentOutOfRangeException(nameof(startIndex), SR.ArgumentOutOfRange_StartIndex);
+
+            if (length < 0)
+                throw new ArgumentOutOfRangeException(nameof(length), SR.ArgumentOutOfRange_NegativeLength);
+
+            if (value == null)
+            {
+                if (length == 0)
+                    return Empty;
+
+                throw new ArgumentNullException(nameof(value));
+            }
+
+            byte* pStart = (byte*)(value + startIndex);
+
+            // overflow check
+            if (pStart < value)
+                throw new ArgumentOutOfRangeException(nameof(value), SR.ArgumentOutOfRange_PartialWCHAR);
+
+            return CreateStringForSByteConstructor(pStart, length);
+        }
+
+        // Encoder for String..ctor(sbyte*) and String..ctor(sbyte*, int, int)
+        private static unsafe string CreateStringForSByteConstructor(byte* pb, int numBytes)
+        {
+            Debug.Assert(numBytes >= 0);
+            Debug.Assert(pb <= (pb + numBytes));
+
+            if (numBytes == 0)
+                return Empty;
+
+#if PLATFORM_WINDOWS
+            int numCharsRequired = Interop.Kernel32.MultiByteToWideChar(Interop.Kernel32.CP_ACP, Interop.Kernel32.MB_PRECOMPOSED, pb, numBytes, (char*)null, 0);
+            if (numCharsRequired == 0)
+                throw new ArgumentException(SR.Arg_InvalidANSIString);
+
+            string newString = FastAllocateString(numCharsRequired);
+            fixed (char *pFirstChar = &newString._firstChar)
+            {
+                numCharsRequired = Interop.Kernel32.MultiByteToWideChar(Interop.Kernel32.CP_ACP, Interop.Kernel32.MB_PRECOMPOSED, pb, numBytes, pFirstChar, numCharsRequired);
+            }
+            if (numCharsRequired == 0)
+                throw new ArgumentException(SR.Arg_InvalidANSIString);
+            return newString;
+#else
+            return Encoding.UTF8.GetString(pb, numBytes);
+#endif
         }
 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
@@ -300,6 +375,48 @@ namespace System
             return (value == null || 0u >= (uint)value.Length) ? true : false;
         }
 
+        public static bool IsNullOrWhiteSpace(string value)
+        {
+            if (value == null) return true;
+
+            for (int i = 0; i < value.Length; i++)
+            {
+                if (!char.IsWhiteSpace(value[i])) return false;
+            }
+
+            return true;
+        }
+
+        internal ref char GetRawStringData() => ref _firstChar;
+
+        // Helper for encodings so they can talk to our buffer directly
+        // stringLength must be the exact size we'll expect
+        internal static unsafe string CreateStringFromEncoding(
+            byte* bytes, int byteLength, Encoding encoding)
+        {
+            Debug.Assert(bytes != null);
+            Debug.Assert(byteLength >= 0);
+
+            // Get our string length
+            int stringLength = encoding.GetCharCount(bytes, byteLength, null);
+            Debug.Assert(stringLength >= 0, "stringLength >= 0");
+
+            // They gave us an empty string if they needed one
+            // 0 bytelength might be possible if there's something in an encoder
+            if (stringLength == 0)
+                return Empty;
+
+            string s = FastAllocateString(stringLength);
+            fixed (char* pTempChars = &s._firstChar)
+            {
+                int doubleCheck = encoding.GetChars(bytes, byteLength, pTempChars, stringLength, null);
+                Debug.Assert(stringLength == doubleCheck,
+                    "Expected encoding.GetChars to return same length as encoding.GetCharCount");
+            }
+
+            return s;
+        }
+
         [MethodImpl(MethodImplOptions.InternalCall)]
         internal static unsafe extern int wcslen(char* ptr);
 
@@ -315,6 +432,11 @@ namespace System
         }
 
         IEnumerator<char> IEnumerable<char>.GetEnumerator()
+        {
+            return new CharEnumerator(this);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
         {
             return new CharEnumerator(this);
         }

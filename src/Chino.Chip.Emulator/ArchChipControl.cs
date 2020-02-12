@@ -5,6 +5,7 @@ using System.Text;
 using Chino.Chip;
 using Chino.Chip.Emulator.IO.Drivers;
 using Chino.IO;
+using Chino.IO.Devices;
 using Chino.Threading;
 
 namespace Chino.Chip
@@ -39,6 +40,9 @@ namespace Chino.Chip
         public override extern ThreadContext InitializeThreadContext(object thread);
 
         [MethodImpl(MethodImplOptions.InternalCall)]
+        public override extern void UninitializeThreadContext(ThreadContext context);
+
+        [MethodImpl(MethodImplOptions.InternalCall)]
         public override extern void StartSchedule(ThreadContext context);
 
         [MethodImpl(MethodImplOptions.InternalCall)]
@@ -53,6 +57,8 @@ namespace Chino.Chip
         public override void InstallDrivers()
         {
             IOManager.InstallDriver("emulator.console", new ConsoleDriver());
+
+            ConsoleDevice.DefaultDevicePath = "/dev/console0";
         }
 
         public override void RegisterDeviceDescriptions()

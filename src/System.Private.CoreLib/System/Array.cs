@@ -53,6 +53,29 @@ namespace System
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         public extern int GetLowerBound(int dimension);
 
+        // CopyTo copies a collection into an Array, starting at a particular
+        // index into the array.
+        // 
+        // This method is to support the ICollection interface, and calls
+        // Array.Copy internally.  If you aren't using ICollection explicitly,
+        // call Array.Copy to avoid an extra indirection.
+        // 
+        public void CopyTo(Array array, int index)
+        {
+            if (array != null && array.Rank != 1)
+                ThrowHelper.ThrowArgumentException(ExceptionResource.Arg_RankMultiDimNotSupported);
+            // Note: Array.Copy throws a RankException and we want a consistent ArgumentException for all the IList CopyTo methods.
+            Array.Copy(this, GetLowerBound(0), array, index, Length);
+        }
+
+        public void CopyTo(Array array, long index)
+        {
+            if (index > int.MaxValue || index < int.MinValue)
+                ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.index, ExceptionResource.ArgumentOutOfRange_HugeArrayNotSupported);
+
+            this.CopyTo(array, (int)index);
+        }
+
         private static class EmptyArray<T>
         {
             internal static readonly T[] Value = new T[0];

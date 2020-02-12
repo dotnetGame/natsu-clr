@@ -86,10 +86,15 @@ namespace Chino.Threading
         internal void KillThread(Thread thread)
         {
             Debug.Assert(thread._scheduler == this);
-            if (Interlocked.Exchange(ref thread._scheduler, null) != null)
+
+            using (ProcessorCriticalSection.Acquire())
             {
-                RemoveThreadFromReadyList(thread);
-                thread.State = ThreadState.Terminated;
+                if (Interlocked.Exchange(ref thread._scheduler, null) != null)
+                {
+                    RemoveThreadFromReadyList(thread);
+                    thread.State = ThreadState.Terminated;
+                    thread.OnKilled();
+                }
             }
         }
 

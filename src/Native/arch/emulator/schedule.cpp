@@ -24,7 +24,6 @@ HANDLE g_system_timer;
 TimeSpan g_time_slice;
 
 Semaphore g_interrupt_count(CreateSemaphore(nullptr, 0, 10240, nullptr));
-Semaphore g_interrupt_commit_count(CreateSemaphore(nullptr, 0, 10240, nullptr));
 std::atomic<bool> g_system_timer_int(false);
 std::atomic<bool> g_core_notifi_int(false);
 std::atomic<uint32_t> g_interrupt_num(0);
@@ -52,12 +51,8 @@ void notify_interrupt()
 
 void wait_interrupt_clear()
 {
-    while (g_interrupt_num.load())
-    {
-        if (WaitForSingleObject(g_interrupt_commit_count.Get(), INFINITE) == WAIT_ABANDONED)
-            break;
-        g_interrupt_num.fetch_sub(1);
-    }
+    while (g_interrupt_num)
+        ;
 }
 
 void system_timer_main(void *arg)
@@ -101,7 +96,7 @@ void interrupt_sender_main(void *arg)
                 suspend_thread(*context);
             }
 
-            THROW_WIN32_IF_NOT(ReleaseSemaphore(g_interrupt_commit_count.Get(), 1, nullptr));
+            g_interrupt_num.fetch_sub(1);
 
             if (g_system_timer_int.exchange(false))
             {
@@ -127,7 +122,6 @@ void ArchChipControl::Initialize(gc_obj_ref<ArchChipControl> _this)
     auto intr_thrd = _beginthread(interrupt_sender_main, 0, nullptr);
     assert(intr_thrd);
     assert(g_interrupt_count.IsValid());
-    assert(g_interrupt_commit_count.IsValid());
     THROW_IF_FAILED(::SetThreadDescription((HANDLE)intr_thrd, L"Interrupt Sender"));
 }
 
@@ -188,8 +182,11 @@ void ArchChipControl::SetupSystemTimer(gc_obj_ref<ArchChipControl> _this, TimeSp
 
 void ArchChipControl::RestoreContext(gc_obj_ref<ArchChipControl> _this, gc_obj_ref<ThreadContext> context)
 {
-    // Run selected thread
-    resume_thread(*context.cast<ArchThreadContext>());
+    if (g_interrupt_num == 0)
+    {
+        // Run selected thread
+        resume_thread(*context.cast<ArchThreadContext>());
+    }
 }
 
 void ArchChipControl::RaiseCoreNotification(gc_obj_ref<ArchChipControl> _this)

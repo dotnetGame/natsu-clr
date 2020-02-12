@@ -30,6 +30,7 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="System\Collections\ObjectModel\" />
     <Folder Include="System\Security\" />
   </ItemGroup>
 </Project>

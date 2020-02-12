@@ -10,7 +10,7 @@ namespace Chino.Chip.Emulator.IO.Drivers
     {
         protected override void InstallDevice(DeviceDescription deviceDescription)
         {
-            IOManager.InstallDevice(new EmulatorConsole(16));
+            IOManager.InstallDevice(new EmulatorConsole());
         }
 
         protected override bool IsCompatible(DeviceDescription deviceDescription)

@@ -21,7 +21,7 @@ int main()
     InitializeHeap();
     // Initialize chip control
     ChipControl::_s_set_Default(make_object<ArchChipControl>());
-    Program::_s_Main();
+    KernelProgram::_s_KernelMain();
 
     // Should not reach here
     while (1)

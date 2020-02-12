@@ -17,6 +17,12 @@ using namespace std::string_view_literals;
 
 namespace natsu
 {
+template <class T>
+constexpr ::System_Private_CoreLib::System::IntPtr operator-(::System_Private_CoreLib::System::IntPtr lhs, gc_ptr<T> rhs) noexcept
+{
+    return (intptr_t)((intptr_t)lhs - (intptr_t)rhs.ptr_);
+}
+
 namespace stack
 {
     struct int32

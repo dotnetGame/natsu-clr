@@ -9,7 +9,7 @@ namespace ResX2CS
     {
         static void Main(string[] args)
         {
-            var assembly = "System.Collections";
+            var assembly = "System.Console";
             var path = @"..\..\..\..\" + assembly + @"\Resources\Strings.resx";
             var xml = XDocument.Load(path);
             var datas = xml.Root.Nodes().OfType<XElement>().Where(x => x.Name == "data").ToList();

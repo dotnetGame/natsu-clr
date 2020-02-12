@@ -42,11 +42,4 @@ namespace Chino.IO.Devices
             };
         }
     }
-
-    public interface IConsoleDevice
-    {
-        event EventHandler? InputAvailable;
-
-        int TryReadInput(Span<ConsoleEvent> buffer);
-    }
 }

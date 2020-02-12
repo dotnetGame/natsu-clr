@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for more information.
 
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Threading;
 
 namespace System.Collections.Generic
 {
@@ -13,22 +13,22 @@ namespace System.Collections.Generic
     // of the internal array. As elements are added to a List, the capacity
     // of the List is automatically increased as required by reallocating the
     // internal array.
-    //
+    // 
     [DebuggerTypeProxy(typeof(ICollectionDebugView<>))]
     [DebuggerDisplay("Count = {Count}")]
     [Serializable]
     [TypeForwardedFrom("mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089")]
-    public class List<T> : IList<T>, IReadOnlyList<T>
+    public class List<T> : IList<T>, IList, IReadOnlyList<T>
     {
         private const int DefaultCapacity = 4;
 
         private T[] _items; // Do not rename (binary serialization)
         private int _size; // Do not rename (binary serialization)
         private int _version; // Do not rename (binary serialization)
+        [NonSerialized]
+        private object _syncRoot;
 
-#pragma warning disable CA1825 // avoid the extra generic instantiation for Array.Empty<T>()
         private static readonly T[] s_emptyArray = new T[0];
-#pragma warning restore CA1825
 
         // Constructs a List. The list is initially empty and has a capacity
         // of zero. Upon adding the first element to the list the capacity is
@@ -42,7 +42,7 @@ namespace System.Collections.Generic
         // Constructs a List with a given initial capacity. The list is
         // initially empty, but will have room for the given number of elements
         // before any reallocations are required.
-        //
+        // 
         public List(int capacity)
         {
             if (capacity < 0)
@@ -57,7 +57,7 @@ namespace System.Collections.Generic
         // Constructs a List, copying the contents of the given collection. The
         // size and capacity of the new list will both be equal to the size of the
         // given collection.
-        //
+        // 
         public List(IEnumerable<T> collection)
         {
             if (collection == null)
@@ -81,23 +81,20 @@ namespace System.Collections.Generic
             {
                 _size = 0;
                 _items = s_emptyArray;
-                using (IEnumerator<T> en = collection!.GetEnumerator())
-                {
-                    while (en.MoveNext())
-                    {
-                        Add(en.Current);
-                    }
-                }
+                AddEnumerable(collection);
             }
         }
 
         // Gets and sets the capacity of this list.  The capacity is the size of
-        // the internal array used to hold items.  When set, the internal
+        // the internal array used to hold items.  When set, the internal 
         // array of the list is reallocated to the given capacity.
-        //
+        // 
         public int Capacity
         {
-            get => _items.Length;
+            get
+            {
+                return _items.Length;
+            }
             set
             {
                 if (value < _size)
@@ -127,8 +124,28 @@ namespace System.Collections.Generic
         // Read-only property describing how many elements are in the List.
         public int Count => _size;
 
+        bool IList.IsFixedSize => false;
+
         // Is this List read-only?
         bool ICollection<T>.IsReadOnly => false;
+
+        bool IList.IsReadOnly => false;
+
+        // Is this List synchronized (thread-safe)?
+        bool ICollection.IsSynchronized => false;
+
+        // Synchronization root for this object.
+        object ICollection.SyncRoot
+        {
+            get
+            {
+                if (_syncRoot == null)
+                {
+                    Interlocked.CompareExchange<object>(ref _syncRoot, new object(), null);
+                }
+                return _syncRoot;
+            }
+        }
 
         // Sets or Gets the element at the given index.
         public T this[int index]
@@ -154,11 +171,32 @@ namespace System.Collections.Generic
             }
         }
 
-        private static bool IsCompatibleObject(object? value)
+        private static bool IsCompatibleObject(object value)
         {
             // Non-null values are fine.  Only accept nulls if T is a class or Nullable<U>.
-            // Note that default(T) is not equal to null for value types except when T is Nullable<U>.
-            return ((value is T) || (value == null && default(T)! == null)); // default(T) == null warning (https://github.com/dotnet/roslyn/issues/34757)
+            // Note that default(T) is not equal to null for value types except when T is Nullable<U>. 
+            return ((value is T) || (value == null && default(T) == null));
+        }
+
+        object IList.this[int index]
+        {
+            get
+            {
+                return this[index];
+            }
+            set
+            {
+                ThrowHelper.IfNullAndNullsAreIllegalThenThrow<T>(value, ExceptionArgument.value);
+
+                try
+                {
+                    this[index] = (T)value;
+                }
+                catch (InvalidCastException)
+                {
+                    ThrowHelper.ThrowWrongValueTypeArgumentException(value, typeof(T));
+                }
+            }
         }
 
         // Adds the given object to the end of this list. The size of the list is
@@ -192,6 +230,22 @@ namespace System.Collections.Generic
             _items[size] = item;
         }
 
+        int IList.Add(object item)
+        {
+            ThrowHelper.IfNullAndNullsAreIllegalThenThrow<T>(item, ExceptionArgument.item);
+
+            try
+            {
+                Add((T)item);
+            }
+            catch (InvalidCastException)
+            {
+                ThrowHelper.ThrowWrongValueTypeArgumentException(item, typeof(T));
+            }
+
+            return Count - 1;
+        }
+
         // Adds the elements of the given collection to the end of this list. If
         // required, the capacity of the list is increased to twice the previous
         // capacity or the new size, whichever is larger.
@@ -215,11 +269,11 @@ namespace System.Collections.Generic
         // is larger than the given search value. This is also the index at which
         // the search value should be inserted into the list in order for the list
         // to remain sorted.
-        //
+        // 
         // The method uses the Array.BinarySearch method to perform the
         // search.
-        //
-        public int BinarySearch(int index, int count, T item, IComparer<T>? comparer)
+        // 
+        public int BinarySearch(int index, int count, T item, IComparer<T> comparer)
         {
             if (index < 0)
                 ThrowHelper.ThrowIndexArgumentOutOfRange_NeedNonNegNumException();
@@ -234,7 +288,7 @@ namespace System.Collections.Generic
         public int BinarySearch(T item)
             => BinarySearch(0, Count, item, null);
 
-        public int BinarySearch(T item, IComparer<T>? comparer)
+        public int BinarySearch(T item, IComparer<T> comparer)
             => BinarySearch(0, Count, item, comparer);
 
         // Clears the contents of List.
@@ -274,6 +328,15 @@ namespace System.Collections.Generic
             return _size != 0 && IndexOf(item) != -1;
         }
 
+        bool IList.Contains(object item)
+        {
+            if (IsCompatibleObject(item))
+            {
+                return Contains((T)item);
+            }
+            return false;
+        }
+
         public List<TOutput> ConvertAll<TOutput>(Converter<T, TOutput> converter)
         {
             if (converter == null)
@@ -290,15 +353,35 @@ namespace System.Collections.Generic
             return list;
         }
 
-        // Copies this List into array, which must be of a
-        // compatible array type.
+        // Copies this List into array, which must be of a 
+        // compatible array type.  
         public void CopyTo(T[] array)
             => CopyTo(array, 0);
 
+        // Copies this List into array, which must be of a 
+        // compatible array type.  
+        void ICollection.CopyTo(Array array, int arrayIndex)
+        {
+            if ((array != null) && (array.Rank != 1))
+            {
+                ThrowHelper.ThrowArgumentException(ExceptionResource.Arg_RankMultiDimNotSupported);
+            }
+
+            try
+            {
+                // Array.Copy will check for NULL.
+                Array.Copy(_items, 0, array, arrayIndex, _size);
+            }
+            catch (ArrayTypeMismatchException)
+            {
+                ThrowHelper.ThrowArgumentException_Argument_InvalidArrayType();
+            }
+        }
+
         // Copies a section of this list to the given array at the given index.
-        //
+        // 
         // The method uses the Array.Copy method to copy the elements.
-        //
+        // 
         public void CopyTo(int index, T[] array, int arrayIndex, int count)
         {
             if (_size - index < count)
@@ -337,7 +420,6 @@ namespace System.Collections.Generic
         public bool Exists(Predicate<T> match)
             => FindIndex(match) != -1;
 
-        [return: MaybeNull]
         public T Find(Predicate<T> match)
         {
             if (match == null)
@@ -352,7 +434,7 @@ namespace System.Collections.Generic
                     return _items[i];
                 }
             }
-            return default!;
+            return default;
         }
 
         public List<T> FindAll(Predicate<T> match)
@@ -404,7 +486,6 @@ namespace System.Collections.Generic
             return -1;
         }
 
-        [return: MaybeNull]
         public T FindLast(Predicate<T> match)
         {
             if (match == null)
@@ -419,7 +500,7 @@ namespace System.Collections.Generic
                     return _items[i];
                 }
             }
-            return default!;
+            return default;
         }
 
         public int FindLastIndex(Predicate<T> match)
@@ -492,14 +573,17 @@ namespace System.Collections.Generic
         }
 
         // Returns an enumerator for this list with the given
-        // permission for removal of elements. If modifications made to the list
-        // while an enumeration is in progress, the MoveNext and
+        // permission for removal of elements. If modifications made to the list 
+        // while an enumeration is in progress, the MoveNext and 
         // GetObject methods of the enumerator will throw an exception.
         //
         public Enumerator GetEnumerator()
             => new Enumerator(this);
 
         IEnumerator<T> IEnumerable<T>.GetEnumerator()
+            => new Enumerator(this);
+
+        IEnumerator IEnumerable.GetEnumerator()
             => new Enumerator(this);
 
         public List<T> GetRange(int index, int count)
@@ -530,22 +614,31 @@ namespace System.Collections.Generic
         // this list. The list is searched forwards from beginning to end.
         // The elements of the list are compared to the given value using the
         // Object.Equals method.
-        //
+        // 
         // This method uses the Array.IndexOf method to perform the
         // search.
-        //
+        // 
         public int IndexOf(T item)
             => Array.IndexOf(_items, item, 0, _size);
+
+        int IList.IndexOf(object item)
+        {
+            if (IsCompatibleObject(item))
+            {
+                return IndexOf((T)item);
+            }
+            return -1;
+        }
 
         // Returns the index of the first occurrence of a given value in a range of
         // this list. The list is searched forwards, starting at index
         // index and ending at count number of elements. The
         // elements of the list are compared to the given value using the
         // Object.Equals method.
-        //
+        // 
         // This method uses the Array.IndexOf method to perform the
         // search.
-        //
+        // 
         public int IndexOf(T item, int index)
         {
             if (index > _size)
@@ -558,10 +651,10 @@ namespace System.Collections.Generic
         // index and upto count number of elements. The
         // elements of the list are compared to the given value using the
         // Object.Equals method.
-        //
+        // 
         // This method uses the Array.IndexOf method to perform the
         // search.
-        //
+        // 
         public int IndexOf(T item, int index, int count)
         {
             if (index > _size)
@@ -576,7 +669,7 @@ namespace System.Collections.Generic
         // Inserts an element into this list at a given index. The size of the list
         // is increased by one. If required, the capacity of the list is doubled
         // before inserting the new element.
-        //
+        // 
         public void Insert(int index, T item)
         {
             // Note that insertions at the end are legal.
@@ -592,6 +685,20 @@ namespace System.Collections.Generic
             _items[index] = item;
             _size++;
             _version++;
+        }
+
+        void IList.Insert(int index, object item)
+        {
+            ThrowHelper.IfNullAndNullsAreIllegalThenThrow<T>(item, ExceptionArgument.item);
+
+            try
+            {
+                Insert(index, (T)item);
+            }
+            catch (InvalidCastException)
+            {
+                ThrowHelper.ThrowWrongValueTypeArgumentException(item, typeof(T));
+            }
         }
 
         // Inserts the elements of the given collection at a given index. If
@@ -637,8 +744,9 @@ namespace System.Collections.Generic
                     _size += count;
                 }
             }
-            else
+            else if (index < _size)
             {
+                // We're inserting a lazy enumerable. Call Insert on each of the constituent items.
                 using (IEnumerator<T> en = collection.GetEnumerator())
                 {
                     while (en.MoveNext())
@@ -647,17 +755,22 @@ namespace System.Collections.Generic
                     }
                 }
             }
+            else
+            {
+                // We're adding a lazy enumerable because the index is at the end of this list.
+                AddEnumerable(collection);
+            }
             _version++;
         }
 
         // Returns the index of the last occurrence of a given value in a range of
-        // this list. The list is searched backwards, starting at the end
-        // and ending at the first element in the list. The elements of the list
+        // this list. The list is searched backwards, starting at the end 
+        // and ending at the first element in the list. The elements of the list 
         // are compared to the given value using the Object.Equals method.
-        //
+        // 
         // This method uses the Array.LastIndexOf method to perform the
         // search.
-        //
+        // 
         public int LastIndexOf(T item)
         {
             if (_size == 0)
@@ -672,13 +785,13 @@ namespace System.Collections.Generic
 
         // Returns the index of the last occurrence of a given value in a range of
         // this list. The list is searched backwards, starting at index
-        // index and ending at the first element in the list. The
-        // elements of the list are compared to the given value using the
+        // index and ending at the first element in the list. The 
+        // elements of the list are compared to the given value using the 
         // Object.Equals method.
-        //
+        // 
         // This method uses the Array.LastIndexOf method to perform the
         // search.
-        //
+        // 
         public int LastIndexOf(T item, int index)
         {
             if (index >= _size)
@@ -691,10 +804,10 @@ namespace System.Collections.Generic
         // index and upto count elements. The elements of
         // the list are compared to the given value using the Object.Equals
         // method.
-        //
+        // 
         // This method uses the Array.LastIndexOf method to perform the
         // search.
-        //
+        // 
         public int LastIndexOf(T item, int index, int count)
         {
             if ((Count != 0) && (index < 0))
@@ -737,6 +850,14 @@ namespace System.Collections.Generic
             }
 
             return false;
+        }
+
+        void IList.Remove(object item)
+        {
+            if (IsCompatibleObject(item))
+            {
+                Remove((T)item);
+            }
         }
 
         // This method removes all items which matches the predicate.
@@ -793,7 +914,7 @@ namespace System.Collections.Generic
             }
             if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
             {
-                _items[_size] = default!;
+                _items[_size] = default;
             }
             _version++;
         }
@@ -861,14 +982,14 @@ namespace System.Collections.Generic
             _version++;
         }
 
-        // Sorts the elements in this list.  Uses the default comparer and
+        // Sorts the elements in this list.  Uses the default comparer and 
         // Array.Sort.
         public void Sort()
             => Sort(0, Count, null);
 
         // Sorts the elements in this list.  Uses Array.Sort with the
         // provided comparer.
-        public void Sort(IComparer<T>? comparer)
+        public void Sort(IComparer<T> comparer)
             => Sort(0, Count, comparer);
 
         // Sorts the elements in a section of this list. The sort compares the
@@ -876,10 +997,10 @@ namespace System.Collections.Generic
         // comparer is null, the elements are compared to each other using
         // the IComparable interface, which in that case must be implemented by all
         // elements of the list.
-        //
+        // 
         // This method uses the Array.Sort method to sort the elements.
-        //
-        public void Sort(int index, int count, IComparer<T>? comparer)
+        // 
+        public void Sort(int index, int count, IComparer<T> comparer)
         {
             if (index < 0)
             {
@@ -934,10 +1055,10 @@ namespace System.Collections.Generic
         // new elements will be added to the list. To completely clear a list and
         // release all memory referenced by the list, execute the following
         // statements:
-        //
+        // 
         // list.Clear();
         // list.TrimExcess();
-        //
+        // 
         public void TrimExcess()
         {
             int threshold = (int)(((double)_items.Length) * 0.9);
@@ -964,12 +1085,37 @@ namespace System.Collections.Generic
             return true;
         }
 
-        public struct Enumerator : IEnumerator<T>
+        private void AddEnumerable(IEnumerable<T> enumerable)
+        {
+            Debug.Assert(enumerable != null);
+            Debug.Assert(!(enumerable is ICollection<T>), "We should have optimized for this beforehand.");
+
+            _version++; // Even if the enumerable has no items, we can update _version.
+            using (IEnumerator<T> en = enumerable.GetEnumerator())
+            {
+
+                while (en.MoveNext())
+                {
+                    // Capture Current before doing anything else. If this throws
+                    // an exception, we want to make a clean break.
+                    T current = en.Current;
+
+                    if (_size == _items.Length)
+                    {
+                        EnsureCapacity(_size + 1);
+                    }
+
+                    _items[_size++] = current;
+                }
+            }
+        }
+
+        public struct Enumerator : IEnumerator<T>, IEnumerator
         {
             private readonly List<T> _list;
             private int _index;
             private readonly int _version;
-            [AllowNull, MaybeNull] private T _current;
+            private T _current;
 
             internal Enumerator(List<T> list)
             {
@@ -1008,9 +1154,21 @@ namespace System.Collections.Generic
                 return false;
             }
 
-            public T Current => _current!;
+            public T Current => _current;
 
-            public void Reset()
+            object IEnumerator.Current
+            {
+                get
+                {
+                    if (_index == 0 || _index == _list._size + 1)
+                    {
+                        ThrowHelper.ThrowInvalidOperationException_InvalidOperation_EnumOpCantHappen();
+                    }
+                    return Current;
+                }
+            }
+
+            void IEnumerator.Reset()
             {
                 if (_version != _list._version)
                 {

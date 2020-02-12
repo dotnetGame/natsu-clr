@@ -8,9 +8,9 @@ using Chino.Threading;
 
 namespace Chino.Kernel
 {
-    class Program
+    class KernelProgram
     {
-        static void Main()
+        static void KernelMain()
         {
             ChipControl.Default.Initialize();
 

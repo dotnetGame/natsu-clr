@@ -4,7 +4,14 @@ using System.Text;
 
 namespace Chino.Objects
 {
-    public sealed class Accessor<T> : IDisposable where T : Object
+    public interface IAccessor<out T> : IDisposable where T : Object
+    {
+        public T Object { get; }
+
+        public AccessMask GrantedAccess { get; }
+    }
+
+    public sealed class Accessor<T> : IAccessor<T> where T : Object
     {
         private T _object;
         public T Object

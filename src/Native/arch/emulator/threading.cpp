@@ -1,5 +1,6 @@
 #include "Chino.Chip.Emulator.h"
 #include "Chino.Kernel.h"
+#include "win_utils.h"
 #include <Windows.h>
 #include <process.h>
 
@@ -41,4 +42,12 @@ gc_obj_ref<ThreadContext> ArchChipControl::InitializeThreadContext(gc_obj_ref<Ar
     assert(handle != -1);
     context->NativeHandle = handle;
     return context;
+}
+
+void ArchChipControl::UninitializeThreadContext(gc_obj_ref<ArchChipControl> _this, gc_obj_ref<ThreadContext> context)
+{
+    auto n_context = context.cast<ArchThreadContext>();
+    auto handle = n_context->NativeHandle;
+
+    THROW_WIN32_IF_NOT(TerminateThread(handle._value, 0));
 }

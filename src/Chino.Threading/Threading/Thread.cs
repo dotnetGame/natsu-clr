@@ -83,6 +83,11 @@ namespace Chino.Threading
             _scheduler.UnDelayThread(this);
         }
 
+        internal void OnKilled()
+        {
+            ChipControl.Default.UninitializeThreadContext(Context);
+        }
+
         private static void ThreadMainThunk(Thread thread)
         {
             try
