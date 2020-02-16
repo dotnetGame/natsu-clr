@@ -364,7 +364,7 @@ namespace System
         }
 
         [NonVersionable]
-        public static bool IsNullOrEmpty(string value)
+        public static bool IsNullOrEmpty(string? value)
         {
             // Using 0u >= (uint)value.Length rather than
             // value.Length == 0 as it will elide the bounds check to
@@ -375,7 +375,7 @@ namespace System
             return (value == null || 0u >= (uint)value.Length) ? true : false;
         }
 
-        public static bool IsNullOrWhiteSpace(string value)
+        public static bool IsNullOrWhiteSpace(string? value)
         {
             if (value == null) return true;
 

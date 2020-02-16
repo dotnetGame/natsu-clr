@@ -455,6 +455,53 @@ namespace System
             return EqualityComparer<T>.Default.LastIndexOf(array, value, startIndex, count);
         }
 
+        // Reverses all elements of the given array. Following a call to this
+        // method, an element previously located at index i will now be
+        // located at index length - i - 1, where length is the
+        // length of the array.
+        // 
+        public static void Reverse(Array array)
+        {
+            if (array == null)
+                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
+            Reverse(array, array.GetLowerBound(0), array.Length);
+        }
+
+        // Reverses the elements in a range of an array. Following a call to this
+        // method, an element in the range given by index and count
+        // which was previously located at index i will now be located at
+        // index index + (index + count - i - 1).
+        // Reliability note: This may fail because it may have to box objects.
+        // 
+        public static void Reverse(Array array, int index, int length)
+        {
+            if (array == null)
+                ThrowHelper.ThrowArgumentNullException(ExceptionArgument.array);
+            int lowerBound = array.GetLowerBound(0);
+            if (index < lowerBound)
+                ThrowHelper.ThrowIndexArgumentOutOfRange_NeedNonNegNumException();
+            if (length < 0)
+                ThrowHelper.ThrowLengthArgumentOutOfRange_ArgumentOutOfRange_NeedNonNegNum();
+
+            if (array.Length - (index - lowerBound) < length)
+                ThrowHelper.ThrowArgumentException(ExceptionResource.Argument_InvalidOffLen);
+            if (array.Rank != 1)
+                ThrowHelper.ThrowRankException(ExceptionResource.Rank_MultiDimNotSupported);
+
+            if (length <= 1)
+                return;
+
+            bool r = TrySZReverse(array, index, length);
+            if (r)
+                return;
+            else
+                // TODO: Non SZArray is not supported
+                throw new NotSupportedException();
+        }
+
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        private static extern bool TrySZReverse(Array array, int index, int count);
+
         public static void Reverse<T>(T[] array)
         {
             if (array == null)

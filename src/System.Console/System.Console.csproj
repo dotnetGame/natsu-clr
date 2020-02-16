@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netcoreapp3.0</TargetFramework>
@@ -8,6 +8,7 @@
     <AssemblyOriginatorKeyFile>$(SolutionDir)tools/Open.snk</AssemblyOriginatorKeyFile>
     <AssemblyVersion>4.2.1.0</AssemblyVersion>
     <Nullable>Enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,6 +19,17 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Common\System\Text\ConsoleEncoding.cs">
+      <Link>Common\System\Text\ConsoleEncoding.cs</Link>
+    </Compile>
+    <Compile Include="..\Common\System\Text\StringOrCharArray.cs">
+      <Link>Common\System\Text\StringOrCharArray.cs</Link>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Chino.Interop\Chino.Interop.csproj" />
+    <ProjectReference Include="..\System.Collections\System.Collections.csproj" />
     <ProjectReference Include="..\System.Private.CoreLib\System.Private.CoreLib.csproj" />
   </ItemGroup>
 

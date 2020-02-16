@@ -64,9 +64,28 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Chino.IO", "src\Chino.IO\Ch
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "apps", "apps", "{A4BE5D01-6299-49F5-9412-5A3DCBC89E32}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chino.Apps.Shell", "src\apps\Chino.Apps.Shell\Chino.Apps.Shell.csproj", "{20125757-15CC-45F2-8C78-DBB8FB736258}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Chino.Apps.Shell", "src\apps\Chino.Apps.Shell\Chino.Apps.Shell.csproj", "{20125757-15CC-45F2-8C78-DBB8FB736258}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "System.Console", "src\System.Console\System.Console.csproj", "{A18A0788-13D2-49A3-908D-6DBBCB5A739C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "System.Console", "src\System.Console\System.Console.csproj", "{A18A0788-13D2-49A3-908D-6DBBCB5A739C}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Common", "Common", "{0C36851C-08B3-45BA-A993-AF79FD0BF416}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "System", "System", "{0F5B0978-D83F-4C2B-A430-2575A270A3B7}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Collections", "Collections", "{F5D57B24-C21A-4933-BB3D-78FA14BC74A8}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Generic", "Generic", "{9A91258A-92D5-4893-AB4F-2A9C3F1E1671}"
+	ProjectSection(SolutionItems) = preProject
+		src\Common\System\Collections\Generic\EnumerableHelpers.cs = src\Common\System\Collections\Generic\EnumerableHelpers.cs
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Text", "Text", "{C3A73929-6C2C-4351-98AE-FE0B066D19A1}"
+	ProjectSection(SolutionItems) = preProject
+		src\Common\System\Text\ConsoleEncoding.cs = src\Common\System\Text\ConsoleEncoding.cs
+		src\Common\System\Text\StringOrCharArray.cs = src\Common\System\Text\StringOrCharArray.cs
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chino.Interop", "src\Chino.Interop\Chino.Interop.csproj", "{8EC8AF70-7C81-44A1-A8FC-F4BAD05049B8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -158,6 +177,10 @@ Global
 		{A18A0788-13D2-49A3-908D-6DBBCB5A739C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A18A0788-13D2-49A3-908D-6DBBCB5A739C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A18A0788-13D2-49A3-908D-6DBBCB5A739C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8EC8AF70-7C81-44A1-A8FC-F4BAD05049B8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8EC8AF70-7C81-44A1-A8FC-F4BAD05049B8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8EC8AF70-7C81-44A1-A8FC-F4BAD05049B8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8EC8AF70-7C81-44A1-A8FC-F4BAD05049B8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -185,6 +208,12 @@ Global
 		{A4BE5D01-6299-49F5-9412-5A3DCBC89E32} = {898F8F18-37B6-4D6C-927D-08F1FBC2672C}
 		{20125757-15CC-45F2-8C78-DBB8FB736258} = {A4BE5D01-6299-49F5-9412-5A3DCBC89E32}
 		{A18A0788-13D2-49A3-908D-6DBBCB5A739C} = {898F8F18-37B6-4D6C-927D-08F1FBC2672C}
+		{0C36851C-08B3-45BA-A993-AF79FD0BF416} = {898F8F18-37B6-4D6C-927D-08F1FBC2672C}
+		{0F5B0978-D83F-4C2B-A430-2575A270A3B7} = {0C36851C-08B3-45BA-A993-AF79FD0BF416}
+		{F5D57B24-C21A-4933-BB3D-78FA14BC74A8} = {0F5B0978-D83F-4C2B-A430-2575A270A3B7}
+		{9A91258A-92D5-4893-AB4F-2A9C3F1E1671} = {F5D57B24-C21A-4933-BB3D-78FA14BC74A8}
+		{C3A73929-6C2C-4351-98AE-FE0B066D19A1} = {0F5B0978-D83F-4C2B-A430-2575A270A3B7}
+		{8EC8AF70-7C81-44A1-A8FC-F4BAD05049B8} = {898F8F18-37B6-4D6C-927D-08F1FBC2672C}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {429BE0BD-F176-4959-97F3-6F657A877050}

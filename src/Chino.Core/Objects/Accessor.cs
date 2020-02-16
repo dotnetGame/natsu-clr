@@ -4,14 +4,21 @@ using System.Text;
 
 namespace Chino.Objects
 {
-    public interface IAccessor<out T> : IDisposable where T : Object
+    internal interface IHasGrantedAccess
     {
-        public T Object { get; }
-
-        public AccessMask GrantedAccess { get; }
+        AccessMask GrantedAccess { get; }
     }
 
-    public sealed class Accessor<T> : IAccessor<T> where T : Object
+    public interface IAccessor
+    {
+    }
+
+    public interface IAccessor<out T> : IAccessor, IDisposable where T : Object
+    {
+        T Object { get; }
+    }
+
+    public sealed class Accessor<T> : IAccessor<T>, IHasGrantedAccess where T : Object
     {
         private T _object;
         public T Object
@@ -72,5 +79,13 @@ namespace Chino.Objects
             // GC.SuppressFinalize(this);
         }
         #endregion
+    }
+
+    public static class AccessorExtensions
+    {
+        public static AccessMask GetGrantedAccess(this IAccessor accessor)
+        {
+            return ((IHasGrantedAccess)accessor).GrantedAccess;
+        }
     }
 }

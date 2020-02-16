@@ -22,7 +22,7 @@ namespace System.Runtime.CompilerServices
             ref Unsafe.As<RawData>(obj).Data;
 
         [MethodImpl(MethodImplOptions.InternalCall)]
-        internal extern static bool IsReferenceOrContainsReferences<T>();
+        public extern static bool IsReferenceOrContainsReferences<T>();
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         internal extern static int EnumCompareTo<T>(T x, T y) where T : struct;
