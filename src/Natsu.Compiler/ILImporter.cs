@@ -17,7 +17,6 @@ namespace Natsu.Compiler
         private readonly int _ident;
         private readonly MethodDef _method;
         private readonly CorLibTypes _corLibTypes;
-        private List<SpillSlot> _spillSlots = new List<SpillSlot>();
         private Dictionary<ExceptionHandler, ExceptionHandlerContext> _exceptions = new Dictionary<ExceptionHandler, ExceptionHandlerContext>();
         private int _paramIndex;
         private int _blockId;
@@ -170,20 +169,23 @@ namespace Natsu.Compiler
         internal void Gencode()
         {
             var visited = new HashSet<BasicBlock>();
-            VisitBlock(_ident, _headBlock, visited);
-
-            var spillsName = new HashSet<string>();
-            // spills
-            foreach (var spill in _spillSlots.Distinct())
-            {
-                if (spillsName.Add(spill.Name))
-                    _writer.Ident(_ident).WriteLine($"{TypeUtils.EscapeStackTypeName(spill.Entry.Type)} {spill.Name};");
-            }
-
+            var spills = new List<SpillSlot>();
+            VisitBlock(_ident, _headBlock, visited, spills);
+            WriteSpills(spills, _writer, _ident);
             visited.Clear();
             VisitBlockText(_headBlock, _writer, visited);
         }
 
+        private void WriteSpills(List<SpillSlot> spills, TextWriter writer, int ident)
+        {
+            var spillsName = new HashSet<string>();
+            // spills
+            foreach (var spill in spills.Distinct())
+            {
+                if (spillsName.Add(spill.Name))
+                    writer.Ident(ident).WriteLine($"{TypeUtils.EscapeStackTypeName(spill.Entry.Type)} {spill.Name};");
+            }
+        }
 
         private void VisitBlockText(BasicBlock block, TextWriter writer, HashSet<BasicBlock> visited)
         {
@@ -207,7 +209,7 @@ namespace Natsu.Compiler
             }
         }
 
-        private void VisitBlock(int ident, BasicBlock block, HashSet<BasicBlock> visited, StringWriter writer = null, EvaluationStack stack = null)
+        private void VisitBlock(int ident, BasicBlock block, HashSet<BasicBlock> visited, List<SpillSlot> spills, StringWriter writer = null, EvaluationStack stack = null)
         {
             visited.Add(block);
 
@@ -241,8 +243,20 @@ namespace Natsu.Compiler
                         instW.Ident(ident).WriteLine("{");
                         ident += 1;
                         stack.Ident = ident;
-                        instW.Ident(ident).WriteLine("auto _scope_finally = natsu::make_finally([&]{");
-                        VisitBlock(ident + 1, tryEnter.Value.HeadBlock, new HashSet<BasicBlock>(), stack: tryEnterStack);
+                        var captures = new List<string>();
+                        // locals
+                        foreach (var local in _method.Body.Variables)
+                            captures.Add("&" + TypeUtils.GetLocalName(local, _method));
+                        foreach(var param in _method.Parameters)
+                        {
+                            var paramName = param.IsHiddenThisParameter ? "_this" : param.ToString();
+                            captures.Add("&" + paramName);
+                        }
+
+                        instW.Ident(ident).WriteLine($"auto _scope_finally = natsu::make_finally([{string.Join(", ", captures)}]{{");
+                        var finallySpills = new List<SpillSlot>();
+                        VisitBlock(ident + 1, tryEnter.Value.HeadBlock, new HashSet<BasicBlock>(), finallySpills, stack: tryEnterStack);
+                        WriteSpills(finallySpills, instW, ident + 1);
                         VisitBlockText(tryEnter.Value.HeadBlock, instW, visited);
                         instW.Ident(ident).WriteLine("});");
                         tryEnter.Value.EnterProcessed = true;
@@ -283,7 +297,7 @@ namespace Natsu.Compiler
             // export spills
             while (block.Next.Count != 0 && !stack.Empty)
             {
-                var spill = AddSpillSlot(slotIndex++, stack.Pop(), block);
+                var spill = AddSpillSlot(slotIndex++, stack.Pop(), block, spills);
                 writer.Ident(ident).WriteLine($"{spill.Name} = {spill.Entry.Expression};");
                 block.Spills.Add(spill);
             }
@@ -296,15 +310,15 @@ namespace Natsu.Compiler
             foreach (var next in block.Next)
             {
                 if (!visited.Contains(next))
-                    VisitBlock(ident, next, visited);
+                    VisitBlock(ident, next, visited, spills);
             }
         }
 
-        private SpillSlot AddSpillSlot(int index, StackEntry stackEntry, BasicBlock block)
+        private SpillSlot AddSpillSlot(int index, StackEntry stackEntry, BasicBlock block, List<SpillSlot> spills)
         {
             if (block.Next != null)
             {
-                foreach (var slot in _spillSlots)
+                foreach (var slot in spills)
                 {
                     if (slot.Next != block.Next && slot.Index == index)
                     {
@@ -313,7 +327,7 @@ namespace Natsu.Compiler
                             if (block.Next.Contains(next))
                             {
                                 var newSlot = new SpillSlot { Index = slot.Index, Name = slot.Name, Entry = stackEntry, Next = block.Next };
-                                _spillSlots.Add(newSlot);
+                                spills.Add(newSlot);
                                 return newSlot;
                             }
                         }
@@ -323,7 +337,7 @@ namespace Natsu.Compiler
 
             {
                 var slot = new SpillSlot { Index = index, Name = "_s" + _nextSpillSlot++.ToString(), Entry = stackEntry, Next = block.Next };
-                _spillSlots.Add(slot);
+                spills.Add(slot);
                 return slot;
             }
         }
@@ -1310,14 +1324,20 @@ namespace Natsu.Compiler
         {
             var v2 = Stack.Pop();
             var v1 = Stack.Pop();
-            Stack.Push(CorLibTypes.Boolean, $"({v1.Expression} {op} {v2.Expression})");
+            if (op == ">" && v2.Type.Name == "std::nullptr_t")
+                Stack.Push(CorLibTypes.Boolean, $"bool({v1.Expression})");
+            else
+                Stack.Push(CorLibTypes.Boolean, $"({v1.Expression} {op} {v2.Expression})");
         }
 
         public void Compare_Un(string op)
         {
             var v2 = Stack.Pop();
             var v1 = Stack.Pop();
-            Stack.Push(CorLibTypes.Boolean, $"({MakeUnsignedExpression(v1)} {op} {MakeUnsignedExpression(v2)})");
+            if (op == ">" && v2.Type.Name == "std::nullptr_t")
+                Stack.Push(CorLibTypes.Boolean, $"bool({v1.Expression})");
+            else
+                Stack.Push(CorLibTypes.Boolean, $"({MakeUnsignedExpression(v1)} {op} {MakeUnsignedExpression(v2)})");
         }
 
         private void BranchUnconditional(int ident, Instruction op)

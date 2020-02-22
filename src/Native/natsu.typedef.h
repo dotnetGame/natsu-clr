@@ -256,6 +256,12 @@ public:
     {
     }
 
+    clr_volatile &operator=(const clr_volatile<T> &other) noexcept
+    {
+        value_.store(other.load(), std::memory_order_release);
+        return *this;
+    }
+
     clr_volatile &operator=(const T &other) noexcept
     {
         value_.store(other, std::memory_order_release);
@@ -648,22 +654,10 @@ constexpr bool operator==(std::nullptr_t, const gc_obj_ref<T> &rhs) noexcept
     return !rhs.ptr_;
 }
 
-template <class T>
-constexpr bool operator>(const gc_obj_ref<T> &lhs, std::nullptr_t) noexcept
-{
-    return lhs.ptr_;
-}
-
 template <class T, class U>
 constexpr bool operator<(const gc_ptr<T> &lhs, const gc_ptr<U> &rhs) noexcept
 {
     return reinterpret_cast<uintptr_t>(lhs.ptr_) < reinterpret_cast<uintptr_t>(rhs.ptr_);
-}
-
-template <class T>
-constexpr bool operator<(const gc_ptr<T> &lhs, uintptr_t rhs) noexcept
-{
-    return reinterpret_cast<uintptr_t>(lhs.ptr_) < rhs;
 }
 
 template <class T>

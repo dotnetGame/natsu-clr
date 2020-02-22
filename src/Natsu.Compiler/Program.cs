@@ -72,7 +72,7 @@ namespace Natsu.Compiler
             using (var sha256 = SHA256.Create())
             {
                 digest = Convert.ToBase64String(sha256.ComputeHash(File.ReadAllBytes(_module.Location)));
-#if true
+#if false
                 if (HasOutputUptodate(Path.Combine(outputPath, $"{_module.Assembly.Name}.h"), digest))
                     return;
 #endif
