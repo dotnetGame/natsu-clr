@@ -28,6 +28,9 @@
       <GenerateSource>true</GenerateSource>
       <ClassName>System.SR</ClassName>
     </None>
+    <Compile Include="..\Common\System\Text\StringBuilderCache.cs">
+      <Link>Common\System\Text\StringBuilderCache.cs</Link>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <Folder Include="System\Collections\ObjectModel\" />

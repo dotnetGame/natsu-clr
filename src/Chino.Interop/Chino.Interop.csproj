@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netcoreapp3.0</TargetFramework>
@@ -8,10 +8,11 @@
     <AssemblyOriginatorKeyFile>$(SolutionDir)tools/Open.snk</AssemblyOriginatorKeyFile>
     <AssemblyVersion>4.2.1.0</AssemblyVersion>
     <Nullable>Enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\System.Private.CoreLib\System.Private.CoreLib.csproj" />
+    <ProjectReference Include="..\System.Runtime\System.Runtime.csproj" />
   </ItemGroup>
 
 </Project>

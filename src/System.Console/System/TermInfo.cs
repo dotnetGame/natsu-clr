@@ -767,8 +767,8 @@ namespace System
                 // Determine how much space is needed to store the formatted string.
                 string? stringArg = arg as string;
                 int neededLength = stringArg != null ?
-                    Interop.Sys.SNPrintF(null, 0, format, stringArg) :
-                    Interop.Sys.SNPrintF(null, 0, format, (int)arg);
+                    Interop.Text.SNPrintF(null, 0, format, stringArg) :
+                    Interop.Text.SNPrintF(null, 0, format, (int)arg);
                 if (neededLength == 0)
                 {
                     return string.Empty;
@@ -783,8 +783,8 @@ namespace System
                 fixed (byte* ptr = &bytes[0])
                 {
                     int length = stringArg != null ?
-                        Interop.Sys.SNPrintF(ptr, bytes.Length, format, stringArg) :
-                        Interop.Sys.SNPrintF(ptr, bytes.Length, format, (int)arg);
+                        Interop.Text.SNPrintF(ptr, bytes.Length, format, stringArg) :
+                        Interop.Text.SNPrintF(ptr, bytes.Length, format, (int)arg);
                     if (length != neededLength)
                     {
                         throw new InvalidOperationException(SR.InvalidOperation_PrintF);

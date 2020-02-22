@@ -667,6 +667,8 @@ namespace System
 
         public static void MoveBufferArea(int sourceLeft, int sourceTop, int sourceWidth, int sourceHeight, int targetLeft, int targetTop)
         {
+            var t = new Type();
+            var i = t[1];
             throw new PlatformNotSupportedException();
         }
 

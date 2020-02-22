@@ -82,10 +82,11 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Text", "Text", "{C3A73929-6C2C-4351-98AE-FE0B066D19A1}"
 	ProjectSection(SolutionItems) = preProject
 		src\Common\System\Text\ConsoleEncoding.cs = src\Common\System\Text\ConsoleEncoding.cs
+		src\Common\System\Text\StringBuilderCache.cs = src\Common\System\Text\StringBuilderCache.cs
 		src\Common\System\Text\StringOrCharArray.cs = src\Common\System\Text\StringOrCharArray.cs
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chino.Interop", "src\Chino.Interop\Chino.Interop.csproj", "{8EC8AF70-7C81-44A1-A8FC-F4BAD05049B8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Chino.Interop", "src\Chino.Interop\Chino.Interop.csproj", "{8EC8AF70-7C81-44A1-A8FC-F4BAD05049B8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

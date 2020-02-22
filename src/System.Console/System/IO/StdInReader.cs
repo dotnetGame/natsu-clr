@@ -73,7 +73,7 @@ namespace System.IO
 
         internal unsafe int ReadStdin(byte* buffer, int bufferSize)
         {
-            int result = Interop.CheckIo(Interop.Sys.ReadStdin(buffer, bufferSize));
+            int result = Interop.IO.ReadStdin(buffer, bufferSize);
             Debug.Assert(result >= 0 && result <= bufferSize); // may be 0 if hits EOL
             return result;
         }
@@ -88,118 +88,110 @@ namespace System.IO
             Debug.Assert(_tmpKeys.Count == 0);
             string? readLineStr = null;
 
-            Interop.Sys.InitializeConsoleBeforeRead();
-            try
+            // Read key-by-key until we've read a line.
+            while (true)
             {
-                // Read key-by-key until we've read a line.
-                while (true)
+                // Read the next key.  This may come from previously read keys, from previously read but
+                // unprocessed data, or from an actual stdin read.
+                bool previouslyProcessed;
+                ConsoleKeyInfo keyInfo = ReadKey(out previouslyProcessed);
+                if (!consumeKeys && keyInfo.Key != ConsoleKey.Backspace) // backspace is the only character not written out in the below if/elses.
                 {
-                    // Read the next key.  This may come from previously read keys, from previously read but
-                    // unprocessed data, or from an actual stdin read.
-                    bool previouslyProcessed;
-                    ConsoleKeyInfo keyInfo = ReadKey(out previouslyProcessed);
-                    if (!consumeKeys && keyInfo.Key != ConsoleKey.Backspace) // backspace is the only character not written out in the below if/elses.
-                    {
-                        _tmpKeys.Push(keyInfo);
-                    }
+                    _tmpKeys.Push(keyInfo);
+                }
 
-                    // Handle the next key.  Since for other functions we may have ended up reading some of the user's
-                    // input, we need to be able to handle manually processing that input, and so we do that processing
-                    // for all input.  As such, we need to special-case a few characters, e.g. recognizing when Enter is
-                    // pressed to end a line.  We also need to handle Backspace specially, to fix up both our buffer of
-                    // characters and the position of the cursor.  More advanced processing would be possible, but we
-                    // try to keep this very simple, at least for now.
-                    if (keyInfo.Key == ConsoleKey.Enter)
+                // Handle the next key.  Since for other functions we may have ended up reading some of the user's
+                // input, we need to be able to handle manually processing that input, and so we do that processing
+                // for all input.  As such, we need to special-case a few characters, e.g. recognizing when Enter is
+                // pressed to end a line.  We also need to handle Backspace specially, to fix up both our buffer of
+                // characters and the position of the cursor.  More advanced processing would be possible, but we
+                // try to keep this very simple, at least for now.
+                if (keyInfo.Key == ConsoleKey.Enter)
+                {
+                    readLineStr = _readLineSB.ToString();
+                    _readLineSB.Clear();
+                    if (!previouslyProcessed)
                     {
-                        readLineStr = _readLineSB.ToString();
-                        _readLineSB.Clear();
+                        Console.WriteLine();
+                    }
+                    break;
+                }
+                else if (IsEol(keyInfo.KeyChar))
+                {
+                    string line = _readLineSB.ToString();
+                    _readLineSB.Clear();
+                    if (line.Length > 0)
+                    {
+                        readLineStr = line;
+                    }
+                    break;
+                }
+                else if (keyInfo.Key == ConsoleKey.Backspace)
+                {
+                    int len = _readLineSB.Length;
+                    if (len > 0)
+                    {
+                        _readLineSB.Length = len - 1;
                         if (!previouslyProcessed)
                         {
-                            Console.WriteLine();
-                        }
-                        break;
-                    }
-                    else if (IsEol(keyInfo.KeyChar))
-                    {
-                        string line = _readLineSB.ToString();
-                        _readLineSB.Clear();
-                        if (line.Length > 0)
-                        {
-                            readLineStr = line;
-                        }
-                        break;
-                    }
-                    else if (keyInfo.Key == ConsoleKey.Backspace)
-                    {
-                        int len = _readLineSB.Length;
-                        if (len > 0)
-                        {
-                            _readLineSB.Length = len - 1;
-                            if (!previouslyProcessed)
+                            // The ReadLine input may wrap accross terminal rows and we need to handle that.
+                            // note: ConsolePal will cache the cursor position to avoid making many slow cursor position fetch operations.
+                            if (ConsolePal.TryGetCursorPosition(out int left, out int top, reinitializeForRead: true) &&
+                                left == 0 && top > 0)
                             {
-                                // The ReadLine input may wrap accross terminal rows and we need to handle that.
-                                // note: ConsolePal will cache the cursor position to avoid making many slow cursor position fetch operations.
-                                if (ConsolePal.TryGetCursorPosition(out int left, out int top, reinitializeForRead: true) &&
-                                    left == 0 && top > 0)
+                                if (s_clearToEol == null)
                                 {
-                                    if (s_clearToEol == null)
-                                    {
-                                        s_clearToEol = ConsolePal.TerminalFormatStrings.Instance.ClrEol ?? string.Empty;
-                                    }
-
-                                    // Move to end of previous line
-                                    ConsolePal.SetCursorPosition(ConsolePal.WindowWidth - 1, top - 1);
-                                    // Clear from cursor to end of the line
-                                    ConsolePal.WriteStdoutAnsiString(s_clearToEol, mayChangeCursorPosition: false);
+                                    s_clearToEol = ConsolePal.TerminalFormatStrings.Instance.ClrEol ?? string.Empty;
                                 }
-                                else
+
+                                // Move to end of previous line
+                                ConsolePal.SetCursorPosition(ConsolePal.WindowWidth - 1, top - 1);
+                                // Clear from cursor to end of the line
+                                ConsolePal.WriteStdoutAnsiString(s_clearToEol, mayChangeCursorPosition: false);
+                            }
+                            else
+                            {
+                                if (s_moveLeftString == null)
                                 {
-                                    if (s_moveLeftString == null)
-                                    {
-                                        string? moveLeft = ConsolePal.TerminalFormatStrings.Instance.CursorLeft;
-                                        s_moveLeftString = !string.IsNullOrEmpty(moveLeft) ? moveLeft + " " + moveLeft : string.Empty;
-                                    }
-
-                                    Console.Write(s_moveLeftString);
+                                    string? moveLeft = ConsolePal.TerminalFormatStrings.Instance.CursorLeft;
+                                    s_moveLeftString = !string.IsNullOrEmpty(moveLeft) ? moveLeft + " " + moveLeft : string.Empty;
                                 }
+
+                                Console.Write(s_moveLeftString);
                             }
                         }
                     }
-                    else if (keyInfo.Key == ConsoleKey.Tab)
+                }
+                else if (keyInfo.Key == ConsoleKey.Tab)
+                {
+                    _readLineSB.Append(keyInfo.KeyChar);
+                    if (!previouslyProcessed)
                     {
-                        _readLineSB.Append(keyInfo.KeyChar);
-                        if (!previouslyProcessed)
-                        {
-                            Console.Write(' ');
-                        }
+                        Console.Write(' ');
                     }
-                    else if (keyInfo.Key == ConsoleKey.Clear)
+                }
+                else if (keyInfo.Key == ConsoleKey.Clear)
+                {
+                    _readLineSB.Clear();
+                    if (!previouslyProcessed)
                     {
-                        _readLineSB.Clear();
-                        if (!previouslyProcessed)
-                        {
-                            Console.Clear();
-                        }
+                        Console.Clear();
                     }
-                    else if (keyInfo.KeyChar != '\0')
+                }
+                else if (keyInfo.KeyChar != '\0')
+                {
+                    _readLineSB.Append(keyInfo.KeyChar);
+                    if (!previouslyProcessed)
                     {
-                        _readLineSB.Append(keyInfo.KeyChar);
-                        if (!previouslyProcessed)
-                        {
-                            Console.Write(keyInfo.KeyChar);
-                        }
+                        Console.Write(keyInfo.KeyChar);
                     }
                 }
             }
-            finally
-            {
-                Interop.Sys.UninitializeConsoleAfterRead();
 
-                // If we're not consuming the read input, make the keys available for a future read
-                while (_tmpKeys.Count > 0)
-                {
-                    _availableKeys.Push(_tmpKeys.Pop());
-                }
+            // If we're not consuming the read input, make the keys available for a future read
+            while (_tmpKeys.Count > 0)
+            {
+                _availableKeys.Push(_tmpKeys.Pop());
             }
 
             return readLineStr;
@@ -381,46 +373,38 @@ namespace System.IO
             }
 
             previouslyProcessed = false;
-            Interop.Sys.InitializeConsoleBeforeRead();
-            try
-            {
-                ConsoleKey key;
-                char ch;
-                bool isAlt, isCtrl, isShift;
+            ConsoleKey key;
+            char ch;
+            bool isAlt, isCtrl, isShift;
 
-                if (IsUnprocessedBufferEmpty())
+            if (IsUnprocessedBufferEmpty())
+            {
+                // Read in bytes
+                byte* bufPtr = stackalloc byte[BytesToBeRead];
+                int result = ReadStdin(bufPtr, BytesToBeRead);
+                if (result > 0)
                 {
-                    // Read in bytes
-                    byte* bufPtr = stackalloc byte[BytesToBeRead];
-                    int result = ReadStdin(bufPtr, BytesToBeRead);
-                    if (result > 0)
-                    {
-                        // Append them
-                        AppendExtraBuffer(bufPtr, result);
-                    }
-                    else
-                    {
-                        // Could be empty if EOL entered on its own.  Pick one of the EOL characters we have,
-                        // or just use 0 if none are available.
-                        return new ConsoleKeyInfo((char)
-                            (ConsolePal.s_veolCharacter != ConsolePal.s_posixDisableValue ? ConsolePal.s_veolCharacter :
-                             ConsolePal.s_veol2Character != ConsolePal.s_posixDisableValue ? ConsolePal.s_veol2Character :
-                             ConsolePal.s_veofCharacter != ConsolePal.s_posixDisableValue ? ConsolePal.s_veofCharacter :
-                             0),
-                            default(ConsoleKey), false, false, false);
-                    }
+                    // Append them
+                    AppendExtraBuffer(bufPtr, result);
                 }
+                else
+                {
+                    // Could be empty if EOL entered on its own.  Pick one of the EOL characters we have,
+                    // or just use 0 if none are available.
+                    return new ConsoleKeyInfo((char)
+                        (ConsolePal.s_veolCharacter != ConsolePal.s_posixDisableValue ? ConsolePal.s_veolCharacter :
+                         ConsolePal.s_veol2Character != ConsolePal.s_posixDisableValue ? ConsolePal.s_veol2Character :
+                         ConsolePal.s_veofCharacter != ConsolePal.s_posixDisableValue ? ConsolePal.s_veofCharacter :
+                         0),
+                        default(ConsoleKey), false, false, false);
+                }
+            }
 
-                MapBufferToConsoleKey(out key, out ch, out isShift, out isAlt, out isCtrl);
-                return new ConsoleKeyInfo(ch, key, isShift, isAlt, isCtrl);
-            }
-            finally
-            {
-                Interop.Sys.UninitializeConsoleAfterRead();
-            }
+            MapBufferToConsoleKey(out key, out ch, out isShift, out isAlt, out isCtrl);
+            return new ConsoleKeyInfo(ch, key, isShift, isAlt, isCtrl);
         }
 
         /// <summary>Gets whether there's input waiting on stdin.</summary>
-        internal bool StdinReady { get { return Interop.Sys.StdinReady(); } }
+        internal bool StdinReady { get { return Interop.IO.StdinReady(); } }
     }
 }

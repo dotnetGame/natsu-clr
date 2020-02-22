@@ -25,12 +25,15 @@
     <Compile Include="..\Common\System\Text\StringOrCharArray.cs">
       <Link>Common\System\Text\StringOrCharArray.cs</Link>
     </Compile>
+    <Compile Include="..\Common\System\Text\StringBuilderCache.cs">
+      <Link>Common\System\Text\StringBuilderCache.cs</Link>
+    </Compile>
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\System.Runtime\System.Runtime.csproj" />
     <ProjectReference Include="..\Chino.Interop\Chino.Interop.csproj" />
     <ProjectReference Include="..\System.Collections\System.Collections.csproj" />
-    <ProjectReference Include="..\System.Private.CoreLib\System.Private.CoreLib.csproj" />
   </ItemGroup>
 
 </Project>

@@ -69,6 +69,7 @@ using System.Threading;
 [assembly: TypeForwardedTo(typeof(IAsyncResult))]
 [assembly: TypeForwardedTo(typeof(IDisposable))]
 [assembly: TypeForwardedTo(typeof(HashCode))]
+[assembly: TypeForwardedTo(typeof(IndexerNameAttribute))]
 [assembly: TypeForwardedTo(typeof(Exception))]
 [assembly: TypeForwardedTo(typeof(ArgumentException))]
 [assembly: TypeForwardedTo(typeof(ArgumentNullException))]

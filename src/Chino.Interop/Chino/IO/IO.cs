@@ -8,19 +8,19 @@ public static partial class Interop
 {
     public static partial class IO
     {
-        public static SafeFileHandle StdinHandle
+        public static extern SafeFileHandle StdinHandle
         {
             [MethodImpl(MethodImplOptions.InternalCall)]
             get;
         }
 
-        public static SafeFileHandle StdoutHandle
+        public static extern SafeFileHandle StdoutHandle
         {
             [MethodImpl(MethodImplOptions.InternalCall)]
             get;
         }
 
-        public static SafeFileHandle StderrHandle
+        public static extern SafeFileHandle StderrHandle
         {
             [MethodImpl(MethodImplOptions.InternalCall)]
             get;
@@ -34,5 +34,11 @@ public static partial class Interop
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         public static extern bool IsConsoleHandle(SafeFileHandle handle);
+
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        public static extern bool StdinReady();
+
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        public static extern unsafe int ReadStdin(byte* buffer, int bufferSize);
     }
 }
