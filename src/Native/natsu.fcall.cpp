@@ -12,6 +12,7 @@ using namespace System_Private_CoreLib::System;
 using namespace System_Private_CoreLib::System::Diagnostics;
 using namespace System_Private_CoreLib::System::Runtime;
 using namespace System_Private_CoreLib::System::Runtime::CompilerServices;
+using namespace System_Private_CoreLib::System::Runtime::InteropServices;
 using namespace System_Private_CoreLib::System::Threading;
 using namespace Chino_Threading;
 
@@ -72,6 +73,51 @@ gc_ref<uint8_t> Array::_s_GetRawArrayGeometry(gc_obj_ref<Array> array, gc_ref<ui
     *lowerBound = Array::GetLowerBound(array, 0);
     *containsGCPointers = true;
     return array.cast<RawSzArrayData>()->Data;
+}
+
+bool Array::_s_TrySZReverse(gc_obj_ref<Array> array, int32_t index, int32_t count)
+{
+    check_null_obj_ref(array);
+    auto src = array.cast<RawSzArrayData>();
+    auto element_size = array.header().vtable_->ElementSize;
+    auto data = reinterpret_cast<uint8_t *>(&src->Data);
+
+    if ((index + count) > (intptr_t)src->Count)
+        return false;
+
+    size_t i = index, j = index + count - 1;
+    void *tmp = alloca(element_size);
+    while (i < j)
+    {
+        std::memcpy(tmp, data + i * element_size, element_size);
+        std::memcpy(data + j * element_size, data + i * element_size, element_size);
+        std::memcpy(data + j * element_size, tmp, element_size);
+
+        i++;
+        j--;
+    }
+
+    return true;
+}
+
+void Buffer::_s_BlockCopy(gc_obj_ref<Array> src, int32_t srcOffset, gc_obj_ref<Array> dst, int32_t dstOffset, int32_t count)
+{
+    check_null_obj_ref(src);
+    check_null_obj_ref(dst);
+    auto src_arr = src.cast<RawSzArrayData>();
+    auto dest_arr = dst.cast<RawSzArrayData>();
+    auto element_size_src = src.header().vtable_->ElementSize;
+    auto element_size_dest = dst.header().vtable_->ElementSize;
+    auto src_begin = reinterpret_cast<uint8_t *>(&src_arr->Data);
+    auto src_bytes = src_arr->Count * element_size_src;
+    auto dest_begin = reinterpret_cast<uint8_t *>(&dest_arr->Data);
+    auto dest_bytes = dest_arr->Count * element_size_dest;
+
+    if (srcOffset < 0 || dstOffset < 0 || count < 0)
+        throw_index_out_of_range_exception();
+    if ((srcOffset + count) > src_bytes || (dstOffset + count) > dest_bytes)
+        throw_exception<ArgumentException>();
+    std::memmove(dest_begin, src_begin, count);
 }
 
 void Buffer::_s_Memcpy(gc_ptr<uint8_t> dest, gc_ptr<uint8_t> src, int32_t len)
@@ -291,6 +337,44 @@ void RuntimeImports::_s_RhZeroMemory(gc_ptr<void> b, uint64_t byteLength)
     std::memset(b.ptr_, 0, byteLength);
 }
 
+int32_t RuntimeHelpers::_s_GetHashCode(::natsu::gc_obj_ref<::System_Private_CoreLib::System::Object> o)
+{
+    return (int32_t)o.ptr_;
+}
+
+void Debugger::_s_BreakInternal()
+{
+#ifdef WIN32
+    DebugBreak();
+#else
+    assert(false);
+#endif
+}
+
+bool Debugger::_s_get_IsAttached()
+{
+#ifdef WIN32
+    return IsDebuggerPresent();
+#else
+    return false;
+#endif
+}
+
+bool Debugger::_s_LaunchInternal()
+{
+#ifdef WIN32
+    while (IsDebuggerPresent())
+        DebugBreak();
+    return true;
+#else
+    return false;
+#endif
+}
+
+void Debugger::_s_CustomNotification(gc_obj_ref<ICustomDebuggerNotification> data)
+{
+}
+
 void Environment::_s__Exit(int32_t exitCode)
 {
     exit(exitCode);
@@ -305,6 +389,32 @@ int64_t Environment::_s_get_TickCount64()
 {
     auto scheduler = Chino::Threading::Scheduler::_s_get_Current();
     return (int64_t)Chino::Threading::Scheduler::get_TickCount(scheduler);
+}
+
+void Marshal::_s_CopyToNative(gc_obj_ref<Object> source, int32_t startIndex, IntPtr destination, int32_t length)
+{
+    check_null_obj_ref(source);
+    check_null_obj_ref(destination._value);
+    auto src = source.cast<RawSzArrayData>();
+    auto element_size = source.header().vtable_->ElementSize;
+
+    if ((startIndex + length) > (intptr_t)src->Count)
+        throw_index_out_of_range_exception();
+
+    std::memmove(destination._value, &src->Data + (size_t)startIndex * element_size, (size_t)length * element_size);
+}
+
+void Marshal::_s_CopyToManaged(IntPtr source, gc_obj_ref<Object> destination, int32_t startIndex, int32_t length)
+{
+    check_null_obj_ref(source._value);
+    check_null_obj_ref(destination);
+    auto dest = destination.cast<RawSzArrayData>();
+    auto element_size = destination.header().vtable_->ElementSize;
+
+    if ((startIndex + length) > (intptr_t)dest->Count)
+        throw_index_out_of_range_exception();
+
+    std::memmove(&dest->Data + (size_t)startIndex * element_size, source._value, (size_t)length * element_size);
 }
 
 namespace
