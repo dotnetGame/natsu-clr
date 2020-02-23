@@ -117,12 +117,6 @@ struct vtable_holder
     }
 };
 
-template <class T>
-auto &vtable() noexcept
-{
-    return vtable_holder<typename T::VTable>::get();
-}
-
 typedef struct _vtable
 {
     uint32_t ElementSize;
@@ -236,6 +230,37 @@ struct variable_type<T, false>
 template <class T>
 using variable_type_t = typename variable_type<T, is_value_type_v<T>>::type;
 
+template <class T, bool IsValueType>
+struct this_type;
+
+template <class T>
+struct this_type<T, true>
+{
+    using type = gc_ref<T>;
+};
+
+template <class T>
+struct this_type<T, false>
+{
+    using type = gc_obj_ref<T>;
+};
+
+template <class T>
+using this_type_t = typename this_type<T, is_value_type_v<T>>::type;
+
+template <class T, class = void>
+struct has_default_ctor : std::false_type
+{
+};
+
+template <class T>
+struct has_default_ctor<T, std::void_t<decltype(T::_ctor(std::declval<this_type_t<T>>()))>> : std::true_type
+{
+};
+
+template <class T>
+constexpr bool has_default_ctor_v = is_value_type_v<T> || has_default_ctor<to_clr_type_t<T>>::value;
+
 template <class T>
 class clr_volatile
 {
@@ -342,9 +367,9 @@ struct gc_ref
         return *ptr_;
     }
 
-    gc_ref &operator=(uintptr_t ptr) noexcept
+    gc_ref &operator=(T &ptr) noexcept
     {
-        ptr_ = reinterpret_cast<T *>(ptr);
+        ptr_ = &ptr;
         return *this;
     }
 };
@@ -741,7 +766,7 @@ struct string_literal
     std::array<char16_t, N> _firstChar;
 
     constexpr string_literal(const char16_t (&str)[N])
-        : _stringLength((int32_t)N), _firstChar(init_array(str, std::make_index_sequence<N>()))
+        : _stringLength((int32_t)N - 1), _firstChar(init_array(str, std::make_index_sequence<N>()))
     {
     }
 
@@ -749,6 +774,18 @@ struct string_literal
     constexpr std::array<char16_t, N> init_array(const char16_t (&str)[N], std::index_sequence<I...>)
     {
         return { str[I]... };
+    }
+};
+
+template <class T, size_t N>
+struct szarray_literal
+{
+    intptr_t Length;
+    std::array<T, N> _elements;
+
+    constexpr szarray_literal(const std::array<T, N> &values)
+        : Length((intptr_t)N), _elements(values)
+    {
     }
 };
 
@@ -779,6 +816,13 @@ constexpr auto make_string_literal(const char16_t (&str)[N])
 {
     return static_object<::System_Private_CoreLib::System::String,
         string_literal<N>>(str);
+}
+
+template <class T, size_t N>
+constexpr auto make_szarray_literal(const std::array<T, N> &values)
+{
+    return static_object<::System_Private_CoreLib::System::SZArray_1<T>,
+        szarray_literal<T, N>>(values);
 }
 }
 

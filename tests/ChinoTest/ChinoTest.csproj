@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Chino.Core\Chino.Core.csproj" />
+    <ProjectReference Include="..\..\src\Chino.IO\Chino.IO.csproj" />
   </ItemGroup>
 
 </Project>

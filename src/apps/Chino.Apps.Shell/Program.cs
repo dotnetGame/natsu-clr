@@ -7,7 +7,7 @@ namespace Chino.Apps.Shell
     {
         static void Main(string[] args)
         {
-            Debug.WriteLine("Hello Shell!");
+            Console.WriteLine("Hello Shell!");
         }
     }
 }

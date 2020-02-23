@@ -470,7 +470,7 @@ namespace Natsu.Compiler
             if (method.MethodSig.HasThis)
             {
                 var sb = new StringBuilder();
-                if (hasExplicit)
+                if (hasExplicit || method.Name.Contains(".cctor"))
                     sb.Append(EscapeIdentifier(method.Name.String));
                 else
                     sb.Append(EscapeIdentifier(method.Name.String.Split('.').Last()));
@@ -654,6 +654,9 @@ namespace Natsu.Compiler
         {
             if (string.IsNullOrEmpty(name))
                 throw new ArgumentException("Invalid identifier");
+
+            if (name == "_int32")
+                return "int32_";
 
             var sb = new StringBuilder();
             if (char.IsDigit(name[0]))
@@ -896,7 +899,7 @@ namespace Natsu.Compiler
 
         public static bool IsSameType(ITypeDefOrRef type1, ITypeDefOrRef type2)
         {
-            return type1 == type2 || type1 == type2.ScopeType;
+            return type1 == type2 || type1.FullName == type2.FullName || type1 == type2.ScopeType;
         }
 
         public static string GetLocalName(Local local, MethodDef method)
@@ -945,6 +948,14 @@ namespace Natsu.Compiler
             }
 
             return true;
+        }
+
+        public static bool IsByRef(TypeSig type)
+        {
+            if (type.ElementType == ElementType.ByRef) return true;
+            if (type.ElementType == ElementType.Pinned)
+                return IsByRef(type.Next);
+            return false;
         }
     }
 }

@@ -112,6 +112,19 @@ namespace stack
     static constexpr O null = 0;
 }
 
+template <class T>
+auto &vtable() noexcept
+{
+    return vtable_holder<typename T::VTable>::get();
+}
+
+template <class T>
+auto &vtable(gc_obj_ref<> obj) noexcept
+{
+    check_null_obj_ref(obj);
+    return *static_cast<const typename T::VTable *>(obj.header().vtable_);
+}
+
 gc_obj_ref<::System_Private_CoreLib::System::Object> gc_alloc(const vtable_t &vtable, size_t size);
 
 template <class T>
@@ -591,6 +604,20 @@ namespace ops
         return *reinterpret_cast<const TTo *>(address.get());
     }
 
+    template <class TTo, class TFrom>
+    void stind(gc_ptr<TFrom> &address, TTo value)
+    {
+        check_null_obj_ref(address);
+        *reinterpret_cast<TTo *>(address.get()) = value;
+    }
+
+    template <class TTo, class TFrom>
+    void stind(gc_ref<TFrom> &address, TTo value)
+    {
+        check_null_obj_ref(address);
+        *reinterpret_cast<TTo *>(address.get()) = value;
+    }
+
     template <class T>
     ::System_Private_CoreLib::System::RuntimeTypeHandle ldtoken_type()
     {
@@ -699,6 +726,15 @@ namespace details
             return default_equality_comparer_impl<T>()();
         }
     };
+}
+
+template <class T>
+::natsu::variable_type_t<T> System::Activator::_s_CreateInstance()
+{
+    if constexpr (::natsu::has_default_ctor_v<T>)
+        return ::natsu::make_object<T>();
+    else
+        ::natsu::throw_exception<System::MissingMethodException>();
 }
 
 template <class T>

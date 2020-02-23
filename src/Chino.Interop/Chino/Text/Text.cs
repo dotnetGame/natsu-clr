@@ -28,7 +28,7 @@ public static partial class Interop
         /// On failure, returns a negative value.
         /// </returns>
         [MethodImpl(MethodImplOptions.InternalCall)]
-        public static extern unsafe int SNPrintF(byte* str, int size, string format, string arg1);
+        public static extern unsafe int SNPrintF(byte* str, int size, byte[] format, byte[] arg1);
 
         /// <summary>
         /// Takes a string and applies a formatting to it to transform
@@ -49,6 +49,6 @@ public static partial class Interop
         /// On failure, returns a negative value.
         /// </returns>
         [MethodImpl(MethodImplOptions.InternalCall)]
-        public static extern unsafe int SNPrintF(byte* str, int size, string format, int arg1);
+        public static extern unsafe int SNPrintF(byte* str, int size, byte[] format, int arg1);
     }
 }

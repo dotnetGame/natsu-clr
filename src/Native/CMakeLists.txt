@@ -14,12 +14,19 @@ endif()
 set(SRCS natsu.fcall.cpp
          natsu.runtime.cpp
          natsu.gc.cpp
+         natsu.array.cpp
+         natsu.buffer.cpp
+         natsu.console.cpp
+         natsu.debug.cpp
+         natsu.math.cpp
+         natsu.string.cpp
          natsu.unicode.cpp
          natsu.threading.cpp
          chino.runtime.cpp
          main.cpp
          Generated/${CHINO_APP}.cpp
          Generated/System.Private.CoreLib.cpp
+         Generated/System.Console.cpp
          Generated/System.Collections.cpp
          Generated/System.Diagnostics.Debug.cpp
          Generated/System.Runtime.cpp
@@ -28,6 +35,7 @@ set(SRCS natsu.fcall.cpp
          Generated/Chino.IO.cpp
          Generated/Chino.Threading.cpp
          Generated/Chino.Kernel.cpp
+         Generated/Chino.Interop.cpp
          Generated/BitFields.cpp)
 
 add_executable(chino ${SRCS} ${ASM_SRCS})

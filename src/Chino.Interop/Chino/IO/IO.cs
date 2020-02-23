@@ -38,7 +38,9 @@ public static partial class Interop
         [MethodImpl(MethodImplOptions.InternalCall)]
         public static extern bool StdinReady();
 
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        public static extern unsafe int ReadStdin(byte* buffer, int bufferSize);
+        public static unsafe int ReadStdin(byte* buffer, int bufferSize)
+        {
+            return Read(StdinHandle, new Span<byte>(buffer, bufferSize));
+        }
     }
 }

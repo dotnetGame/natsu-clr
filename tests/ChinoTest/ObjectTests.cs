@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using Chino.IO;
+using Chino.IO.Devices;
 using Chino.Objects;
 using Xunit;
 
@@ -14,6 +16,24 @@ namespace ChinoTest
 
             protected override void Open(AccessMask grantedAccess)
             {
+            }
+        }
+
+        private class TestDevice : ConsoleDevice
+        {
+
+        }
+
+        private class TestDriver : Driver
+        {
+            protected override void InstallDevice(DeviceDescription deviceDescription)
+            {
+                IOManager.InstallDevice(new TestDevice());
+            }
+
+            protected override bool IsCompatible(DeviceDescription deviceDescription)
+            {
+                return true;
             }
         }
 
@@ -33,6 +53,14 @@ namespace ChinoTest
             var obj = ObjectManager.OpenObject<TestObject>(AccessMask.GenericAll, new ObjectAttributes { Name = "/obj" });
 
             Assert.Equal("obj", obj.Object.Name);
+        }
+
+        [Fact]
+        public void TestCreateDevice()
+        {
+            IOManager.InstallDriver("test.test", new TestDriver());
+            IOManager.RegisterDeviceDescription(new DeviceDescription("test.console"));
+            var device = ObjectManager.OpenObject<Device>(AccessMask.GenericRead, new ObjectAttributes { Name = "/dev/console0" });
         }
     }
 }

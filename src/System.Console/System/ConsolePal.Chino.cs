@@ -779,7 +779,7 @@ namespace System
             // and specific color choice.  If we have, just output that format string again.
             int fgbgIndex = foreground ? 0 : 1;
             int ccValue = (int)color;
-            string evaluatedString = s_fgbgAndColorStrings[fgbgIndex, ccValue]; // benign race
+            string evaluatedString = s_fgbgAndColorStrings[fgbgIndex * 16 + ccValue]; // benign race
             if (evaluatedString != null)
             {
                 WriteStdoutAnsiString(evaluatedString);
@@ -798,7 +798,7 @@ namespace System
 
                     WriteStdoutAnsiString(evaluatedString);
 
-                    s_fgbgAndColorStrings[fgbgIndex, ccValue] = evaluatedString; // benign race
+                    s_fgbgAndColorStrings[fgbgIndex * 16 + ccValue] = evaluatedString; // benign race
                 }
             }
         }
@@ -842,7 +842,7 @@ namespace System
         };
 
         /// <summary>Cache of the format strings for foreground/background and ConsoleColor.</summary>
-        private static readonly string[,] s_fgbgAndColorStrings = new string[2, 16]; // 2 == fg vs bg, 16 == ConsoleColor values
+        private static readonly string[] s_fgbgAndColorStrings = new string[2 * 16]; // 2 == fg vs bg, 16 == ConsoleColor values
 
         public static bool TryGetSpecialConsoleKey(char[] givenChars, int startIndex, int endIndex, out ConsoleKeyInfo key, out int keyLength)
         {

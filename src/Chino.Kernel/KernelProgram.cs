@@ -19,7 +19,6 @@ namespace Chino.Kernel
                 var host = new KernelServiceHost();
 
                 var terminal = Terminal.Default;
-
                 terminal.Foreground(TerminalColor.White)
                     .WriteLine("Hello Chino OS!");
                 host.Run();

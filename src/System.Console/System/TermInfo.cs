@@ -766,9 +766,12 @@ namespace System
 
                 // Determine how much space is needed to store the formatted string.
                 string? stringArg = arg as string;
-                int neededLength = stringArg != null ?
-                    Interop.Text.SNPrintF(null, 0, format, stringArg) :
-                    Interop.Text.SNPrintF(null, 0, format, (int)arg);
+                var asciiFormat = Encoding.ASCII.GetBytes(format);
+                var asciiArg = stringArg != null ? Encoding.ASCII.GetBytes(stringArg) : null;
+
+                int neededLength = asciiArg != null ?
+                    Interop.Text.SNPrintF(null, 0, asciiFormat, asciiArg) :
+                    Interop.Text.SNPrintF(null, 0, asciiFormat, (int)arg);
                 if (neededLength == 0)
                 {
                     return string.Empty;
@@ -782,9 +785,9 @@ namespace System
                 byte[] bytes = new byte[neededLength + 1]; // extra byte for the null terminator
                 fixed (byte* ptr = &bytes[0])
                 {
-                    int length = stringArg != null ?
-                        Interop.Text.SNPrintF(ptr, bytes.Length, format, stringArg) :
-                        Interop.Text.SNPrintF(ptr, bytes.Length, format, (int)arg);
+                    int length = asciiArg != null ?
+                        Interop.Text.SNPrintF(ptr, bytes.Length, asciiFormat, asciiArg) :
+                        Interop.Text.SNPrintF(ptr, bytes.Length, asciiFormat, (int)arg);
                     if (length != neededLength)
                     {
                         throw new InvalidOperationException(SR.InvalidOperation_PrintF);

@@ -399,11 +399,23 @@ namespace Natsu.Compiler
                     case Code.Add:
                         emitter.Add();
                         break;
+                    case Code.Add_Ovf:
+                        emitter.Add_Ovf();
+                        break;
                     case Code.Sub:
                         emitter.Sub();
                         break;
+                    case Code.Sub_Ovf:
+                        emitter.Sub_Ovf();
+                        break;
                     case Code.Mul:
                         emitter.Mul();
+                        break;
+                    case Code.Mul_Ovf:
+                        emitter.Mul_Ovf();
+                        break;
+                    case Code.Mul_Ovf_Un:
+                        emitter.Mul_Ovf_Un();
                         break;
                     case Code.Div:
                         emitter.Div();
@@ -847,8 +859,12 @@ namespace Natsu.Compiler
         // Binary
 
         public void Add() => Binary("+");
+        public void Add_Ovf() => Binary_Ovf("+");
         public void Sub() => Binary("-");
+        public void Sub_Ovf() => Binary_Ovf("-");
         public void Mul() => Binary("*");
+        public void Mul_Ovf() => Binary_Ovf("*");
+        public void Mul_Ovf_Un() => Binary_Ovf_Un("*");
         public void Div() => Binary("/");
         public void Div_Un() => Binary_Un("/");
         public void Rem() => Binary("%");
@@ -935,14 +951,19 @@ namespace Natsu.Compiler
         public void Ldind_U4() => Ldind(CorLibTypes.UInt32);
 
         // Stind
-        public void Stind_I1() => Stind("i1");
-        public void Stind_I2() => Stind("i2");
-        public void Stind_I4() => Stind("i4");
-        public void Stind_I8() => Stind("i8");
-        public void Stind_R4() => Stind("r4");
-        public void Stind_R8() => Stind("r8");
-        public void Stind_I() => Stind("i");
-        public void Stind_Ref() => Stind("ref");
+        public void Stind_I1() => Stind(CorLibTypes.SByte);
+        public void Stind_I2() => Stind(CorLibTypes.Int16);
+        public void Stind_I4() => Stind(CorLibTypes.Int32);
+        public void Stind_I8() => Stind(CorLibTypes.Int64);
+        public void Stind_R4() => Stind(CorLibTypes.Single);
+        public void Stind_R8() => Stind(CorLibTypes.Double);
+        public void Stind_I() => Stind(CorLibTypes.IntPtr);
+        public void Stind_Ref()
+        {
+            var value = Stack.Pop();
+            var addr = Stack.Pop();
+            Writer.Ident(Ident).WriteLine($"*{addr.Expression} = {value.Expression};");
+        }
 
         // Ldelem
         public void Ldelem_I1() => Ldelem(CorLibTypes.SByte, "i1");
@@ -1115,7 +1136,7 @@ namespace Natsu.Compiler
             {
                 return $"{src.Expression}.get()";
             }
-            else if (destType.ElementType != ElementType.ByRef &&
+            else if (!TypeUtils.IsByRef(destType) &&
                 src.Type.Code == StackTypeCode.Ref)
             {
                 return $"*{src.Expression}";
@@ -1277,6 +1298,54 @@ namespace Natsu.Compiler
         }
 
         public void Binary(string op)
+        {
+            var v2 = Stack.Pop();
+            var v1 = Stack.Pop();
+            var type = TypeUtils.IsRefOrPtr(v1.Type) && TypeUtils.IsRefOrPtr(v2.Type)
+                ? TypeUtils.GetStackType(CorLibTypes.IntPtr)
+                : v1.Type;
+
+            if (op == "%" && v1.Type.Code == StackTypeCode.F)
+            {
+                if (v1.Type.TypeSig.ElementType == ElementType.R4)
+                    Stack.Push(type, $"fmodf({v1.Expression}, {v2.Expression})");
+                else
+                    Stack.Push(type, $"fmod({v1.Expression}, {v2.Expression})");
+            }
+            else
+            {
+                if (v1.Type.TypeSig.ElementType == ElementType.ValueType)
+                    Stack.Push(v2.Type, $"({v1.Expression} {op} {v2.Expression})");
+                else
+                    Stack.Push(type, $"({v1.Expression} {op} {v2.Expression})");
+            }
+        }
+
+        public void Binary_Ovf(string op)
+        {
+            var v2 = Stack.Pop();
+            var v1 = Stack.Pop();
+            var type = TypeUtils.IsRefOrPtr(v1.Type) && TypeUtils.IsRefOrPtr(v2.Type)
+                ? TypeUtils.GetStackType(CorLibTypes.IntPtr)
+                : v1.Type;
+
+            if (op == "%" && v1.Type.Code == StackTypeCode.F)
+            {
+                if (v1.Type.TypeSig.ElementType == ElementType.R4)
+                    Stack.Push(type, $"fmodf({v1.Expression}, {v2.Expression})");
+                else
+                    Stack.Push(type, $"fmod({v1.Expression}, {v2.Expression})");
+            }
+            else
+            {
+                if (v1.Type.TypeSig.ElementType == ElementType.ValueType)
+                    Stack.Push(v2.Type, $"({v1.Expression} {op} {v2.Expression})");
+                else
+                    Stack.Push(type, $"({v1.Expression} {op} {v2.Expression})");
+            }
+        }
+
+        public void Binary_Ovf_Un(string op)
         {
             var v2 = Stack.Pop();
             var v1 = Stack.Pop();
@@ -1631,11 +1700,27 @@ namespace Natsu.Compiler
             Stack.Push(stackType, $"::natsu::ops::ldind<{TypeUtils.EscapeVariableTypeName(stackType)}>({addr.Expression})");
         }
 
-        private void Stind(string type)
+        private void Stind(TypeSig stackType)
         {
             var value = Stack.Pop();
             var addr = Stack.Pop();
-            Writer.Ident(Ident).WriteLine($"*{addr.Expression} = {value.Expression};");
+
+            if (addr.Expression == "str" && value.Expression == "p")
+                ;
+
+            if (addr.Type.TypeSig.ElementType == ElementType.ByRef ||
+                addr.Type.TypeSig.ElementType == ElementType.Ptr)
+            {
+                var actualType = addr.Type.TypeSig.Next;
+                if (TypeUtils.IsSameType(actualType.ToTypeDefOrRef(), stackType.ToTypeDefOrRef())
+                    || TypeUtils.IsSameType(actualType.ToTypeDefOrRef(), value.Type.TypeSig.ToTypeDefOrRef()))
+                {
+                    Writer.Ident(Ident).WriteLine($"*{addr.Expression} = {value.Expression};");
+                    return;
+                }
+            }
+
+            Writer.Ident(Ident).WriteLine($"::natsu::ops::stind<{TypeUtils.EscapeVariableTypeName(stackType)}>({addr.Expression}, {value.Expression});");
         }
 
         private void Ldelem(TypeSig stackType, string type)

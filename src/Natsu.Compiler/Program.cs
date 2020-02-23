@@ -21,8 +21,10 @@ namespace Natsu.Compiler
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.IO.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.K210.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Chip.Emulator.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Interop.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\Chino.Apps.Shell.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Private.CoreLib.dll",
+            @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Console.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Collections.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Memory.dll",
             @"..\..\..\..\..\out\bin\netcoreapp3.0\System.Runtime.dll",
@@ -72,7 +74,7 @@ namespace Natsu.Compiler
             using (var sha256 = SHA256.Create())
             {
                 digest = Convert.ToBase64String(sha256.ComputeHash(File.ReadAllBytes(_module.Location)));
-#if false
+#if true
                 if (HasOutputUptodate(Path.Combine(outputPath, $"{_module.Assembly.Name}.h"), digest))
                     return;
 #endif
