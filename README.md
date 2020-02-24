@@ -50,11 +50,20 @@ natsu-clr
 
 Install .Net Core SDK 3.0 and CMake
 
+1. Build compiler
 ```
 dotnet build Natsu.sln
+```
+
+2. Run compiler to generate .h and .cpp
+```
 cd src/Natsu.Compiler/bin/Debug/netcoreapp3.0 && ./Natsu.Compiler
+```
+
+3. Build runtime and app
+```
 mkdir out && cd out
-cmake .. -DCHINO_ARCH=Emulator -DCHINO_BOARD=Emulator
+cmake .. -DCHINO_ARCH=Emulator -DCHINO_BOARD=Emulator -DCHINO_APP=Chino.Apps.Shell
 ```
 
 ## Roadmap
