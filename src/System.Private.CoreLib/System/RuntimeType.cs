@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace System
 {
-    internal class RuntimeType : Type
+    internal sealed class RuntimeType : Type
     {
         private readonly IntPtr _eeClass;
 

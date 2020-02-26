@@ -8,16 +8,16 @@ namespace Chino.Apps.Shell
     {
         static void Main(string[] args)
         {
-            Debug.WriteLine("Hello Shell!");
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("Hello Shell!");
+            Console.ForegroundColor = ConsoleColor.White;
 
             int i = 0;
             while (true)
             {
                 Thread.Sleep(1000);
-                Debug.WriteLine("Tick" + i++);
+                Console.WriteLine("Tick" + i++);
             }
-
-            //Console.WriteLine("Hello Shell!");
         }
     }
 }

@@ -44,7 +44,7 @@ void Array::_s_Copy(gc_obj_ref<Array> sourceArray, int32_t sourceIndex, gc_obj_r
     check_null_obj_ref(sourceArray);
     check_null_obj_ref(destinationArray);
     auto src = sourceArray.cast<RawSzArrayData>();
-    auto dest = sourceArray.cast<RawSzArrayData>();
+    auto dest = destinationArray.cast<RawSzArrayData>();
     auto element_size = sourceArray.header().vtable_->ElementSize;
 
     if ((sourceIndex + length) > (intptr_t)src->Count || (destinationIndex + length) > (intptr_t)dest->Count)

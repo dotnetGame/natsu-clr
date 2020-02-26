@@ -125,7 +125,7 @@ auto &vtable(gc_obj_ref<> obj) noexcept
     return *static_cast<const typename T::VTable *>(obj.header().vtable_);
 }
 
-gc_obj_ref<::System_Private_CoreLib::System::Object> gc_alloc(const vtable_t &vtable, size_t size);
+gc_obj_ref<::System_Private_CoreLib::System::Object> gc_alloc(const clr_vtable &vtable, size_t size);
 
 template <class T>
 gc_obj_ref<T> gc_new(size_t size)
@@ -203,18 +203,6 @@ void check_condition(TCond &&condition, TArgs &&... args)
     if (!condition)
         throw make_exception(make_object<T>(std::forward<TArgs>(args)...));
 }
-
-template <class T>
-struct runtime_type_holder
-{
-    static gc_obj_ref<::System_Private_CoreLib::System::RuntimeType> get()
-    {
-        using namespace ::System_Private_CoreLib::System;
-        static auto type = make_object<RuntimeType>(
-            reinterpret_cast<intptr_t>(&vtable_holder<typename T::VTable>::get()));
-        return type;
-    }
-};
 
 template <class TCall>
 class clr_finally

@@ -652,7 +652,7 @@ namespace Natsu.Compiler
                 baseSb.Append("::natsu::vtable_class<");
                 var baseType = GetBaseType(type.TypeDef);
                 if (baseType == null)
-                    baseSb.Append("natsu::vtable_t");
+                    baseSb.Append("natsu::clr_vtable");
                 else
                     baseSb.Append($"typename {TypeUtils.EscapeTypeName(baseType, cppBasicType: true)}::VTable");
 
@@ -833,6 +833,12 @@ namespace Natsu.Compiler
 
         private void WriteTypeMethodBody(TextWriter writer, int ident, TypeDesc type, bool inHeader)
         {
+            if (!type.TypeDef.IsAbstract && !type.TypeDef.IsInterface)
+            {
+                if (inHeader == type.TypeDef.HasGenericParameters)
+                    WriteVTableRuntimeTypeMethodBody(writer, ident, type);
+            }
+
             foreach (var method in type.TypeDef.Methods)
             {
                 if (inHeader == (type.TypeDef.HasGenericParameters || method.HasGenericParameters))
@@ -979,6 +985,12 @@ namespace Natsu.Compiler
             }
 
             writer.Ident(ident).WriteLine("}");
+
+            if (!type.TypeDef.IsAbstract && !type.TypeDef.IsInterface)
+            {
+                writer.Ident(ident).WriteLine();
+                writer.Ident(ident).WriteLine("::natsu::gc_obj_ref<::System_Private_CoreLib::System::RuntimeType> runtime_type() const noexcept override;");
+            }
         }
 
         private void WriteVTableMethodDeclare(TextWriter writer, int ident, MethodDef method)
@@ -1020,6 +1032,30 @@ namespace Natsu.Compiler
                 WriteParameterList(writer, method.Parameters, isVTable: true);
                 writer.WriteLine(") const;");
             }
+
+            writer.Flush();
+        }
+
+        private void WriteVTableRuntimeTypeMethodBody(TextWriter writer, int ident, TypeDesc type)
+        {
+            writer.Ident(ident);
+            var typeGens = new List<string>();
+
+            if (type.TypeDef.HasGenericParameters)
+                typeGens.AddRange(type.TypeDef.GenericParameters.Select(x => x.Name.String));
+
+            if (typeGens.Any())
+                writer.WriteLine($"template <{string.Join(", ", typeGens.Select(x => "class " + x))}>");
+
+            writer.Write("::natsu::gc_obj_ref<::System_Private_CoreLib::System::RuntimeType> ");
+            writer.Write(TypeUtils.EscapeTypeName(type.TypeDef, hasModuleName: false));
+            writer.WriteLine("::VTable::runtime_type() const noexcept");
+            writer.Ident(ident).WriteLine("{");
+            writer.Ident(ident + 1).Write($"return ::natsu::runtime_type_holder<");
+            writer.Write(TypeUtils.EscapeTypeName(type.TypeDef, hasModuleName: false));
+            writer.WriteLine(">::get();");
+            writer.Ident(ident).WriteLine("}");
+            writer.WriteLine();
 
             writer.Flush();
         }

@@ -32,6 +32,7 @@ namespace System
     struct Exception;
     struct String;
     struct Object;
+    struct RuntimeType;
 
     template <class T>
     struct SZArray_1;
@@ -52,6 +53,7 @@ struct gc_ref;
 template <class T>
 struct gc_ptr;
 
+struct clr_vtable;
 struct clr_exception;
 
 [[noreturn]] void throw_null_ref_exception();
@@ -117,23 +119,6 @@ struct vtable_holder
     }
 };
 
-typedef struct _vtable
-{
-    uint32_t ElementSize;
-
-    constexpr _vtable()
-        : ElementSize(0)
-    {
-    }
-
-    virtual void dummy() const noexcept {}
-
-    template <class TFunc>
-    constexpr void override_vfunc_impl(std::string_view name, TFunc func)
-    {
-    }
-} vtable_t;
-
 enum object_attributes
 {
     OBJ_ATTR_NONE
@@ -148,9 +133,9 @@ struct object_header
 {
     object_attributes attributes_;
     object_sync_header sync_header_;
-    const vtable_t *vtable_;
+    const clr_vtable *vtable_;
 
-    constexpr object_header(object_attributes attributes, const vtable_t *vtable)
+    constexpr object_header(object_attributes attributes, const clr_vtable *vtable)
         : attributes_(attributes), vtable_(vtable)
     {
     }
@@ -608,6 +593,26 @@ struct gc_obj_ref
     }
 };
 
+struct clr_vtable
+{
+    uint32_t ElementSize;
+
+    constexpr clr_vtable()
+        : ElementSize(0)
+    {
+    }
+
+    virtual gc_obj_ref<::System_Private_CoreLib::System::RuntimeType> runtime_type() const noexcept
+    {
+        pure_call();
+    }
+
+    template <class TFunc>
+    constexpr void override_vfunc_impl(std::string_view name, TFunc func)
+    {
+    }
+};
+
 struct clr_exception
 {
     template <class T>
@@ -753,7 +758,7 @@ struct vtable_class : public TBase, public vtable_impl_t<TBase, TIFaces>...
     constexpr void override_vfunc(std::string_view name, TFunc func)
     {
         TBase::override_vfunc_impl(name, func);
-        if constexpr (!std::is_same_v<TBase, vtable_t>)
+        if constexpr (!std::is_same_v<TBase, clr_vtable>)
             TBase::override_vfunc(name, func);
         int ignore[] = { 0, (vtable_impl_t<TBase, TIFaces>::override_vfunc_impl(name, func), 0)... };
     }
@@ -785,6 +790,17 @@ struct szarray_literal
 
     constexpr szarray_literal(const std::array<T, N> &values)
         : Length((intptr_t)N), _elements(values)
+    {
+    }
+};
+
+template <class T>
+struct runtime_type_literal
+{
+    const void *vtable_;
+
+    constexpr runtime_type_literal()
+        : vtable_(&vtable_holder<typename T::VTable>::get())
     {
     }
 };
@@ -824,6 +840,17 @@ constexpr auto make_szarray_literal(const std::array<T, N> &values)
     return static_object<::System_Private_CoreLib::System::SZArray_1<T>,
         szarray_literal<T, N>>(values);
 }
+
+template <class T>
+struct runtime_type_holder
+{
+    static const constexpr static_object<::System_Private_CoreLib::System::RuntimeType, runtime_type_literal<T>> value = { runtime_type_literal<T>() };
+
+    static constexpr gc_obj_ref<::System_Private_CoreLib::System::RuntimeType> get() noexcept
+    {
+        return value.get();
+    }
+};
 }
 
 #define NATSU_PRIMITIVE_IMPL_BYTE                     \

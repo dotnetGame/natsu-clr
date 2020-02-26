@@ -19,7 +19,7 @@ using namespace Chino_Threading;
 gc_obj_ref<Type> Object::GetType(::natsu::gc_obj_ref<Object> _this)
 {
     check_null_obj_ref(_this);
-    pure_call();
+    return _this.header().vtable_->runtime_type();
 }
 
 gc_obj_ref<MulticastDelegate> MulticastDelegate::_s_CreateDelegateLike(gc_obj_ref<MulticastDelegate> delegate, gc_obj_ref<SZArray_1<Delegate>> invocationList)

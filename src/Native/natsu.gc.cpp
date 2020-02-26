@@ -392,7 +392,7 @@ using namespace System_Private_CoreLib::System;
 using namespace Chino_Kernel::Chino::Memory;
 using namespace natsu;
 
-gc_obj_ref<Object> natsu::gc_alloc(const vtable_t &vtable, size_t size)
+gc_obj_ref<Object> natsu::gc_alloc(const clr_vtable &vtable, size_t size)
 {
     auto mem_ptr = reinterpret_cast<uint8_t *>(HeapAlloc(size + sizeof(object_header)));
     if (!mem_ptr)
