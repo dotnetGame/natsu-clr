@@ -243,6 +243,7 @@ namespace System.IO
                 case '\t':
                     return ConsoleKey.Tab;
 
+                case '\r':
                 case '\n':
                     return ConsoleKey.Enter;
 

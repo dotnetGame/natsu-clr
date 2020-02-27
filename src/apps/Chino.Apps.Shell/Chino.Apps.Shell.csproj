@@ -6,4 +6,8 @@
     <OutputPath>$(SolutionDir)out/bin/</OutputPath>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\Chino.Core\Chino.Core.csproj" />
+  </ItemGroup>
+
 </Project>

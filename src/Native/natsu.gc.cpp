@@ -389,7 +389,7 @@ static void prvInsertBlockIntoFreeList(BlockLink_t *pBlockToInsert)
 }
 
 using namespace System_Private_CoreLib::System;
-using namespace Chino_Kernel::Chino::Memory;
+using namespace Chino_Core::Chino::Memory;
 using namespace natsu;
 
 gc_obj_ref<Object> natsu::gc_alloc(const clr_vtable &vtable, size_t size)

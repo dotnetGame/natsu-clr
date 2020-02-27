@@ -24,6 +24,7 @@ using System.Threading;
 [assembly: TypeForwardedTo(typeof(Single))]
 [assembly: TypeForwardedTo(typeof(Double))]
 [assembly: TypeForwardedTo(typeof(String))]
+[assembly: TypeForwardedTo(typeof(StringSplitOptions))]
 [assembly: TypeForwardedTo(typeof(Nullable))]
 [assembly: TypeForwardedTo(typeof(Nullable<>))]
 [assembly: TypeForwardedTo(typeof(IComparable))]

@@ -17,6 +17,8 @@ void EmulatorConsole::OpenStdHandles(gc_obj_ref<EmulatorConsole> _this)
 {
     _this->_stdIn = (uintptr_t)GetStdHandle(STD_INPUT_HANDLE);
     _this->_stdOut = (uintptr_t)GetStdHandle(STD_OUTPUT_HANDLE);
+
+    THROW_WIN32_IF_NOT(SetConsoleMode(_this->_stdIn._value, 0));
 }
 
 int32_t EmulatorConsole::Read(gc_obj_ref<EmulatorConsole> _this, Span_1<uint8_t> buffer)

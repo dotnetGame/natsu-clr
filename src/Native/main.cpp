@@ -19,6 +19,7 @@ void InitializeHeap() noexcept;
 int main()
 {
     InitializeHeap();
+    System_Private_CoreLib::System::Activator::_s_CreateInstance<System_Collections::System::Collections::Generic::List_1<int32_t>>();
     // Initialize chip control
     ChipControl::_s_set_Default(make_object<ArchChipControl>());
     KernelProgram::_s_KernelMain();

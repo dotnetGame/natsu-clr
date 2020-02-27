@@ -250,7 +250,10 @@ namespace Chino.Threading
 
         private void IdleMain()
         {
-            while (true) ;
+            while (true)
+            {
+                //DelayCurrentThread(TimeSlice);
+            }
         }
     }
 
