@@ -7,7 +7,7 @@ namespace Chino.Apps.Shell.Commands
 {
     class FreeCommand : ShellCommand
     {
-        public override void Execute(string[] args)
+        public override void Execute(CommandContext context, string[] args)
         {
             var usedMemory = MemoryManager.GetUsedMemorySize() / 1024f;
             var freeMemory = MemoryManager.GetFreeMemorySize() / 1024f;

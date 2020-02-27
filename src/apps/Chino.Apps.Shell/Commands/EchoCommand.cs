@@ -7,7 +7,7 @@ namespace Chino.Apps.Shell.Commands
 {
     class EchoCommand : ShellCommand
     {
-        public override void Execute(string[] args)
+        public override void Execute(CommandContext context, string[] args)
         {
             for (int i = 1; i < args.Length; i++)
             {

@@ -3,10 +3,18 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace Chino.Objects
 {
+    public struct DirectoryEntryInfo
+    {
+        public string Name { get; set; }
+
+        public bool IsDirectory { get; set; }
+    }
+
     public sealed class Directory : Object
     {
         private readonly Dictionary<string, Object> _children = new Dictionary<string, Object>();
@@ -53,6 +61,25 @@ namespace Chino.Objects
                 // TODO: Remove ToString
                 return _children.Remove(name.ToString());
             }
+        }
+
+        internal DirectoryEntryInfo[] GetChildren()
+        {
+            Object[] objects;
+            lock (_children)
+            {
+                objects = new Object[_children.Count];
+                _children.Values.CopyTo(objects, 0);
+            }
+
+            var children = new DirectoryEntryInfo[objects.Length];
+            for (int i = 0; i < _children.Count; i++)
+            {
+                var item = objects[i];
+                children[i] = new DirectoryEntryInfo { Name = item.Name!, IsDirectory = item is Directory };
+            }
+
+            return children;
         }
 
         protected internal override void Open(AccessMask grantedAccess)
