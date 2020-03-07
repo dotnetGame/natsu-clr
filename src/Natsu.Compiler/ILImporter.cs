@@ -1145,16 +1145,8 @@ namespace Natsu.Compiler
             {
                 if (destType.IsValueType)
                 {
-                    var typeDef = destType.ToTypeDefOrRef().ResolveTypeDef();
-                    if (typeDef != null && typeDef.IsEnum)
+                    if (!destType.IsPrimitive)
                     {
-                        //if (int.TryParse(src.Expression, out var intValue))
-                        //{
-                        //    var field = typeDef.Fields.FirstOrDefault(x => x.HasConstant && Convert.ToInt32//(x.Constant.Value) == intValue);
-                        //    if (field != null)
-                        //        return $"{TypeUtils.EscapeTypeName(destType)}::{TypeUtils.EscapeIdentifier//(field.Name)}";
-                        //}
-
                         return $"::natsu::ops::cast<{TypeUtils.EscapeVariableTypeName(destType, genArgs: genArgs)}>({src.Expression})";
                     }
                     else

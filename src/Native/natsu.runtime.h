@@ -301,6 +301,15 @@ namespace stack
             }
         };
 
+        template <class TFrom, class TTo>
+        struct cast_impl<TFrom, clr_volatile<TTo>>
+        {
+            TTo operator()(TFrom &&value) const noexcept
+            {
+                return cast_impl<TFrom, TTo>()(std::forward<TFrom>(value));
+            }
+        };
+
         // ECMA-335 III.4.6
         template <class TFrom, class TTo>
         struct isinst_impl

@@ -39,23 +39,26 @@ namespace Chino.Threading
             }
         }
 
-        private Thread(uint id)
+        internal ThreadPriority Priority { get; }
+
+        private Thread(uint id, ThreadPriority priority)
         {
             Id = id;
+            Priority = priority;
             ScheduleEntry = new LinkedListNode<ThreadScheduleEntry>(new ThreadScheduleEntry(this));
             WaitEntry = new LinkedListNode<ThreadWaitEntry>(new ThreadWaitEntry(this));
 
             Context = ChipControl.Default.InitializeThreadContext(this);
         }
 
-        internal Thread(uint id, ThreadStart start)
-            : this(id)
+        internal Thread(uint id, ThreadStart start, ThreadPriority priority = ThreadPriority.Normal)
+            : this(id, priority)
         {
             _start = start ?? throw new ArgumentNullException(nameof(start));
         }
 
-        internal Thread(uint id, ParameterizedThreadStart start)
-            : this(id)
+        internal Thread(uint id, ParameterizedThreadStart start, ThreadPriority priority = ThreadPriority.Normal)
+            : this(id, priority)
         {
             _paramterizedStart = _paramterizedStart ?? throw new ArgumentNullException(nameof(start));
         }

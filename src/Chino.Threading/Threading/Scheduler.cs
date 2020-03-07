@@ -12,6 +12,8 @@ namespace Chino.Threading
 {
     public sealed class Scheduler
     {
+        public const int MaxPriority = 4;
+
         private static readonly Scheduler[] _schedulers = new Scheduler[ChipControl.Default.ProcessorsCount];
 
         internal static Scheduler Current => _schedulers[ChipControl.Default.CurrentProcessorId];
@@ -23,7 +25,7 @@ namespace Chino.Threading
 
         public static uint CurrentThreadId => Current.RunningThread.Value.Thread.Id;
 
-        private readonly LinkedList<ThreadScheduleEntry> _readyThreads = new LinkedList<ThreadScheduleEntry>();
+        private readonly LinkedList<ThreadScheduleEntry>[] _readyThreads = new LinkedList<ThreadScheduleEntry>[MaxPriority + 1];
         private readonly LinkedList<ThreadScheduleEntry> _delayedThreads = new LinkedList<ThreadScheduleEntry>();
         private readonly LinkedList<ThreadScheduleEntry> _suspendedThreads = new LinkedList<ThreadScheduleEntry>();
         private volatile LinkedListNode<ThreadScheduleEntry>? _runningThread = null;
@@ -49,14 +51,16 @@ namespace Chino.Threading
         internal Scheduler(int id)
         {
             Id = id;
+            for (int i = 0; i <= MaxPriority; i++)
+                _readyThreads[i] = new LinkedList<ThreadScheduleEntry>();
             _yieldDPC = new LinkedListNode<DPC>(new DPC { Callback = OnYieldDPC });
-            _idleThread = new Thread((uint)id + 1, IdleMain);
+            _idleThread = new Thread((uint)id + 1, IdleMain, ThreadPriority.Lowest);
             _idleThread.Description = "Idle";
         }
 
-        public static Accessor<Thread> CreateThread(ThreadStart start)
+        public static Accessor<Thread> CreateThread(ThreadStart start, ThreadPriority priority = ThreadPriority.Normal)
         {
-            return ObjectManager.CreateObject(new Thread(NextThreadId, start), AccessMask.GenericAll, ObjectAttributes.Empty);
+            return ObjectManager.CreateObject(new Thread(NextThreadId, start, priority), AccessMask.GenericAll, ObjectAttributes.Empty);
         }
 
         public static void Delay(TimeSpan delay)
@@ -106,7 +110,7 @@ namespace Chino.Threading
             {
                 var scheduleEntry = thread.ScheduleEntry;
                 scheduleEntry.List!.Remove(scheduleEntry);
-                _readyThreads.AddLast(scheduleEntry);
+                _readyThreads[(int)thread.Priority].AddLast(scheduleEntry);
                 scheduleEntry.Value.Thread.State = ThreadState.Ready;
             }
         }
@@ -122,7 +126,7 @@ namespace Chino.Threading
                 if (delay.Ticks != 0)
                 {
                     var thread = _runningThread!;
-                    _readyThreads.Remove(thread);
+                    _readyThreads[(int)thread.Value.Thread.Priority].Remove(thread);
                     thread.Value.Thread.State = ThreadState.Wait;
 
                     if (delay == Timeout.InfiniteTimeSpan)
@@ -147,10 +151,9 @@ namespace Chino.Threading
             Debug.Assert(!_isRunning);
 
             _idleThread.Start();
-            Debug.Assert(_readyThreads.First != null);
 
             _isRunning = true;
-            _runningThread = _readyThreads.First;
+            _runningThread = SelectFirstThread();
             IRQDispatcher.RegisterSystemIRQ(SystemIRQ.SystemTick, OnSystemTick);
             ChipControl.Default.SetupSystemTimer(TimeSlice);
             ChipControl.Default.StartSchedule(_runningThread.Value.Thread.Context);
@@ -163,7 +166,7 @@ namespace Chino.Threading
         {
             using (ProcessorCriticalSection.Acquire())
             {
-                _readyThreads.AddLast(thread.ScheduleEntry);
+                _readyThreads[(int)thread.Priority].AddLast(thread.ScheduleEntry);
                 thread.State = ThreadState.Ready;
             }
         }
@@ -190,7 +193,7 @@ namespace Chino.Threading
         {
             using (ProcessorCriticalSection.Acquire())
             {
-                _readyThreads.Remove(thread.ScheduleEntry);
+                _readyThreads[(int)thread.Priority].Remove(thread.ScheduleEntry);
 
                 if (_runningThread == thread.ScheduleEntry)
                     IRQDispatcher.RegisterDPC(_yieldDPC);
@@ -213,7 +216,7 @@ namespace Chino.Threading
                 if (first != null && TickCount >= first.Value.AwakeTick)
                 {
                     _delayedThreads.Remove(first);
-                    _readyThreads.AddLast(first);
+                    _readyThreads[(int)first.Value.Thread.Priority].AddLast(first);
                     first.Value.Thread.State = ThreadState.Ready;
                 }
                 else
@@ -228,19 +231,37 @@ namespace Chino.Threading
         private ThreadContext YieldThread()
         {
             Debug.Assert(_runningThread != null);
-            Debug.Assert(_readyThreads.First != null);
 
             var oldRunningThread = _runningThread;
             if (oldRunningThread.Value.Thread.State == ThreadState.Running)
                 oldRunningThread.Value.Thread.State = ThreadState.Ready;
 
-            var nextThread = oldRunningThread.List == _readyThreads
-                ? oldRunningThread.Next ?? _readyThreads.First
-                : _readyThreads.First;
+            var nextThread = SelectNextThread();
             _runningThread = nextThread;
             Debug.Assert(_runningThread != null);
             _runningThread.Value.Thread.State = ThreadState.Running;
             return nextThread.Value.Thread.Context;
+        }
+
+        private LinkedListNode<ThreadScheduleEntry> SelectNextThread()
+        {
+            var nextThread = SelectFirstThread();
+            if (nextThread.List != _runningThread!.List)
+                return nextThread;
+            else
+                return nextThread.Next ?? nextThread.List!.First!;
+        }
+
+        private LinkedListNode<ThreadScheduleEntry> SelectFirstThread()
+        {
+            for (int i = MaxPriority; i >= 0; i--)
+            {
+                var readyThread = _readyThreads[i];
+                if (readyThread.Count != 0)
+                    return readyThread.First!;
+            }
+
+            throw new InvalidOperationException();
         }
 
         private long TimeSpanToTicks(in TimeSpan timeSpan)
