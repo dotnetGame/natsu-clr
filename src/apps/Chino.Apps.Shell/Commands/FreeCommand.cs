@@ -9,11 +9,10 @@ namespace Chino.Apps.Shell.Commands
     {
         public override void Execute(CommandContext context, string[] args)
         {
-            var usedMemory = MemoryManager.GetUsedMemorySize() / 1024f;
-            var freeMemory = MemoryManager.GetFreeMemorySize() / 1024f;
-            Console.WriteLine($"Memory\t\t Total\t {usedMemory + freeMemory:F2} K");
-            Console.WriteLine($"\t\t  Used\t {usedMemory:F2} K");
-            Console.WriteLine($"\t\t  Free\t {freeMemory:F2} K");
+            var usedMemory = MemoryManager.GetUsedMemorySize();
+            var freeMemory = MemoryManager.GetFreeMemorySize();
+            Console.WriteLine($"\ttotal\t\tused\t\tfree");
+            Console.WriteLine($"Mem:\t{usedMemory + freeMemory}\t\t{usedMemory}\t\t{freeMemory}");
         }
     }
 }

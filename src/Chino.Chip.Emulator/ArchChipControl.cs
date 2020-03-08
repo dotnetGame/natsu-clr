@@ -12,7 +12,7 @@ namespace Chino.Chip
 {
     public sealed class ArchChipControl : ChipControl
     {
-        public override TimeSpan DefaultTimeSlice => TimeSpan.FromMilliseconds(100);
+        public override TimeSpan DefaultTimeSlice => TimeSpan.FromMilliseconds(20);
 
         public override int ProcessorsCount => 1;
 

@@ -157,7 +157,7 @@ void Monitor::_s_ReliableEnter(gc_obj_ref<Object> obj, gc_ref<bool> lockTaken)
     {
         if (sync_header.lock_taken.compare_exchange_strong(expected, thread_id))
         {
-            Volatile::_s_Write(*lockTaken, true);
+            Volatile::_s_Write(lockTaken, true);
             break;
         }
 
